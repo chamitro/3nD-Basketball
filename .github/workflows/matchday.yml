@@ -1,0 +1,22 @@
+# 3nD Basketball: plays match day on time and keeps the free Supabase project awake.
+# The league server plays a match the first time anyone asks it something after the hour. This job asks,
+# so the match is played even when no manager opens the game. It uses only the public key that is already in index.html.
+# Note: GitHub switches scheduled workflows off after 60 days without a commit to this repository.
+name: match day and keep-alive
+on:
+  schedule:
+    - cron: '4 18 * * 0,3'    # just after the match hour (18:00 UTC), Sunday and Wednesday
+    - cron: '37 18 * * 0,3'   # once more, in case the first run was late or failed
+    - cron: '41 5 * * *'      # once a day, so the project never pauses for inactivity
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the league server to play any match that is due
+        run: |
+          curl -sf -m 90 -X POST "https://qslofkasphxcmfzgsdry.supabase.co/functions/v1/b3" \
+            -H "Content-Type: application/json" \
+            -H "apikey: sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo" \
+            -H "Authorization: Bearer sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo" \
+            -d '{"a":"ping"}'

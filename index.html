@@ -249,7 +249,7 @@ function save(){if(ONLINE){if(S.phase==='week')queuePlan();return;}try{localStor
 function load(){try{const d=JSON.parse(localStorage.getItem('sundayleague2'));if(!d||!d.S||!d.S.teams.length)return false;Object.assign(S,d.S);NEXT_ID=d.NEXT_ID;d.names.forEach(n=>usedNames.add(n));S.me=S.teams.find(t=>t.human);for(const t of S.teams){t.subs=t.subs||[];t.sheet={off:0,guard:0,boards:1,...t.sheet};t.style={off:0,guard:0,boards:1,...t.style};for(const q of t.players){q.tr=q.tr||{sh:0,df:0,sp:0};q.idle=q.idle||0;if(!q.love)quirks(q);q.notes=q.notes||{};}}return true;}catch(e){return false;}}
 function newGame(){
   usedNames.clear();NEXT_ID=1;
-  S.phase='draft';S.cup=1;S.sunday=1;S.won=0;S.played=0;S.teams=[];S.me=null;S.results=null;S.lastResults=null;S.sel=null;S.teamTalked=false;S.lastSheets=null;
+  S.phase='draft';S.cup=1;S.sunday=1;S.won=0;S.played=0;S.history=[];S.teams=[];S.me=null;S.results=null;S.lastResults=null;S.sel=null;S.teamTalked=false;S.lastSheets=null;
   S.pool=[];for(let i=0;i<14;i++){const p=makePlayer();p.picked=false;S.pool.push(p);}
   S.rule=pick(RULES).k;
   render();
@@ -313,7 +313,7 @@ function placeOf(t){return table().indexOf(t)+1;}
 function nextWeek(){
   if(S.phase!=='results')return;
   S.rule=S.vote.winner;
-  if(S.sunday>=7){S.phase='cupend';S.agents=[];for(let i=0;i<7;i++)S.agents.push(makePlayer());S.swapOut=[];S.swapIn=[];S.finalPlace=placeOf(S.me);S.champion=table()[0].name;S.played=(S.played||0)+1;if(S.finalPlace===1)S.won=(S.won||0)+1;save();render();return;}
+  if(S.sunday>=7){S.phase='cupend';S.agents=[];for(let i=0;i<7;i++)S.agents.push(makePlayer());S.swapOut=[];S.swapIn=[];S.finalPlace=placeOf(S.me);S.champion=table()[0].name;S.played=(S.played||0)+1;if(S.finalPlace===1)S.won=(S.won||0)+1;S.history=[...(S.history||[]),{league:S.cup,place:S.finalPlace,of:8,w:S.me.w,l:S.me.l,pts:S.me.w*3,champion:S.champion}];save();render();return;}
   S.sunday++;startWeek(false);
 }
 function newCup(){
@@ -364,7 +364,7 @@ function applyView(v){
   S.lastSheets=v.table.filter(t=>t.ls).map(t=>({name:t.name,sheet:t.ls,w:t.lw===true?1:0,l:t.lw===false?1:0,human:t.id===me.id}));
   if(v.opp&&v.opp.house&&v.opp.ls)S.lastSheets.push({name:v.opp.name,sheet:v.opp.ls,w:0,l:0,human:false});
   if(!S.lastSheets.length)S.lastSheets=null;
-  S.vote={opts:v.league.vote_opts,tally:[0,0,0]};S.myVote=me.vote;S.won=me.won;S.played=me.played;
+  S.vote={opts:v.league.vote_opts,tally:[0,0,0]};S.myVote=me.vote;S.won=me.won;S.played=me.played;S.history=me.history||[];
   const last=me.last,res=last?{list:[{opp:last.opp,us:last.us,them:last.them,won:last.won,lines:last.lines,oppSheet:last.oppSheet}],moves:last.moves||[],place:last.place,of:last.of}:null;
   S.lastResults=last?{list:res.list,rule:last.rule}:null;
   const seen=+(localStorage.getItem('b3seen')||0);
@@ -426,7 +426,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1432';   // stamped by build.py
+const APP_VERSION='2026.11.05-1439';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -918,7 +918,7 @@ function renderHelp(){
   <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li></ul>
   <h4><i>7</i>The league</h4>
-  <p>One league lasts <b>two months</b>. The team with the most points wins it. Then every manager may swap up to <b>two</b> of their seven players for free agents, and a new league starts. Over a year you can see how many leagues your team has won.</p>
+  <p>One league lasts <b>two months</b>. The team with the most points wins it. Then every manager may swap up to <b>two</b> of their seven players for free agents, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
   <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, and a league is seven matches.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
@@ -944,6 +944,18 @@ function renderResults(){
   const t0=performance.now();const els=[...$('resUI').querySelectorAll('.sc')];
   (function tick(now){const k=clamp((now-t0)/1100,0,1);for(const e of els){e.textContent=Math.round(e.dataset.us*k)+'–'+Math.round(e.dataset.them*k);}if(k<1)requestAnimationFrame(tick);})(t0);
 }
+// every league this team has finished: "1st once, 4th three times", then the list
+function archiveHtml(){
+  const hs=S.history||[];
+  let h=`<div class="card" style="margin-top:16px"><h3>${S.me.name}: leagues so far</h3>`;
+  if(!hs.length)return h+`<div class="small" style="margin:0">No league finished yet. When one ends, your place is kept here, league after league.</div></div>`;
+  const count={};for(const x of hs)count[x.place]=(count[x.place]||0)+1;
+  const times=n=>n===1?'once':n===2?'twice':n+' times';
+  h+=`<div style="font-size:17px;margin-bottom:8px">${Object.keys(count).map(Number).sort((a,b)=>a-b).map(p=>`<b>${ord(p)}</b> ${times(count[p])}`).join(' · ')}</div>`;
+  h+=`<table><tr><th>league</th><th>place</th><th class="n">W</th><th class="n">L</th><th class="n">Pts</th><th>champion</th></tr>`;
+  for(const x of [...hs].reverse())h+=`<tr class="${x.place===1?'me':''}"><td>${x.league}</td><td><b>${ord(x.place)}</b> of ${x.of}</td><td class="n">${x.w}</td><td class="n">${x.l}</td><td class="n">${x.pts}</td><td>${x.champion||''}</td></tr>`;
+  return h+`</table></div>`;
+}
 function renderLeague(){
   let h='';
   if(S.lastResults){
@@ -955,7 +967,7 @@ function renderLeague(){
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
   if(S.lastSheets){h+=`<table><tr><th>team</th><th>plan</th><th class="n">that day</th></tr>`;for(const t of [...S.lastSheets].sort((a,b)=>b.w-a.w))h+=`<tr class="${t.human?'me':''}"><td>${t.name}</td><td>${sheetWords(t.sheet)}</td><td class="n">${t.w}–${t.l}</td></tr>`;h+=`</table><div class="small">Plans become public after the games. See what worked under that rule. Your rivals read yours too, so do not play the same match twice.</div>`;}
   else h+=`<div class="small">Nothing yet. Plans become public after the first match.</div>`;
-  h+=`</div></div><div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
+  h+=`</div></div>`+archiveHtml()+`<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
     ?`<button id="toPractice" style="font-size:13px">Go to practice mode</button><button id="showKey" style="font-size:13px">Play this team on another device</button>`
     :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+installHtml()+`</div>`;
   $('league').innerHTML=h;

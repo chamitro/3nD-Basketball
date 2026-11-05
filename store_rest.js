@@ -26,6 +26,7 @@ function restStore(base,keys,prefix){
     teamByKey:h=>one('b3_teams?key_hash=eq.'+h+'&select='+TEAM),
     teamById:id=>one('b3_teams?id=eq.'+id+'&select='+TEAM),
     teamsInPlay:()=>pages('b3_teams?or=(next_opp.not.is.null,is_house.is.true)&select='+TEAM+'&order=id',500),
+    allTeams:()=>pages('b3_teams?is_house=is.false&select='+TEAM+'&order=id',500),
     tableRows:()=>pages('b3_teams?is_house=is.false&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
     saveTeam:async row=>{

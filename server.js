@@ -138,10 +138,14 @@ async function runMatchday(store,lg,now){
     // the league is over: remember how it ended, hand out free agents, start again from zero
     const champ=tbl[0]?tbl[0].name:'';
     lg.final={no:lg.no,champion:champ,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts}))};
-    for(const t of humans){
+    // managers who played part of this league and then went away get their place recorded too
+    const away=(await store.allTeams()).filter(t=>!map.has(t.id)&&t.w+t.l>0);
+    for(const t of away){rows.push(t);map.set(t.id,t);}
+    for(const t of [...humans,...away]){
       const place=placeOf(t.id);
       t.data.final={league:lg.no,place,of:tbl.length,champion:champ,seen:false};
       t.data.played=(t.data.played||0)+1;if(place===1)t.data.won=(t.data.won||0)+1;
+      t.data.history=[...(t.data.history||[]),{league:lg.no,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
       t.data.agents=newPlayers(7,t.data.players.map(p=>p.n));
     }
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.league_no=lg.no+1;t.pub={...t.pub,lw:null};}
@@ -183,13 +187,17 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule,vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
-      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0},
+      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[]},
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
 
 // One request from a browser. `req.a` is the action, `req.key` the secret that stands in for an account.
 async function handle(store,req,now,hash){
   const a=String(req&&req.a||'');const key=String(req&&req.key||'');
+  if(a==='ping'){   // a scheduled job calls this: it keeps the server awake and plays any match that is due
+    const lg=await tick(store,now);
+    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at};
+  }
   if(!/^[a-f0-9]{32,64}$/.test(key))return {error:'bad key'};
   const h=await hash(key);
   try{return await handle2(store,req,a,h,now);}
