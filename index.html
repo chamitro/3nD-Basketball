@@ -121,6 +121,7 @@
   .btnlink{display:inline-block;font-weight:800;font-size:16px;color:var(--ink);background:var(--teal);border:3px solid var(--ink);border-radius:14px;padding:8px 16px;box-shadow:0 5px 0 var(--ink);text-decoration:none}
   .update{position:fixed;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;background:var(--yellow);border:4px solid var(--ink);border-radius:18px;box-shadow:0 6px 0 var(--ink);padding:10px 14px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:16px;animation:pop .25s}
   .update button{background:var(--pink);color:#fff;text-shadow:0 2px 0 var(--ink)}
+  .sm{display:none}
   .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
   .mode{cursor:pointer;text-align:center;padding:26px 18px;transition:transform .12s}
   @media(hover:hover){.mode:hover{transform:translateY(-5px) rotate(-1deg)}}
@@ -137,6 +138,7 @@
     .tabs{margin-left:0;width:100%;gap:6px}
     .tabs>span{flex:2}.tabs>span button{flex:1}.tabs>button{flex:1}
     .tabs button{padding:8px 4px;font-size:14px;white-space:nowrap}
+    .lg{display:none}.sm{display:inline}
     button{font-size:15px;padding:9px 12px}
     .rule{flex-direction:column;align-items:flex-start;gap:6px;padding:9px 14px;border-radius:18px;margin-bottom:10px}
     .rule .txt{font-size:20px;text-shadow:0 2px 0 var(--ink)}
@@ -181,10 +183,10 @@
     <div class="logo">3nD Basketball</div>
     <div class="chip" id="chipTeam"></div>
     <div class="chip" id="chipCup"></div>
-    <div class="tabs"><span id="tabs" style="display:flex;gap:8px"><button id="tRoom" class="on">Locker room</button><button id="tLeague">Table</button></span><button id="bHelp" style="background:var(--teal)">? How to play</button></div>
+    <div class="tabs"><button id="bHome" class="hide">‹ Menu</button><span id="tabs" style="display:flex;gap:8px"><button id="tRoom" class="on">Locker room</button><button id="tLeague">Table</button></span><button id="bHelp" style="background:var(--teal)">? <span class="lg">How to play</span><span class="sm">Help</span></button></div>
   </header>
 
-  <div id="start" class="hide"></div>
+  <div id="home" class="hide"></div>
   <div id="draft" class="hide"></div>
 
   <div id="room" class="hide">
@@ -427,7 +429,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1443';   // stamped by build.py
+const APP_VERSION='2026.11.05-1453';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -448,12 +450,12 @@ async function checkUpdate(){
 setTimeout(checkUpdate,2500);setInterval(checkUpdate,30*60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate();});
 function renderStart(){
-  if(SCREEN==='loading'){$('start').innerHTML='<div class="card" style="text-align:center;padding:40px"><h3>Walking to the gym…</h3><div class="hint">Asking the league where things stand.</div></div>';return;}
-  $('start').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
+  if(SCREEN==='loading'){$('home').innerHTML='<div class="card" style="text-align:center;padding:40px"><h3>Walking to the gym…</h3><div class="hint">Asking the league where things stand.</div></div>';return;}
+  $('home').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
   ${START_MSG?`<div class="card" style="margin-top:14px;background:#ffc9c9"><b>${START_MSG}</b> You can practise in the meantime.</div>`:''}
   ${inApp()?'<div style="margin-top:14px">'+installHtml()+'</div>':''}
   <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match ${MATCH_WHEN}. You do not need to be online when it is played. One league lasts two months.</p></div>
-  <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>Against seven computer teams</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>
+  <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>${localStorage.getItem('sundayleague2')?'Continue your practice game':'Against seven computer teams'}</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>
   <div style="margin-top:18px;text-align:center">${inApp()?'':installHtml()}</div>`;
   $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');wireInstall();
 }
@@ -473,7 +475,7 @@ function useTeamKey(){
 }
 function boot(){
   const m=localStorage.getItem('b3mode');
-  setMode(m==='online'||m==='practice'?m:(localStorage.getItem('sundayleague2')?'practice':null));
+  setMode(m==='online'||m==='practice'?m:null);
 }
 // the match may have been played while the page was open
 setInterval(()=>{if(ONLINE&&SCREEN==='game'&&V&&V.league&&!netBusy){if(Date.now()+SKEW>V.league.next_match_at+4000)goOnline('view');else if(S.phase==='week'&&S.tab==='room')renderPlan();}},30000);
@@ -693,7 +695,7 @@ const DESC={
   boards:['Run back after every shot. Stops their fast breaks, gives up second shots.','A bit of both.','Everyone to the hoop for second shots. A quick team runs past you. Tires legs.']};
 const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
 function render(){
-  $('start').classList.toggle('hide',SCREEN==='game');
+  $('home').classList.toggle('hide',SCREEN==='game');$('bHome').classList.toggle('hide',SCREEN!=='game');
   $('foot').textContent=(SCREEN!=='game'?'':ONLINE?'online league · a match '+MATCH_WHEN+' · ':'practice mode · seven rival teams are run by the computer · ')+'version '+APP_VERSION;
   if(SCREEN!=='game'){for(const id of ['tabs','chipTeam','chipCup','draft','room','league'])$(id).classList.add('hide');renderStart();return;}
   const inLeague=S.phase!=='draft';
@@ -924,6 +926,7 @@ function renderHelp(){
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
 }
+$('bHome').onclick=()=>setMode(null);
 $('bHelp').onclick=()=>{renderHelp();$('help').classList.remove('hide');$('help').scrollTop=0;};
 $('help').addEventListener('click',e=>{if(e.target===$('help'))$('help').classList.add('hide');});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('help').classList.add('hide');});
