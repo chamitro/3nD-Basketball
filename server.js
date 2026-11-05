@@ -8,6 +8,7 @@ const CFG={
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
   MATCH_DAYS:[0,3],       // Sunday and Wednesday
   LEAGUE_MATCHES:8,       // two a week for four weeks: one league is one month (16 would be two months)
+  MAX_SWAPS:1,            // players a manager may change between leagues
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
   HOUSE_NAME:'The House Team',
 };
@@ -256,7 +257,7 @@ async function handle2(store,req,a,h,now){
   }else if(a==='swap'){
     if(!d.final||d.final.seen)return {error:'No swaps now. They open when a league ends.'};
     const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
-    if(outs.length>2||outs.length!==ins.length)return {error:'Swap up to two, one in for each one out.'};
+    if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
     const agents=d.agents||[];
     if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
     d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
