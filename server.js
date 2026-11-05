@@ -64,14 +64,8 @@ function pairUp(list,house){
 }
 // A manager who has no opponent (new, or back after a long absence) takes the house team's place if the house
 // team has a match, and otherwise plays the house team. So there is never more than one computer team in play.
-async function attach(store,row){
-  const house=await store.house();
-  if(house.next_opp&&house.next_opp!==row.id){
-    const x=await store.teamById(house.next_opp);
-    if(x&&x.next_opp===house.id){x.next_opp=row.id;row.next_opp=x.id;house.next_opp=null;await store.saveTeam(x);await store.saveTeam(house);return;}
-  }
-  row.next_opp=house.id;house.next_opp=row.id;await store.saveTeam(house);
-}
+// The database does this in one step (store.attach), one manager at a time and never during a match day, so
+// two people joining at the same moment cannot both be given the same opponent.
 
 async function ensureLeague(store,now){
   let lg=await store.league();
@@ -80,7 +74,8 @@ async function ensureLeague(store,now){
     lg={id:1,no:1,match_no:1,next_match_at:nextMatchTime(now),rule,vote_opts:threeRules(rule),busy_until:null,final:null};
     await store.saveLeague(lg);
   }
-  if(!(await store.house()))await store.insertTeam(newHouseRow(lg.no,now));
+  // if several first visitors arrive together, only one of them gets to create the house team
+  if(!(await store.house())){try{await store.insertTeam(newHouseRow(lg.no,now));}catch(e){if(!(await store.house()))throw e;}}
   return lg;
 }
 // Match day comes by itself: the first request after the hour plays it, before anything else is done.
@@ -88,7 +83,7 @@ async function ensureLeague(store,now){
 async function tick(store,now){
   let lg=await ensureLeague(store,now);
   let n=0;
-  while(now>=lg.next_match_at&&n++<8){
+  while(now>=lg.next_match_at&&n++<2){   // at most two match days per request, to stay well inside the server's time limit; the next request carries on
     if(!(await store.lock(now)))break;
     lg=await runMatchday(store,await store.league(),now);
   }
@@ -222,18 +217,23 @@ async function handle2(store,req,a,h,now){
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
-      row=await store.insertTeam(newTeamRow(h,name,mine,lg.no,now));
-      enforceRule(row.data,lg.rule);
-      await attach(store,row);await store.saveTeam(row);await store.dropPool(h);
+      const fresh=newTeamRow(h,name,mine,lg.no,now);enforceRule(fresh.data,lg.rule);
+      try{row=await store.insertTeam(fresh);}
+      catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once
+        row=await store.teamByKey(h);
+        if(!row){if(await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};throw e;}
+      }
+      await store.attach(row.id,now);await store.dropPool(h);
+      row=await store.teamByKey(h);
       return makeView(store,row,lg,now,{joined:true});
     }
     return {error:'no team'};
   }
-  const d=row.data;let extra=null,dirty=false;
   // back after a long absence, or the pairing broke: find this manager an opponent
   let paired=!!row.next_opp;
   if(paired){const o=await store.teamById(row.next_opp);paired=!!(o&&o.next_opp===row.id);}
-  if(!paired){await attach(store,row);dirty=true;}
+  if(!paired){await store.attach(row.id,now);row=await store.teamByKey(h);}
+  const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
   if(a==='talk'){
     const p=d.players.find(x=>x.id===req.pid);

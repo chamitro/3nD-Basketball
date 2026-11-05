@@ -84,6 +84,33 @@ end $$;
 revoke all on function public.b3_commit(jsonb, jsonb, jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.b3_commit(jsonb, jsonb, jsonb, boolean) to service_role;
 
+-- Giving a manager an opponent (a new manager, or one back after a long absence), in one step.
+-- The new manager takes the house team's place if the house team has a match, and otherwise plays the house team.
+-- Only one of these runs at a time, and never while a match day is being played, so two people joining at the
+-- same moment cannot be given the same opponent.
+create or replace function public.b3_attach(p_id uuid, p_now bigint)
+returns void language plpgsql set search_path = public as $$
+declare lg b3_league; h b3_teams; x uuid;
+begin
+  select * into lg from b3_league where id = 1 for update;
+  if lg.busy_until is not null and lg.busy_until > p_now then raise exception 'b3_busy'; end if;
+  select * into h from b3_teams where is_house order by created_at limit 1 for update;
+  if h.id is null then raise exception 'b3_busy'; end if;
+  if exists (select 1 from b3_teams t join b3_teams o on o.id = t.next_opp
+              where t.id = p_id and o.next_opp = t.id) then return; end if;      -- already has an opponent
+  x := h.next_opp;
+  if x is not null and x <> p_id and exists (select 1 from b3_teams where id = x and next_opp = h.id) then
+    update b3_teams set next_opp = p_id, ver = ver + 1 where id = x;
+    update b3_teams set next_opp = x,    ver = ver + 1 where id = p_id;
+    update b3_teams set next_opp = null, ver = ver + 1 where id = h.id;
+  else
+    update b3_teams set next_opp = h.id, ver = ver + 1 where id = p_id;
+    update b3_teams set next_opp = p_id, ver = ver + 1 where id = h.id;
+  end if;
+end $$;
+revoke all on function public.b3_attach(uuid, bigint) from public, anon, authenticated;
+grant execute on function public.b3_attach(uuid, bigint) to service_role;
+
 -- Handy to look at (run one at a time, any time):
 -- select no, match_no, to_timestamp(next_match_at/1000) as next_match, rule from public.b3_league;
 -- select name, pts, w, l, is_house, (select name from public.b3_teams o where o.id = t.next_opp) as next_opponent, to_timestamp(last_seen/1000) as last_seen from public.b3_teams t order by pts desc;

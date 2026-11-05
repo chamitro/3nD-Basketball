@@ -31,9 +31,13 @@ function restStore(base,keys,prefix){
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
     saveTeam:async row=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&select=id',{method:'PATCH',prefer:'return=representation',
-        body:{next_opp:row.next_opp,last_seen:row.last_seen,data:row.data,ver:row.ver+1}});
+        body:{last_seen:row.last_seen,data:row.data,ver:row.ver+1}});   // who meets whom is never written from here
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;
+    },
+    attach:async(id,now)=>{
+      try{await q('rpc/b3_attach',{method:'POST',body:{p_id:id,p_now:now}});}
+      catch(e){if(String(e.message).includes('b3_busy'))throw new Error('conflict');throw e;}
     },
     nameTaken:async lc=>!!(await one('b3_teams?name_lc=eq.'+encodeURIComponent(lc)+'&select=id')),
     pool:h=>one('b3_pools?key_hash=eq.'+h+'&select=players,rerolls'),
