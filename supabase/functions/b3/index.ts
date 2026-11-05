@@ -93,9 +93,13 @@ function makePlayer0(){
   const temp=pick(TEMPKEYS);const h=R();
   let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
-    sh,df,sp,mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{}};
+    sh,df,sp,mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
+// Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
+const energyOf=p=>p.en===undefined?4:p.en;
+const tiredOf=p=>(4-energyOf(p))/3;      // 0 = fresh, 1 = worn out
+const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5};   // a whole match played; a whole match off; the bench time of someone who played part of it
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
 const nrm=v=>(v-2.5)/1.5; // a stat of 1..4 as -1..1
 // nudge a stat; returns +1/-1 when a whole dot is gained or lost
@@ -134,7 +138,7 @@ function botPrepare(team,opp,rule,oppLast){
   if(r==='no_dribble'&&wise())sheet.tempo=0;
   if(r==='low_ceiling'&&wise())sheet.shots=2;
   let avail=team.players;if(r==='tall_out'){const t=tallestId(team);avail=avail.filter(p=>p.id!==t);}
-  const score=p=>rating(p)+(r==='attack'?p.sh:0)+(r==='defence'?p.df:0)+(r==='speed'?p.sp:0)+(r==='paint'?p.h*2:0)+(r==='tiny_court'?p.h*2:0)-(r==='low_ceiling'?p.h*1.5:0)+(p.mood==='sad'||p.mood==='nervous'?-1:0)+(p.mood==='happy'?0.5:0)+(r==='hotheads'&&p.mood==='angry'?1.5:0)+(r==='party'&&p.mood==='happy'?1.5:0);
+  const score=p=>-1.3*(4-energyOf(p))+rating(p)+(r==='attack'?p.sh:0)+(r==='defence'?p.df:0)+(r==='speed'?p.sp:0)+(r==='paint'?p.h*2:0)+(r==='tiny_court'?p.h*2:0)-(r==='low_ceiling'?p.h*1.5:0)+(p.mood==='sad'||p.mood==='nervous'?-1:0)+(p.mood==='happy'?0.5:0)+(r==='hotheads'&&p.mood==='angry'?1.5:0)+(r==='party'&&p.mood==='happy'?1.5:0);
   const ranked=[...avail].sort((a,b)=>score(b)-score(a));const top=ranked.slice(0,3);
   team.starters=top.map(p=>p.id);team.subs=ranked.slice(3,5).map(p=>p.id);team.ball=[...top].sort((a,b)=>b.sh-a.sh)[0].id;
   // the newer dials: fit them to the players' state and to what the opponent showed last Sunday
@@ -175,7 +179,7 @@ function playMatch(A,B,ruleKey){
     const rest=avail.filter(p=>!court.includes(p)).sort((a,b)=>rating(b)-rating(a));
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
-    const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!T.starters.includes(p.id),f:0,min:0,dbl:0,dblM:0,shad:0,shadM:0};
+    const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!T.starters.includes(p.id),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
     return {T,court,bench,st,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
   };
   const a=mk(A),b=mk(B);
@@ -203,6 +207,7 @@ function playMatch(A,B,ruleKey){
     // turnover
     let pTO=0.10+0.06*(shooter.h-0.5)+fx[1]+(ds.def===2?0.07:0)-(noRun?0:0.02*nrm(shooter.sp)*sMul);
     if(ds.def===2)for(const d of D.court)pTO+=d.mood==='angry'?0.025:d.mood==='sad'?-0.025:0; // the furious hound the ball, the sulking jog
+    pTO+=0.04*tiredOf(shooter);
     if(os.tempo===2&&m==='nervous')pTO+=0.05;
     if(ds.def===2&&m==='nervous')pTO+=0.03;
     if(dbl&&isF)pTO+=0.03;
@@ -219,7 +224,7 @@ function playMatch(A,B,ruleKey){
     else q+=0.03;
     // fast break
     let forceInside=false;
-    const spAdv=avg(O.court,p=>p.sp)-avg(D.court,p=>p.sp);
+    const spAdv=avg(O.court,p=>p.sp-tiredOf(p))-avg(D.court,p=>p.sp-tiredOf(p));   // tired legs do not run
     let pFB=0;
     if(!noRun&&!second){
       if(spAdv>0)pFB=(os.tempo===2?0.20:0)+(rule==='speed'?0.16:0)+(ds.boards===2?0.25:0); // crash against a quicker team and they are gone
@@ -237,6 +242,7 @@ function playMatch(A,B,ruleKey){
     if(three){pm=0.33+0.085*nrm(shooter.sh)*aMul-0.04*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
     else{pm=0.52+0.03*nrm(shooter.sh)*aMul+0.13*(shooter.h-def.h)*hMul-0.05*nrm(def.df)*dMul*dW+zoneIn;}
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
+    pm+=-0.07*tiredOf(shooter)+0.05*tiredOf(def);
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
     let tag=0;
     if(!forceInside){
@@ -375,6 +381,17 @@ function teamTalkTo(team,tone){
   team.teamTalked=true;
   return {liked,hated,changed,msg:`${liked.length?liked.join(', ')+' liked that. ':''}${hated.length?hated.join(', ')+' did not.':''}${!liked.length&&!hated.length?'They shuffle their feet. Nothing much changes.':''}`};
 }
+// What a match costs in energy and what a match off gives back. X is the team's side of playMatch's result.
+// A fast tempo, a press and crashing the hoop cost more; a slow tempo costs less.
+function energyAfter(team,X){
+  const tot=Math.max(1,...Object.values(X.st).map(z=>z.min));const sh=team.sheet||{};
+  const hard=1+(sh.tempo===2?0.2:sh.tempo===0?-0.15:0)+(sh.def===2?0.2:0)+(sh.boards===2?0.08:0);
+  for(const p of team.players){
+    const s=X.st[p.id],share=s?s.min/tot:0;
+    p.enWas=energyOf(p);
+    p.en=clamp(p.enWas-ENERGY.COST*hard*share+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST),1,4);
+  }
+}
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)
 const QUIET_LIMIT={showoff:2,pleaser:2,joker:2,worrier:2,hothead:2,veteran:3,fighter:3,easygoing:4,loner:999};
 // how a match leaves one team: moods, then form (stats drift). X is that team's side of playMatch's result.
@@ -382,6 +399,7 @@ function aftermath(team,X,won,conceded){
   const moves=[],usage={};
   const tot=Math.max(0,...Object.values(X.st).map(z=>z.min));
   for(const p of team.players){const s=X.st[p.id];if(s)usage[p.id]={pts:s.pts,fga:s.fga,fgm:s.fgm,min:s.min,tot};}
+  energyAfter(team,X);
   const wins=won?1:0;
   const best=team.players.filter(p=>usage[p.id]).sort((p,q)=>usage[q.id].pts-usage[p.id].pts)[0];
   for(const p of team.players){
@@ -394,7 +412,8 @@ function aftermath(team,X,won,conceded){
     else if(wins===0&&R()<0.5)p.mood=p.temp==='hothead'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.mood;
     // left out completely: some take it personally
     const played=u&&u.min>0;
-    if(!played){
+    if(!played&&p.enWas<3.5){/* a tired player is glad of the rest */}
+    else if(!played){
       p.idle=(p.idle||0)+1;
       if(R()<(p.idle>=2?0.8:0.35)){
         if(p.temp==='showoff'||p.temp==='hothead'||p.temp==='fighter'){p.mood='angry';p.trust=clamp(p.trust-1,-2,2);}
@@ -403,6 +422,17 @@ function aftermath(team,X,won,conceded){
       }
     }else p.idle=0;
     if(p.mood!==before)moves.push(`${p.n} is ${WORD[p.mood]}${!played?' about not playing':''}`);
+  }
+  // worn out and still made to play: most turn sour, and at rock bottom they stop trusting the coach
+  for(const p of team.players){
+    const u=usage[p.id];if(!(u&&u.min>0))continue;
+    if(p.en<=1.5){
+      const sour=p.temp==='hothead'||p.temp==='showoff'||p.temp==='fighter'||p.temp==='veteran'?'angry':p.temp==='loner'||p.temp==='easygoing'?null:'sad';
+      for(let i=moves.length-1;i>=0;i--)if(moves[i].startsWith(p.n+' is '))moves.splice(i,1);
+      if(sour&&R()<0.75){p.mood=sour;moves.push(`${p.n} is ${WORD[sour]}: worn out from playing match after match`);}
+      else moves.push(`${p.n} is worn out`);
+      if(p.en<=1.05&&p.temp!=='easygoing')p.trust=clamp(p.trust-1,-2,2);
+    }else if(p.en<=2.5&&p.enWas>2.5)moves.push(`${p.n} is getting tired`);
   }
   // silence: a player the coach does not talk to starts to feel ignored. A talk to the whole team counts for half.
   for(const p of team.players){
@@ -429,7 +459,7 @@ function aftermath(team,X,won,conceded){
       if(u.min>=u.tot*0.6)ch.push(['sp',0.1]);
       if(u.min>=u.tot*0.5&&conceded<=17)ch.push(['df',0.15]);
       if(u.min>=u.tot*0.5&&conceded>=26)ch.push(['df',-0.1]);
-    }else{ch.push(['sp',-0.12]);ch.push(['sh',-0.06]);}
+    }else if(!(p.enWas<3.5)){ch.push(['sp',-0.12]);ch.push(['sh',-0.06]);}   // sitting out when fresh costs form; a needed rest does not
     for(const [k,d] of ch){const r=bump(p,k,d);if(r>0)ups.push(`${p.n}'s ${STATNAME[k]} went up`);if(r<0)ups.push(`${p.n}'s ${STATNAME[k]} went down`);}
   }
   for(const x of ups)moves.push(x);
@@ -453,7 +483,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='b397d334';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='a06ac433';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the next Wednesday or Sunday at the match hour, strictly after the given moment
 function nextMatchTime(afterMs){
@@ -468,7 +498,7 @@ function newPlayers(n,avoid){
   return out;
 }
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
-function ownPlayer(p){const q={...p};delete q.love;delete q.hate;return q;}
+function ownPlayer(p){const q={...p};delete q.love;delete q.hate;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
 function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,col:p.col,top:p.top,shape:p.shape,num:p.num,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
@@ -553,6 +583,7 @@ async function runMatchday(store,lg,now){
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
       const lines=reportLines(xs,ys,won,rule);
       let moves=[];
+      if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule};}
       X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball};

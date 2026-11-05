@@ -296,6 +296,7 @@ function playSunday(){
       const aw=r.a.score>r.b.score;
       A.pf+=r.a.score;A.pa+=r.b.score;B.pf+=r.b.score;B.pa+=r.a.score;
       if(aw){A.w++;B.l++;day[A.name].w++;day[B.name].l++;}else{B.w++;A.l++;day[B.name].w++;day[A.name].l++;}
+      if(!A.human)energyAfter(A,r.a);if(!B.human)energyAfter(B,r.b);
       if(A.human||B.human){const X=A.human?r.a:r.b,Y=A.human?r.b:r.a;const won=X.score>Y.score;res.push({opp:Y.T.name,us:X.score,them:Y.score,won,lines:reportLines(X,Y,won,S.rule),oppSheet:{...Y.T.sheet}});
         myX=X;conceded+=Y.score;}
     }
@@ -432,7 +433,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1612';   // stamped by build.py
+const APP_VERSION='2026.11.05-1643';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -661,6 +662,7 @@ function drawGym(t,dt){
     if(st){g.fillStyle='#6bcb77';g.font='900 11px system-ui';pillH(g,p.x-26,p.y+38,52,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('STARTS',p.x,p.y+51);}
     else if(me.subs.includes(p.id)){g.fillStyle='#74c0fc';g.font='900 11px system-ui';pillH(g,p.x-20,p.y+38,40,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SUB',p.x,p.y+51);}
     else if(p.id===out){g.fillStyle='#ffb3b3';g.font='900 11px system-ui';pillH(g,p.x-32,p.y+38,64,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SITS OUT',p.x,p.y+51);}
+    if(hasEnergy(p)&&energyOf(p)<=2.5){const lvl=energyOf(p)<=1.5?1:2,bx=p.x-tw/2-22,by=p.y+15;g.lineWidth=2.5;g.strokeStyle=INK;g.fillStyle='#fff';g.fillRect(bx,by,17,11);g.strokeRect(bx,by,17,11);g.fillStyle=INK;g.fillRect(bx+17,by+3,3,5);g.fillStyle=lvl===1?'#ef476f':'#ff9f1c';g.fillRect(bx+2,by+2,lvl===1?4:8,7);g.lineWidth=3;}
     if(p.talked){g.fillStyle='#4d9de0';g.beginPath();g.arc(p.x+tw/2+2,p.y+12,9,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#fff';g.font='900 12px system-ui';g.fillText('✓',p.x+tw/2+2,p.y+16);}
   }
   parts=parts.filter(q=>q.life>0);
@@ -686,6 +688,9 @@ function drawGym(t,dt){
 gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRect();const mx=(e.clientX-r.left)*GL.W/r.width,my=(e.clientY-r.top)*GL.H/r.height;let best=null,bd=1e9;for(const p of S.me.players){const d=Math.hypot((p.x||0)-mx,((p.y||0)-55*(p.s||1)-my)*(GL.narrow?1:0.01));if(d<bd){bd=d;best=p;}}if(best){S.sel=best.id;renderCard();if(GL.narrow)$('pcard').scrollIntoView({behavior:'smooth',block:'nearest'});}});
 
 // ───────────────────────── screens ─────────────────────────
+const hasEnergy=p=>!ONLINE||p.en!==undefined;
+const energyPips=p=>{const n=Math.round(energyOf(p)),c=n<=1?'#ef476f':n===2?'#ff9f1c':'#6bcb77';return `<div class="pip">Energy ${[1,2,3,4].map(k=>`<i style="${k<=n?'background:'+c:''}"></i>`).join('')}</div>`;};
+const energyNote=p=>{const e=energyOf(p);return e<=1.5?'Worn out: plays far below the dots and turns sour. Needs a match off.':e<=2.5?'Tired: a little slower and less sharp. A match off restores energy.':'';};
 const pips=(n,label,tr)=>{n=Math.round(n);const ar=tr>0.04?'<b style="color:#2f9e44">▲</b>':tr<-0.04?'<b style="color:#e03131">▼</b>':'';return `<div class="pip">${label} ${[1,2,3,4].map(k=>`<i class="${k<=n?'f':''}"></i>`).join('')}${ar}</div>`;};
 const TRUSTW=['does not trust you','is wary of you','is unsure about you','trusts you','would run through a wall for you'];
 const MOODTIP={happy:'Buzzing: shoots better and loves a fast game. A good day to be the star.',cool:'Locked in: defends better, follows set plays, holds a zone, can shadow their star.',ok:'Fine: plays to the dots, nothing more, nothing less.',nervous:'Anxious: rushes shots and fumbles in a fast game. A slow tempo steadies them. Never the star today.',sad:'Sulking: slow and half-hearted. Poor in a fast game or a press, and does not get back on defence.',angry:'Fuming: ignores the plan and wanders out of a zone, but hounds the ball in a press and fights for rebounds.'};
@@ -724,7 +729,7 @@ function renderCard(){
   const me=S.me;let p=byId(me,S.sel);if(!p){p=me.players[0];S.sel=p.id;}
   const out=S.rule==='tall_out'&&tallestId(me)===p.id;const st=me.starters.includes(p.id),sb=me.subs.includes(p.id);
   const role=out?'sits out this '+DAY()+' (the rule)':st?'starts on '+DAY():sb?'is a substitute':'is not playing this '+DAY();
-  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${heightWord(p.h)[0].toUpperCase()+heightWord(p.h).slice(1)}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}</div><div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
+  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${heightWord(p.h)[0].toUpperCase()+heightWord(p.h).slice(1)}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}${hasEnergy(p)?energyPips(p):''}</div>${hasEnergy(p)&&energyNote(p)?'<div class="small" style="margin:-4px 0 8px;color:#c2410c">'+energyNote(p)+'</div>':''}<div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
   $('pcard').classList.remove('pop');void $('pcard').offsetWidth;$('pcard').classList.add('pop');
   $('bStart').onclick=()=>{if(st){me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else if(me.starters.length<3){me.starters.push(p.id);me.subs=me.subs.filter(id=>id!==p.id);}else toast('Three start. Take someone off first.');save();renderCard();renderPlan();};
   $('bSub').onclick=()=>{if(sb){me.subs=me.subs.filter(id=>id!==p.id);}else if(me.subs.length<2){me.subs.push(p.id);me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else toast('Two substitutes at most.');save();renderCard();renderPlan();};
@@ -751,7 +756,7 @@ function planCheck(){
   if(st.length<3)return [[0,'Pick three starters and I will tell you what I think of the plan.']];
   const op=nextOpp(),ov=op?oppView(op):null,ol=ov&&ov.last,oStar=ov&&ov.star;
   const star=byId(me,me.ball);
-  const names=a=>a.map(p=>p.n).join(' and '),are=a=>a.length>1?'are':'is';
+  const names=a=>{const n=a.map(p=>p.n);return n.length>2?n.slice(0,-1).join(', ')+' and '+n[n.length-1]:n.join(' and ');},are=a=>a.length>1?'are':'is';
   const is=m=>st.filter(p=>p.mood===m);
   const sad=is('sad'),nerv=is('nervous'),ang=is('angry'),cool=is('cool');
   const A=(a,f)=>a.reduce((x,p)=>x+f(p),0)/a.length;
@@ -759,6 +764,15 @@ function planCheck(){
   const oSp=ov?A(ov.top,p=>p.sp):2.5,oH=ov?A(ov.top,p=>p.h):0.5,oSh=ov?A(ov.top,p=>p.sh):2.5;
   const noRun=S.rule==='no_dribble'||S.rule==='tiny_court';
   const ro=p=>MOODFX[p.mood][2]+0.08*p.trust;
+  // energy
+  if(hasEnergy(st[0])){
+    const worn=st.filter(p=>energyOf(p)<=1.5),tired=st.filter(p=>energyOf(p)>1.5&&energyOf(p)<=2.5);
+    if(worn.length)L.push([-1,`${names(worn)} ${are(worn)} worn out and will play far below the dots. A match off gives energy back.`]);
+    if(tired.length)L.push([-1,`${names(tired)} ${are(tired)} tired. Starting again will cost more energy.`]);
+    if((worn.length||tired.length)&&(sh.tempo===2||sh.def===2))L.push([-1,`A ${sh.tempo===2&&sh.def===2?'fast tempo and a press both burn':sh.tempo===2?'fast tempo burns':'press burns'} extra energy.`]);
+    const fresh=me.players.filter(p=>!me.starters.includes(p.id)&&energyOf(p)>=3.5&&!(S.rule==='tall_out'&&tallestId(me)===p.id));
+    if((worn.length||tired.length)&&fresh.length)L.push([0,`Fresh on the bench: ${names(fresh.slice(0,3))}.`]);
+  }
   // tempo
   if(sh.tempo===2){
     if(sad.length)L.push([-1,`${names(sad)} ${are(sad)} sulking and will drag in a fast game.`]);
@@ -910,6 +924,7 @@ function renderHelp(){
   <h4><i>3</i>Moods, trust and form</h4>
   <p>The mood decides how a player performs and which tactics suit them today.</p>
   <ul>${moods}</ul>
+  <p><b>Energy.</b> Every player has four energy dots. Playing a match costs about one, more at a fast tempo or in a press, less for a substitute who only plays part of it. A match off gives a dot and a half back. A tired player shoots, defends and runs worse. A worn-out player who is still made to play turns sulking or fuming and stops trusting you. So rotate: you have seven players for a reason. Resting a tired player does not upset them or cost them form.</p>
   <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like. Stats also move after each match: a player who shot well improves, one who never plays gets rusty, and a player you leave out completely may sulk or get angry.</p>
   <h4><i>4</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>

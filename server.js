@@ -28,7 +28,7 @@ function newPlayers(n,avoid){
   return out;
 }
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
-function ownPlayer(p){const q={...p};delete q.love;delete q.hate;return q;}
+function ownPlayer(p){const q={...p};delete q.love;delete q.hate;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
 function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,col:p.col,top:p.top,shape:p.shape,num:p.num,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
@@ -113,6 +113,7 @@ async function runMatchday(store,lg,now){
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
       const lines=reportLines(xs,ys,won,rule);
       let moves=[];
+      if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule};}
       X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball};
