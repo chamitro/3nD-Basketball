@@ -108,6 +108,8 @@
   .sheet h2{margin:0 0 4px;font-size:30px;font-weight:900}
   .sheet h4{margin:18px 0 6px;font-size:19px;font-weight:900;display:flex;align-items:center;gap:10px}
   .sheet h4 i{font-style:normal;flex:0 0 32px;height:32px;border:3px solid var(--ink);border-radius:50%;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 3px 0 var(--ink)}
+  .sheet p,.sheet li,.sheet .hrow,.sheet .dl div{font-weight:500}
+  .sheet b{font-weight:800}
   .sheet p{margin:6px 0}
   .sheet ul{margin:6px 0;padding-left:22px}
   .sheet li{margin:3px 0}
@@ -433,7 +435,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1643';   // stamped by build.py
+const APP_VERSION='2026.11.05-1647';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -909,7 +911,7 @@ function renderHelp(){
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
   <h4><i>1</i>Pick your team</h4>
   <p>Choose <b>7 players</b> out of 14 and give your team a name. Look at their stats and at their character.</p>
-  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is.</li>
+  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is. Every player also has four <b>Energy</b> dots, and starts with all four.</li>
   <li><b>Character</b>: tells you roughly how the player takes being talked to.</li></ul>
   <div class="two">${chars}</div>
   <h4><i>2</i>Talk to your players</h4>
@@ -924,21 +926,29 @@ function renderHelp(){
   <h4><i>3</i>Moods, trust and form</h4>
   <p>The mood decides how a player performs and which tactics suit them today.</p>
   <ul>${moods}</ul>
-  <p><b>Energy.</b> Every player has four energy dots. Playing a match costs about one, more at a fast tempo or in a press, less for a substitute who only plays part of it. A match off gives a dot and a half back. A tired player shoots, defends and runs worse. A worn-out player who is still made to play turns sulking or fuming and stops trusting you. So rotate: you have seven players for a reason. Resting a tired player does not upset them or cost them form.</p>
   <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like. Stats also move after each match: a player who shot well improves, one who never plays gets rusty, and a player you leave out completely may sulk or get angry.</p>
-  <h4><i>4</i>Set the game plan</h4>
+  <h4><i>4</i>Energy: rotate your squad</h4>
+  <p>Every player has four <b>Energy</b> dots on their card. Four is fresh, one is worn out.</p>
+  <ul><li><b>Playing costs energy.</b> A whole match costs about one dot. A fast tempo or a press costs more, a slow tempo less. A substitute who plays only part of the match pays less.</li>
+  <li><b>A match off gives a dot and a half back.</b></li>
+  <li><b>A tired player plays worse.</b> Shooting, defending, ball handling and running all drop below the dots.</li>
+  <li><b>A worn-out player who is still made to play turns sour.</b> Most start sulking or fuming, and at one dot they stop trusting you. Loners and easy-going players tire just the same but do not turn sour.</li>
+  <li><b>Resting a tired player does not upset them</b> and costs them no form. Leaving out a fresh player still does.</li>
+  <li>A small battery appears beside the name of a tired player in the gym, and your assistant warns you before the match.</li></ul>
+  <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
+  <h4><i>5</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
-  <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. Substitutes come on when a starter tires.</li>
+  <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. Substitutes come on when a starter tires. Look at Energy before you choose.</li>
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game.</li>
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
   <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
-  <h4><i>5</i>The rule of the week</h4>
+  <h4><i>6</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
-  <h4><i>6</i>The match</h4>
+  <h4><i>7</i>The match</h4>
   <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b> at <b>18:00 UTC</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li></ul>
-  <h4><i>7</i>The league</h4>
+  <h4><i>8</i>The league</h4>
   <p>One league lasts <b>${LEAGUE_LASTS}</b>${ONLINE&&V&&V.league?' ('+V.league.of+' matches)':''}. The team with the most points wins it. Then every manager may change <b>${SWAP_WORDS}</b> of their seven players for a free agent, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
   <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, and a league is seven matches.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
