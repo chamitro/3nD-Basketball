@@ -118,6 +118,7 @@
   .sheet .note{background:#fff1a8;border:3px solid var(--ink);border-radius:14px;padding:8px 14px;margin-top:16px;font-size:14px}
   .sheet .x{position:absolute;right:14px;top:12px;padding:4px 14px}
   @media(max-width:700px){.sheet .two{grid-template-columns:1fr}}
+  .btnlink{display:inline-block;font-weight:800;font-size:16px;color:var(--ink);background:var(--teal);border:3px solid var(--ink);border-radius:14px;padding:8px 16px;box-shadow:0 5px 0 var(--ink);text-decoration:none}
   .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
   .mode{cursor:pointer;text-align:center;padding:26px 18px;transition:transform .12s}
   @media(hover:hover){.mode:hover{transform:translateY(-5px) rotate(-1deg)}}
@@ -401,21 +402,35 @@ let installEvt=null;
 const standalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(SCREEN==='start'||(SCREEN==='game'&&S.tab==='league'))render();});
 window.addEventListener('appinstalled',()=>{installEvt=null;});
+// Links opened from Messenger, Facebook, Instagram and similar apps open inside that app's own small browser,
+// which cannot install anything and keeps its own separate storage. Send people to their real browser.
+const UA=navigator.userAgent||'';
+const inApp=()=>/FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram|Line\/|MicroMessenger|TikTok|musical_ly|Bytedance|Snapchat|LinkedInApp|Pinterest|; wv\)/i.test(UA);
+const isIOS=()=>/iphone|ipad|ipod/i.test(UA);
+const PAGE=location.protocol.startsWith('http')?location.origin+location.pathname:'https://chamitro.github.io/3nD-Basketball/';
 function installHtml(){
   if(standalone())return '';
+  if(inApp()){
+    const open=isIOS()
+      ?`<a class="btnlink" href="x-safari-${PAGE}">Open in Safari</a>`
+      :`<a class="btnlink" href="intent://${PAGE.replace(/^https?:\/\//,'')}#Intent;scheme=https;package=com.android.chrome;end">Open in Chrome</a>`;
+    return `<div class="card" style="background:#fff1a8;text-align:left;margin-top:4px"><b>You opened this inside another app</b> (Messenger, Facebook or similar). Here the game cannot be installed, and a team you make here stays inside that app.<div style="margin:10px 0 8px;display:flex;gap:8px;flex-wrap:wrap">${open}<button id="bCopy">Copy the link</button></div><div class="small" style="margin:0">If the button does nothing: tap the menu (⋮ or ⋯) at the top of this screen and choose "${isIOS()?'Open in Safari':'Open in Chrome" or "Open in browser'}". There you get the Install button.</div></div>`;
+  }
   if(installEvt)return '<button id="bInstall" style="background:var(--teal)">Install as an app</button>';
   if(/iphone|ipad|ipod/i.test(navigator.userAgent))return '<div class="small" style="margin:0">On iPhone: tap Share, then "Add to Home Screen" to keep it as an app.</div>';
   return '';
 }
-function wireInstall(){const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
+function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>toast('Link copied. Paste it into your browser.');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(PAGE).then(done).catch(()=>prompt('Copy this link:',PAGE));else prompt('Copy this link:',PAGE);};
+  const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 function renderStart(){
   if(SCREEN==='loading'){$('start').innerHTML='<div class="card" style="text-align:center;padding:40px"><h3>Walking to the gym…</h3><div class="hint">Asking the league where things stand.</div></div>';return;}
   $('start').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
   ${START_MSG?`<div class="card" style="margin-top:14px;background:#ffc9c9"><b>${START_MSG}</b> You can practise in the meantime.</div>`:''}
+  ${inApp()?'<div style="margin-top:14px">'+installHtml()+'</div>':''}
   <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match every Wednesday and Sunday. You do not need to be online when it is played. One league lasts two months.</p></div>
   <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>Against seven computer teams</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>
-  <div style="margin-top:18px;text-align:center">${installHtml()}</div>`;
+  <div style="margin-top:18px;text-align:center">${inApp()?'':installHtml()}</div>`;
   $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');wireInstall();
 }
 function teamKeyDialog(){
