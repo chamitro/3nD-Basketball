@@ -935,12 +935,11 @@ function candHtml(p,cls,i){return `<div class="cand ${cls}" data-i="${i}"><canva
 let drawList=[];
 function renderDraft(){
   const n=S.pool.filter(p=>p.picked).length;
-  $('draft').innerHTML=`<div class="card"><h3>Pick your seven · ${n} of 7</h3><div class="pool">${S.pool.map((p,i)=>candHtml(p,p.picked?'in':'',i)).join('')}</div><div class="small">Each has a character, which tells you roughly how they take being talked to. Each also has a personal soft spot and a sore spot that you only find by talking to them.</div>
-  <div style="display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap"><input type="text" id="tname" placeholder="Name your team" maxlength="22" value="${S.draftName||''}"><button id="reroll">Show me different players</button></div>
+  $('draft').innerHTML=`<div class="card"><h3>Pick your seven · ${n} of 7</h3><div class="pool">${S.pool.map((p,i)=>candHtml(p,p.picked?'in':'',i)).join('')}</div><div class="small">These fourteen are the players on offer. Each has a character, which tells you roughly how they take being talked to. Each also has a personal soft spot and a sore spot that you only find by talking to them.</div>
+  <div style="display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap"><input type="text" id="tname" placeholder="Name your team" maxlength="22" value="${S.draftName||''}"></div>
   <button class="go" id="start" ${n===7?'':'disabled'}>${n===7?'To the locker room!':'Pick '+(7-n)+' more'}</button></div>`;
   drawList=S.pool.map(p=>p);
   $('draft').querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const p=S.pool[+d.dataset.i];S.draftName=$('tname').value;const k=S.pool.filter(x=>x.picked).length;if(p.picked)p.picked=false;else if(k<7)p.picked=true;renderDraft();});
-  $('reroll').onclick=()=>{S.draftName=$('tname').value;if(ONLINE)goOnline('reroll');else newGame();};
   $('start').onclick=()=>{const nm=($('tname').value||'').trim();if(ONLINE){S.draftName=nm;goOnline('join',{name:nm,picks:S.pool.filter(p=>p.picked).map(p=>p.id)});}else startLeague(nm);};
 }
 function renderCupEnd(){

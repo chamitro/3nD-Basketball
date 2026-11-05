@@ -9,7 +9,6 @@ const CFG={
   MATCH_DAYS:[0,3],       // Sunday and Wednesday
   LEAGUE_MATCHES:16,      // two a week for eight weeks
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
-  MAX_REROLLS:30,
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
@@ -202,12 +201,10 @@ async function handle2(store,req,a,h,now){
   if(now>=lg.next_match_at)return {busy:true};
   let row=await store.teamByKey(h);
   if(!row){
-    if(a==='view'||a==='reroll'){
+    if(a==='view'){
+      // fourteen players are offered once; the manager picks seven of those and cannot ask for others
       let pool=await store.pool(h);
-      if(!pool||a==='reroll'){
-        if(pool&&pool.rerolls>=CFG.MAX_REROLLS)return {error:'That is enough new faces for today. Pick from these.'};
-        pool={players:newPlayers(14),rerolls:pool?pool.rerolls+1:0};await store.savePool(h,pool);
-      }
+      if(!pool){pool={players:newPlayers(14),rerolls:0};await store.savePool(h,pool);}
       return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule}};
     }
     if(a==='join'){
