@@ -7,7 +7,7 @@
 const CFG={
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
   MATCH_DAYS:[0,3],       // Sunday and Wednesday
-  LEAGUE_MATCHES:16,      // two a week for eight weeks
+  LEAGUE_MATCHES:8,       // two a week for four weeks: one league is one month (16 would be two months)
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
   HOUSE_NAME:'The House Team',
 };

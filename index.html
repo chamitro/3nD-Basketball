@@ -333,6 +333,7 @@ function newCup(){
 // In the online league the browser decides nothing. It sends choices and draws what the server answers.
 const NET={url:'https://qslofkasphxcmfzgsdry.supabase.co/functions/v1/b3',key:'sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo'};
 {const u=new URLSearchParams(location.search).get('api');if(u&&/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(u))NET.url=u;}   // for testing on this computer only
+const LEAGUE_LASTS='one month';   // keep in step with CFG.LEAGUE_MATCHES in server.js (8 matches = one month)
 const MATCH_WHEN='every Wednesday and Sunday at 18:00 UTC';   // keep in step with CFG.MATCH_HOUR_UTC and MATCH_DAYS in server.js
 let ONLINE=false,V=null,SCREEN='start',START_MSG='',netBusy=0,planTimer=null,viewAt=0,SKEW=0;   // SKEW: server clock minus this device's clock
 const DAY=()=>ONLINE&&V&&V.league?new Date(V.league.next_match_at).toLocaleDateString('en',{weekday:'long'}):'Sunday';
@@ -429,7 +430,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1536';   // stamped by build.py
+const APP_VERSION='2026.11.05-1554';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -454,7 +455,7 @@ function renderStart(){
   $('home').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
   ${START_MSG?`<div class="card" style="margin-top:14px;background:#ffc9c9"><b>${START_MSG}</b> You can practise in the meantime.</div>`:''}
   ${inApp()?'<div style="margin-top:14px">'+installHtml()+'</div>':''}
-  <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match ${MATCH_WHEN}. You do not need to be online when it is played. One league lasts two months.</p></div>
+  <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match ${MATCH_WHEN}. You do not need to be online when it is played. One league lasts ${LEAGUE_LASTS}.</p></div>
   <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>${localStorage.getItem('sundayleague2')?'Continue your practice game':'Against seven computer teams'}</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>
   <div style="margin-top:18px;text-align:center">${inApp()?'':installHtml()}</div>`;
   $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');wireInstall();
@@ -921,7 +922,7 @@ function renderHelp(){
   <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b> at <b>18:00 UTC</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li></ul>
   <h4><i>7</i>The league</h4>
-  <p>One league lasts <b>two months</b>. The team with the most points wins it. Then every manager may swap up to <b>two</b> of their seven players for free agents, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
+  <p>One league lasts <b>${LEAGUE_LASTS}</b>${ONLINE&&V&&V.league?' ('+V.league.of+' matches)':''}. The team with the most points wins it. Then every manager may swap up to <b>two</b> of their seven players for free agents, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
   <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, and a league is seven matches.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');

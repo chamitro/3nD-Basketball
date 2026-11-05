@@ -4,7 +4,8 @@ A cartoon basketball manager. You are the coach: you pick seven players, learn h
 and choose the tactics. The match plays by itself.
 
 - **Online league**: a match against another manager every Wednesday and Sunday. You do not need to be online
-  when it is played. One league lasts two months (16 matches), a win is 3 points.
+  when it is played. One league lasts one month (8 matches), a win is 3 points.
+  The length is `LEAGUE_MATCHES` in `server.js` (and the wording `LEAGUE_LASTS` in `index.html`).
 - **Practice**: against seven computer teams, at your own pace.
 
 The rules are explained inside the game under **? How to play**.
