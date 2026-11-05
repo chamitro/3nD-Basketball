@@ -434,8 +434,18 @@ function renderStart(){
   $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');wireInstall();
 }
 function teamKeyDialog(){
-  const k=prompt('This key is your team. Keep it secret.\n\nTo play this team on another device: open the game there, choose Online league, then come to this button and paste the key into this box.\n\nYour key (copy it), or paste another key to switch to that team:',myKey());
+  const k=prompt('This key is your team. Keep it secret: anyone who has it can manage your team.\n\nTo play this team on another device: open the game there, choose Online league, and on the "Pick your seven" screen press "Use that team here". Paste this key.\n\nYour key (copy it):',myKey());
   if(k&&k.trim()!==myKey()){if(/^[a-f0-9]{32}$/.test(k.trim())){localStorage.setItem('b3key',k.trim());localStorage.setItem('b3seen','0');setMode('online');}else toast('That is not a team key.');}
+}
+// on a device with no team yet: bring an existing team over with its key
+function useTeamKey(){
+  const k=(prompt('On the device that has your team: open the Table tab, press "Play this team on another device" and copy the key.\n\nPaste the key here:','')||'').trim().toLowerCase();
+  if(!k)return;
+  if(!/^[a-f0-9]{32}$/.test(k)){toast('That is not a team key. It is 32 letters and numbers.');return;}
+  const old=localStorage.getItem('b3key');
+  localStorage.setItem('b3key',k);
+  api('view').then(v=>{if(v.phase==='draft'){if(old)localStorage.setItem('b3key',old);toast('No team was found for that key. Check that you copied all of it.');}else{localStorage.setItem('b3seen',String(resKey(v.me.last)));applyView(v);render();toast('Welcome back, '+v.me.name+'.');}})
+    .catch(e=>{if(old)localStorage.setItem('b3key',old);toast(e.message);});
 }
 function boot(){
   const m=localStorage.getItem('b3mode');
@@ -937,9 +947,11 @@ function renderDraft(){
   const n=S.pool.filter(p=>p.picked).length;
   $('draft').innerHTML=`<div class="card"><h3>Pick your seven · ${n} of 7</h3><div class="pool">${S.pool.map((p,i)=>candHtml(p,p.picked?'in':'',i)).join('')}</div><div class="small">These fourteen are the players on offer. Each has a character, which tells you roughly how they take being talked to. Each also has a personal soft spot and a sore spot that you only find by talking to them.</div>
   <div style="display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap"><input type="text" id="tname" placeholder="Name your team" maxlength="22" value="${S.draftName||''}"></div>
+  ${ONLINE?'<div class="small" style="margin-top:12px">Already have a team on another phone or computer? <button id="haveTeam" style="font-size:13px;padding:5px 10px">Use that team here</button></div>':''}
   <button class="go" id="start" ${n===7?'':'disabled'}>${n===7?'To the locker room!':'Pick '+(7-n)+' more'}</button></div>`;
   drawList=S.pool.map(p=>p);
   $('draft').querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const p=S.pool[+d.dataset.i];S.draftName=$('tname').value;const k=S.pool.filter(x=>x.picked).length;if(p.picked)p.picked=false;else if(k<7)p.picked=true;renderDraft();});
+  if($('haveTeam'))$('haveTeam').onclick=useTeamKey;
   $('start').onclick=()=>{const nm=($('tname').value||'').trim();if(ONLINE){S.draftName=nm;goOnline('join',{name:nm,picks:S.pool.filter(p=>p.picked).map(p=>p.id)});}else startLeague(nm);};
 }
 function renderCupEnd(){
