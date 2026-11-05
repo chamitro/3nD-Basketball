@@ -1,0 +1,51 @@
+// 3nD Basketball: the real database behind the online league (Supabase tables, reached over its REST interface).
+function restStore(base,keys,prefix){
+  if(prefix===undefined)prefix='/rest/v1/';
+  let ki=0;
+  async function q(path,opt){
+    opt=opt||{};
+    for(let attempt=0;attempt<keys.length;attempt++){
+      const key=keys[ki];
+      const headers={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'};
+      if(opt.prefer)headers.Prefer=opt.prefer;
+      const r=await fetch(base+prefix+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:JSON.stringify(opt.body)});
+      if((r.status===401||r.status===403)&&keys.length>1&&attempt<keys.length-1){ki=(ki+1)%keys.length;continue;}
+      const t=await r.text();
+      if(!r.ok)throw new Error('database '+r.status+': '+t.slice(0,300));
+      return t?JSON.parse(t):null;
+    }
+    throw new Error('database refused the server key');
+  }
+  const one=async path=>{const a=await q(path);return (a&&a[0])||null;};
+  const TEAM='id,key_hash,name,name_lc,is_house,league_no,w,l,pf,pa,pts,next_opp,last_seen,ver,pub,data';
+  const pages=async(path,size)=>{const out=[];for(let off=0;;off+=size){const a=await q(path+'&limit='+size+'&offset='+off);out.push(...a);if(a.length<size)break;}return out;};
+  return {
+    league:()=>one('b3_league?id=eq.1'),
+    saveLeague:lg=>q('b3_league?on_conflict=id',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:lg}),
+    house:()=>one('b3_teams?is_house=is.true&select='+TEAM+'&limit=1'),
+    teamByKey:h=>one('b3_teams?key_hash=eq.'+h+'&select='+TEAM),
+    teamById:id=>one('b3_teams?id=eq.'+id+'&select='+TEAM),
+    teamsInPlay:()=>pages('b3_teams?or=(next_opp.not.is.null,is_house.is.true)&select='+TEAM+'&order=id',500),
+    tableRows:()=>pages('b3_teams?is_house=is.false&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),
+    insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
+    saveTeam:async row=>{
+      const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&select=id',{method:'PATCH',prefer:'return=representation',
+        body:{next_opp:row.next_opp,last_seen:row.last_seen,data:row.data,ver:row.ver+1}});
+      if(!a||!a.length)throw new Error('conflict');
+      row.ver++;
+    },
+    nameTaken:async lc=>!!(await one('b3_teams?name_lc=eq.'+encodeURIComponent(lc)+'&select=id')),
+    pool:h=>one('b3_pools?key_hash=eq.'+h+'&select=players,rerolls'),
+    savePool:(h,p)=>q('b3_pools?on_conflict=key_hash',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:{key_hash:h,players:p.players,rerolls:p.rerolls}}),
+    dropPool:h=>q('b3_pools?key_hash=eq.'+h,{method:'DELETE',prefer:'return=minimal'}),
+    lock:async now=>{
+      const a=await q('b3_league?id=eq.1&next_match_at=lte.'+now+'&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
+        {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});
+      return !!(a&&a.length);
+    },
+    commit:({league,teams,matches,reset})=>q('rpc/b3_commit',{method:'POST',body:{
+      p_league:league,
+      p_teams:teams.map(t=>({id:t.id,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,league_no:t.league_no,next_opp:t.next_opp,pub:t.pub,data:t.data})),
+      p_matches:matches,p_reset:!!reset}}),
+  };
+}

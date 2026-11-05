@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>3nD Basketball</title>
+<style>
+  :root{--ink:#2b2233;--paper:#fff6e3;--card:#ffffff;--orange:#ff9f1c;--yellow:#ffd23f;--teal:#2ec4b6;--pink:#ff5d8f;--blue:#4d9de0;--green:#6bcb77;--red:#ef476f;--soft:#6b6477}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"Baloo 2","Fredoka","Nunito","Ubuntu","Trebuchet MS",system-ui,sans-serif;font-weight:700;font-size:16px;background-image:radial-gradient(#f3e3bd 2px,transparent 2px);background-size:26px 26px}
+  .wrap{max-width:1200px;margin:0 auto;padding:14px 18px 50px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .logo{font-size:30px;font-weight:900;letter-spacing:-1px;transform:rotate(-2deg);background:var(--orange);border:4px solid var(--ink);border-radius:16px;padding:2px 16px;box-shadow:0 5px 0 var(--ink)}
+  .chip{background:var(--card);border:3px solid var(--ink);border-radius:999px;padding:4px 14px;box-shadow:0 4px 0 var(--ink);font-size:15px}
+  .chip b{color:var(--red)}
+  .tabs{margin-left:auto;display:flex;gap:8px}
+  button{font-family:inherit;font-weight:800;font-size:16px;color:var(--ink);background:var(--card);border:3px solid var(--ink);border-radius:14px;padding:8px 16px;box-shadow:0 5px 0 var(--ink);cursor:pointer;transition:transform .08s,box-shadow .08s,background .15s}
+  button:hover{transform:translateY(-2px);box-shadow:0 7px 0 var(--ink)}
+  button:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+  button.on{background:var(--yellow)}
+  button:disabled{opacity:.45;cursor:default;transform:none;box-shadow:0 5px 0 var(--ink)}
+  button.go{background:var(--pink);color:#fff;font-size:22px;padding:12px 26px;width:100%;margin-top:16px;text-shadow:0 2px 0 var(--ink);animation:bob 1.6s ease-in-out infinite}
+  button.go:disabled{animation:none;background:#ddd;color:#888;text-shadow:none}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .rule{background:var(--pink);color:#fff;border:4px solid var(--ink);border-radius:22px;padding:10px 22px;box-shadow:0 6px 0 var(--ink);display:flex;align-items:center;gap:16px;margin-bottom:14px}
+  .rule small{background:var(--ink);color:var(--yellow);border-radius:999px;padding:3px 12px;font-size:13px;white-space:nowrap}
+  .rule .txt{font-size:28px;font-weight:900;text-shadow:0 3px 0 var(--ink);line-height:1.1}
+  .rule .why{font-size:14px;font-weight:700;opacity:.95}
+  .scene{position:relative;border:4px solid var(--ink);border-radius:26px;overflow:hidden;box-shadow:0 7px 0 var(--ink);background:#bfe9ff}
+  canvas#gym{display:block;width:100%;height:auto;cursor:pointer}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .card{background:var(--card);border:4px solid var(--ink);border-radius:22px;padding:14px 16px;box-shadow:0 6px 0 var(--ink)}
+  .card h3{margin:0 0 8px;font-size:20px;font-weight:900}
+  .hint{font-weight:600;color:var(--soft);font-size:15px}
+  .pips{display:flex;gap:16px;margin:8px 0 10px;font-size:14px;flex-wrap:wrap}
+  .pip{display:flex;align-items:center;gap:5px}
+  .pip i{width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);background:#fff;display:inline-block}
+  .pip i.f{background:var(--orange)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .btns.tone{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tone button{min-width:0;padding:9px 4px;font-size:15px}
+  .tone button:hover{background:#fff1a8}
+  .tone.team button{padding:6px 4px;font-size:14px}
+  .tone .warm:hover{background:#ffd6e0}.tone .firm:hover{background:#cfe8ff}.tone .harsh:hover{background:#ffc9c9}.tone .joking:hover{background:#fff1a8}.tone .honest:hover{background:#d3f5d6}
+  .plan{margin-top:16px}
+  .dials{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .dial .lab{font-size:14px;color:var(--soft);margin-bottom:6px}
+  .seg{display:flex}
+  .seg button{flex:1;border-radius:0;margin-left:-3px;padding:8px 4px;font-size:15px}
+  .seg button:first-child{border-radius:14px 0 0 14px;margin-left:0}.seg button:last-child{border-radius:0 14px 14px 0}
+  .dial .d{font-size:12px;font-weight:600;color:var(--soft);margin-top:6px;min-height:30px;line-height:1.25}
+  .dials+.dials{margin-top:10px}
+  .chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:700;padding:3px 0}
+  .chk i{font-style:normal;flex:0 0 22px;height:22px;border:3px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:#eee}
+  .chk.g i{background:var(--green)}.chk.b i{background:#ffb3b3}
+  .clip{margin-top:12px;border-top:3px dashed #e8dcc0;padding-top:10px}
+  .small{font-size:13px;font-weight:600;color:var(--soft);margin-top:8px}
+  .pop{animation:pop .25s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes pop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .vote{cursor:pointer;text-align:center;font-size:19px;font-weight:900;padding:18px 12px;transition:transform .12s}
+  .vote:hover{transform:translateY(-4px) rotate(-1deg)}
+  .vote.on{background:var(--yellow)}
+  .vote small{display:block;font-size:13px;color:var(--soft);margin-top:6px;font-weight:700}
+  .res{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:3px dashed #e8dcc0}
+  .res:last-child{border-bottom:none}
+  .res .sc{font-size:28px;font-weight:900;min-width:124px;text-align:center;border:3px solid var(--ink);border-radius:14px;padding:2px 10px;background:#eee}
+  .res .sc.w{background:var(--green)} .res .sc.l{background:#ffb3b3}
+  .res .why{font-weight:600;font-size:14px;color:#4b4458}
+  .stamp{display:inline-block;font-size:13px;border:3px solid var(--ink);border-radius:8px;padding:0 8px;margin-left:8px;transform:rotate(-4deg)}
+  .stamp.w{background:var(--green)}.stamp.l{background:#ffb3b3}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  td,th{padding:5px 8px;border-bottom:3px dashed #e8dcc0;text-align:left}
+  th{font-size:12px;color:var(--soft)}
+  td.n,th.n{text-align:right}
+  tr.me td{background:var(--yellow)}
+  .pool{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+  .cand{background:var(--card);border:4px solid var(--ink);border-radius:18px;box-shadow:0 5px 0 var(--ink);text-align:center;padding:6px 6px 10px;cursor:pointer;transition:transform .12s}
+  .cand:hover{transform:translateY(-4px)}
+  .cand.in{background:var(--yellow)} .cand.out{background:#ffc9c9}
+  .cand canvas{width:100%;height:auto;display:block}
+  .cand .nm{font-size:17px;font-weight:900}
+  .cand .h{font-size:12px;font-weight:600;color:var(--soft);min-height:32px;margin-top:3px}
+  .chr{display:inline-block;border:2px solid var(--ink);border-radius:999px;padding:0 9px;font-size:12px;font-weight:800;color:var(--ink);font-style:normal}
+  .mark{font-size:13px;margin-left:4px}
+  .cand .pips{justify-content:center;gap:4px;margin:4px 0 0;font-size:10px;flex-direction:column;align-items:center}
+  .cand .pip i{width:9px;height:9px;border-width:2px}
+  input[type=text]{font-family:inherit;font-weight:800;font-size:18px;border:3px solid var(--ink);border-radius:12px;padding:6px 12px;width:280px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:14px;padding:10px 18px;font-size:15px;z-index:9;animation:pop .25s}
+  .foot{font-size:12px;font-weight:600;color:#b7a98a;text-align:center;margin-top:18px}
+  .modal{position:fixed;inset:0;background:rgba(43,34,51,.6);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:26px 14px;overflow:auto}
+  .sheet{max-width:860px;width:100%;font-weight:600;font-size:15px;line-height:1.45;position:relative}
+  .sheet h2{margin:0 0 4px;font-size:30px;font-weight:900}
+  .sheet h4{margin:18px 0 6px;font-size:19px;font-weight:900;display:flex;align-items:center;gap:10px}
+  .sheet h4 i{font-style:normal;flex:0 0 32px;height:32px;border:3px solid var(--ink);border-radius:50%;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 3px 0 var(--ink)}
+  .sheet p{margin:6px 0}
+  .sheet ul{margin:6px 0;padding-left:22px}
+  .sheet li{margin:3px 0}
+  .sheet .hrow{display:flex;gap:10px;align-items:baseline;margin:4px 0}
+  .sheet .hrow .chr{flex:0 0 122px;text-align:center}
+  .sheet .dl{margin:6px 0 8px}.sheet .dl>b{font-size:16px}.sheet .dl div{display:flex;gap:8px;margin:2px 0;font-size:14px}.sheet .dl span{flex:0 0 78px;font-weight:800;color:var(--red)}
+  .sheet .two{display:grid;grid-template-columns:1fr 1fr;gap:0 26px}
+  .sheet .note{background:#fff1a8;border:3px solid var(--ink);border-radius:14px;padding:8px 14px;margin-top:16px;font-size:14px}
+  .sheet .x{position:absolute;right:14px;top:12px;padding:4px 14px}
+  @media(max-width:700px){.sheet .two{grid-template-columns:1fr}}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .mode{cursor:pointer;text-align:center;padding:26px 18px;transition:transform .12s}
+  .mode:hover{transform:translateY(-5px) rotate(-1deg)}
+  .mode h3{font-size:28px;margin:0 0 6px}
+  .mode p{font-weight:600;color:var(--soft);margin:6px 0 0}
+  @media(max-width:700px){.modes{grid-template-columns:1fr}}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">3nD Basketball</div>
+    <div class="chip" id="chipTeam"></div>
+    <div class="chip" id="chipCup"></div>
+    <div class="tabs"><span id="tabs" style="display:flex;gap:8px"><button id="tRoom" class="on">Locker room</button><button id="tLeague">Table</button></span><button id="bHelp" style="background:var(--teal)">? How to play</button></div>
+  </header>
+
+  <div id="start" class="hide"></div>
+  <div id="draft" class="hide"></div>
+
+  <div id="room" class="hide">
+    <div class="rule"><small id="ruleLab">RULE OF THE WEEK</small><div><div class="txt" id="ruleTxt"></div><div class="why" id="ruleWhy"></div></div></div>
+    <div class="scene"><canvas id="gym" width="1160" height="400"></canvas></div>
+    <div id="weekUI">
+      <div class="row">
+        <div class="card" id="pcard"></div>
+        <div class="card">
+          <h3 id="talkh"></h3>
+          <div class="btns tone" id="tones"></div>
+          <div id="talkres" style="font-size:15px;margin-top:8px;min-height:20px"></div>
+          <div class="small" id="sayhint" style="margin-top:2px">One talk per player each week. The same words land differently on each of them.</div>
+          <div style="margin-top:12px;border-top:3px dashed #e8dcc0;padding-top:10px">
+            <div style="font-size:15px;margin-bottom:6px" id="teamh">Talk to the whole team</div>
+            <div class="btns tone team" id="teamtones"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card plan">
+        <h3 id="planH">Game plan for Sunday</h3>
+        <div class="dials">
+          <div class="dial"><div class="lab">Tempo</div><div class="seg" data-k="tempo"><button>slow</button><button>steady</button><button>fast</button></div><div class="d" data-d="tempo"></div></div>
+          <div class="dial"><div class="lab">Shots</div><div class="seg" data-k="shots"><button>inside</button><button>mixed</button><button>outside</button></div><div class="d" data-d="shots"></div></div>
+          <div class="dial"><div class="lab">Attack</div><div class="seg" data-k="off"><button>share</button><button>star ball</button><button>set plays</button></div><div class="d" data-d="off"></div></div>
+        </div>
+        <div class="dials">
+          <div class="dial"><div class="lab">Defence</div><div class="seg" data-k="def"><button>man</button><button>zone</button><button>press</button></div><div class="d" data-d="def"></div></div>
+          <div class="dial"><div class="lab">Their star</div><div class="seg" data-k="guard"><button>as normal</button><button>shadow</button><button>double</button></div><div class="d" data-d="guard"></div></div>
+          <div class="dial"><div class="lab">Rebounds</div><div class="seg" data-k="boards"><button>get back</button><button>balanced</button><button>crash</button></div><div class="d" data-d="boards"></div></div>
+        </div>
+        <div class="small" id="oppNote" style="font-size:15px;color:var(--ink);margin-top:12px"></div>
+        <div class="clip" id="check"></div>
+        <div class="small" id="subNote" style="font-size:15px;color:var(--ink)"></div>
+      </div>
+      <button class="go" id="play"></button>
+      <div class="card hide" id="nextInfo" style="margin-top:16px;text-align:center;background:#d3f5d6"></div>
+      <div class="small" style="text-align:center" id="playNote"></div>
+    </div>
+    <div id="resUI" class="hide"></div>
+  </div>
+
+  <div id="league" class="hide"></div>
+  <div id="help" class="modal hide"><div class="card sheet" id="helpBody"></div></div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+'use strict';
+// ───────────────────────── basics ─────────────────────────
+const INK='#2b2233';
+const $=id=>document.getElementById(id);
+
+
+
+
+// ───────────────────────── state ─────────────────────────
+const S={phase:'draft',cup:1,sunday:1,rule:'three5',teams:[],me:null,pool:[],sel:null,results:null,vote:null,myVote:null,agents:[],swapOut:[],swapIn:[],tab:'room',teamTalked:false,lastSheets:null};
+function save(){if(ONLINE){if(S.phase==='week')queuePlan();return;}try{localStorage.setItem('sundayleague2',JSON.stringify({S,NEXT_ID,names:[...usedNames]}));}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem('sundayleague2'));if(!d||!d.S||!d.S.teams.length)return false;Object.assign(S,d.S);NEXT_ID=d.NEXT_ID;d.names.forEach(n=>usedNames.add(n));S.me=S.teams.find(t=>t.human);for(const t of S.teams){t.subs=t.subs||[];t.sheet={off:0,guard:0,boards:1,...t.sheet};t.style={off:0,guard:0,boards:1,...t.style};for(const q of t.players){q.tr=q.tr||{sh:0,df:0,sp:0};q.idle=q.idle||0;if(!q.love)quirks(q);q.notes=q.notes||{};}}return true;}catch(e){return false;}}
+function newGame(){
+  usedNames.clear();NEXT_ID=1;
+  S.phase='draft';S.cup=1;S.sunday=1;S.won=0;S.played=0;S.teams=[];S.me=null;S.results=null;S.lastResults=null;S.sel=null;S.teamTalked=false;S.lastSheets=null;
+  S.pool=[];for(let i=0;i<14;i++){const p=makePlayer();p.picked=false;S.pool.push(p);}
+  S.rule=pick(RULES).k;
+  render();
+}
+function startLeague(teamName){
+  const mine=S.pool.filter(p=>p.picked).map(p=>{delete p.picked;return p;});
+  const me=makeTeam(teamName||'The Harbour Seven',mine,true);
+  S.teams=[me];
+  for(const nm of [...TEAM_NAMES].sort(()=>R()-0.5).slice(0,7)){const ps=[];for(let i=0;i<7;i++){const p=makePlayer();p.mood=pick(['ok','ok','happy','cool','nervous','sad','angry']);p.trust=Math.floor(R()*3)-1;ps.push(p);}S.teams.push(makeTeam(nm,ps,false));}
+  S.me=me;S.pool=[];
+  const top=[...me.players].sort((a,b)=>rating(b)-rating(a));
+  me.starters=top.slice(0,3).map(p=>p.id);me.subs=top.slice(3,5).map(p=>p.id);me.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;
+  S.sel=me.players[0].id;
+  startWeek(true);
+}
+function startWeek(first){
+  S.phase='week';S.results=null;S.myVote=null;
+  weekReset(S.me,first);
+  enforceRule(S.me,S.rule);
+  const opts=RULES.filter(r=>r.k!==S.rule).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);
+  S.vote={opts,tally:opts.map(()=>0)};
+  save();render();
+}
+
+function roundOf(){return (S.sunday-1+(S.cup-1))%7;}
+function nextOpp(){if(ONLINE)return S.opp||null;const idx=S.teams.indexOf(S.me);for(const [i,j] of roundPairs(8,roundOf())){if(i===idx)return S.teams[j];if(j===idx)return S.teams[i];}return null;}
+function profile(t){const top=oppView(t).top;const av=f=>top.reduce((x,p)=>x+f(p),0)/3;const w=[];
+  const a=av(p=>p.sh),d=av(p=>p.df),sp=av(p=>p.sp),h=av(p=>p.h);
+  if(a>=3)w.push('sharp attackers');else if(a<=2)w.push('weak attack');
+  if(d>=3)w.push('tough defenders');else if(d<=2)w.push('soft defence');
+  if(sp>=3)w.push('quick');else if(sp<=2)w.push('slow');
+  if(h>=0.62)w.push('tall');else if(h<=0.38)w.push('small');
+  return w.length?w.join(', '):'no clear strength or weakness';}
+function playSunday(){
+  if(S.phase!=='week'||S.me.starters.length!==3)return false;
+  for(const [i,j] of roundPairs(8,roundOf())){const A=S.teams[i],B=S.teams[j];const lsOf=t=>S.lastSheets?(S.lastSheets.find(x=>x.name===t.name)||{}).sheet:null;if(!A.human)botPrepare(A,B,S.rule,lsOf(B));if(!B.human)botPrepare(B,A,S.rule,lsOf(A));}
+  let conceded=0,myX=null;const res=[];const day={};for(const t of S.teams)day[t.name]={w:0,l:0};
+  for(let m=0;m<1;m++){
+    const k=roundOf();
+    for(const [i,j] of roundPairs(8,k)){
+      const A=S.teams[i],B=S.teams[j];const r=playMatch(A,B,S.rule);
+      const aw=r.a.score>r.b.score;
+      A.pf+=r.a.score;A.pa+=r.b.score;B.pf+=r.b.score;B.pa+=r.a.score;
+      if(aw){A.w++;B.l++;day[A.name].w++;day[B.name].l++;}else{B.w++;A.l++;day[B.name].w++;day[A.name].l++;}
+      if(A.human||B.human){const X=A.human?r.a:r.b,Y=A.human?r.b:r.a;const won=X.score>Y.score;res.push({opp:Y.T.name,us:X.score,them:Y.score,won,lines:reportLines(X,Y,won,S.rule),oppSheet:{...Y.T.sheet}});
+        myX=X;conceded+=Y.score;}
+    }
+  }
+  S.lastSheets=S.teams.map(t=>({name:t.name,sheet:{...t.sheet},w:day[t.name].w,l:day[t.name].l,human:t.human}));
+  // how the match left them feeling, and what it did to their form
+  const moves=myX?aftermath(S.me,myX,res[0].won,conceded):[];
+  // vote
+  const tally=S.vote.opts.map(()=>0);for(let i=0;i<7;i++)tally[Math.floor(R()*3)]++;if(S.myVote!==null)tally[S.myVote]++;
+  S.vote.tally=tally;S.vote.winner=S.vote.opts[tally.indexOf(Math.max(...tally))];
+  S.results={list:res,moves,place:placeOf(S.me)};S.lastResults={list:res,rule:S.rule};
+  S.phase='results';S.shownAt=T;
+  save();render();return true;
+}
+function table(){return [...S.teams].sort((a,b)=>b.w-a.w||(b.pf-b.pa)-(a.pf-a.pa));}
+function placeOf(t){return table().indexOf(t)+1;}
+function nextWeek(){
+  if(S.phase!=='results')return;
+  S.rule=S.vote.winner;
+  if(S.sunday>=7){S.phase='cupend';S.agents=[];for(let i=0;i<7;i++)S.agents.push(makePlayer());S.swapOut=[];S.swapIn=[];S.finalPlace=placeOf(S.me);S.champion=table()[0].name;S.played=(S.played||0)+1;if(S.finalPlace===1)S.won=(S.won||0)+1;save();render();return;}
+  S.sunday++;startWeek(false);
+}
+function newCup(){
+  if(S.phase!=='cupend')return;
+  const outs=S.swapOut.slice(0,S.swapIn.length);
+  S.me.players=S.me.players.filter(p=>!outs.includes(p.id));
+  for(const id of S.swapIn.slice(0,outs.length)){const p=S.agents.find(a=>a.id===id);S.me.players.push(p);}
+  for(const t of S.teams){t.w=t.l=t.pf=t.pa=0;if(!t.human&&R()<0.6){const worst=[...t.players].sort((a,b)=>rating(a)-rating(b))[0];t.players[t.players.indexOf(worst)]=makePlayer();}}
+  S.me.starters=S.me.starters.filter(id=>byId(S.me,id));S.me.subs=S.me.subs.filter(id=>byId(S.me,id));
+  S.cup++;S.sunday=1;S.agents=[];S.sel=S.me.players[0].id;
+  startWeek(false);
+}
+
+// ───────────────────────── online ─────────────────────────
+// In the online league the browser decides nothing. It sends choices and draws what the server answers.
+const NET={url:'https://qslofkasphxcmfzgsdry.supabase.co/functions/v1/b3',key:'sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo'};
+{const u=new URLSearchParams(location.search).get('api');if(u&&/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(u))NET.url=u;}   // for testing on this computer only
+let ONLINE=false,V=null,SCREEN='start',START_MSG='',netBusy=0,planTimer=null,viewAt=0,SKEW=0;   // SKEW: server clock minus this device's clock
+const DAY=()=>ONLINE&&V&&V.league?new Date(V.league.next_match_at).toLocaleDateString('en',{weekday:'long'}):'Sunday';
+const resKey=l=>l?l.league*1000+l.match:0;
+function myKey(){let k=localStorage.getItem('b3key');if(!/^[a-f0-9]{32}$/.test(k||'')){const b=new Uint8Array(16);crypto.getRandomValues(b);k=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('b3key',k);}return k;}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function api(a,body,tries){
+  let v;
+  try{const r=await fetch(NET.url,{method:'POST',headers:{'Content-Type':'application/json',apikey:NET.key,Authorization:'Bearer '+NET.key},body:JSON.stringify({a,key:myKey(),...(body||{})})});v=await r.json();}
+  catch(e){
+    if((a==='view'||a==='plan'||a==='vote')&&(tries||0)<2){await sleep(700);return api(a,body,(tries||0)+1);}   // a dropped connection: asking again is harmless for these
+    throw new Error('The online league cannot be reached right now.');}
+  if(v&&v.busy){if((tries||0)<10){await sleep(1200);return api(a,body,(tries||0)+1);}throw new Error('A match day is being played. Try again in a minute.');}
+  if(!v||v.error||v.message||!v.phase)throw new Error((v&&(v.error||v.message))||'The online league gave no answer.');
+  viewAt=Date.now();if(v.now)SKEW=v.now-Date.now();
+  return v;
+}
+// turn the server's answer into the state the screens draw from
+function applyView(v){
+  V=v;S.rule=v.league.rule;S.cup=v.league.no;S.sunday=v.league.match_no;
+  if(v.phase==='draft'){
+    const had=new Set((S.pool||[]).filter(p=>p.picked).map(p=>p.id));
+    S.phase='draft';S.me=null;S.teams=[];S.opp=null;S.pool=v.pool.map(p=>({...p,picked:had.has(p.id)}));return;
+  }
+  const me={...v.me,human:true};
+  if(S.me)for(const p of me.players){const o=S.me.players.find(q=>q.id===p.id);if(o){p.x=o.x;p.y=o.y;p.s=o.s;}}   // keep them where they stand in the gym
+  S.me=me;S.pool=[];
+  S.teams=v.table.map(t=>t.id===me.id?me:{id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,players:[],human:false});
+  if(!S.teams.includes(me))S.teams.push(me);
+  S.opp=null;
+  if(v.opp){const o={...v.opp,human:false};const i=S.teams.findIndex(t=>t.id===o.id);if(i>=0)S.teams[i]=o;S.opp=o;}
+  S.lastSheets=v.table.filter(t=>t.ls).map(t=>({name:t.name,sheet:t.ls,w:t.lw===true?1:0,l:t.lw===false?1:0,human:t.id===me.id}));
+  if(v.opp&&v.opp.house&&v.opp.ls)S.lastSheets.push({name:v.opp.name,sheet:v.opp.ls,w:0,l:0,human:false});
+  if(!S.lastSheets.length)S.lastSheets=null;
+  S.vote={opts:v.league.vote_opts,tally:[0,0,0]};S.myVote=me.vote;S.won=me.won;S.played=me.played;
+  const last=me.last,res=last?{list:[{opp:last.opp,us:last.us,them:last.them,won:last.won,lines:last.lines,oppSheet:last.oppSheet}],moves:last.moves||[],place:last.place,of:last.of}:null;
+  S.lastResults=last?{list:res.list,rule:last.rule}:null;
+  const seen=+(localStorage.getItem('b3seen')||0);
+  if(last&&resKey(last)>seen){S.phase='results';S.results=res;}
+  else if(me.final&&!me.final.seen){if(S.phase!=='cupend'){S.swapOut=[];S.swapIn=[];}S.phase='cupend';S.agents=me.agents;S.finalPlace=me.final.place;S.champion=me.final.champion;}
+  else{S.phase='week';S.results=null;}
+  if(!byId(me,S.sel))S.sel=me.players[0].id;
+}
+// any action that changes the screen: ask, then draw the answer
+async function goOnline(a,body){
+  if(netBusy)return;netBusy++;
+  try{const v=await api(a||'view',body);if(v.joined)localStorage.setItem('b3seen','0');applyView(v);SCREEN='game';}
+  catch(e){if(SCREEN==='game')toast(e.message);else{SCREEN='start';START_MSG=e.message;}}
+  finally{netBusy--;}
+  render();
+}
+// line-up and dials are sent a moment after the last click
+function queuePlan(){
+  clearTimeout(planTimer);
+  planTimer=setTimeout(async()=>{
+    const me=S.me;if(!ONLINE||!me||S.phase!=='week')return;
+    try{const v=await api('plan',{starters:me.starters,subs:me.subs,ball:me.ball,sheet:me.sheet});
+      if(v.league.match_no!==V.league.match_no||v.league.no!==V.league.no){applyView(v);render();}else V.league=v.league;}
+    catch(e){toast(e.message);goOnline('view');}
+  },500);
+}
+function setMode(m){
+  clearTimeout(planTimer);
+  if(m)localStorage.setItem('b3mode',m);else localStorage.removeItem('b3mode');
+  ONLINE=m==='online';S.tab='room';S.me=null;S.teams=[];S.pool=[];S.opp=null;V=null;START_MSG='';
+  if(m==='online'){SCREEN='loading';render();goOnline('view');}
+  else if(m==='practice'){SCREEN='game';if(load())render();else newGame();}
+  else{SCREEN='start';render();}
+}
+function renderStart(){
+  if(SCREEN==='loading'){$('start').innerHTML='<div class="card" style="text-align:center;padding:40px"><h3>Walking to the gym…</h3><div class="hint">Asking the league where things stand.</div></div>';return;}
+  $('start').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
+  ${START_MSG?`<div class="card" style="margin-top:14px;background:#ffc9c9"><b>${START_MSG}</b> You can practise in the meantime.</div>`:''}
+  <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match every Wednesday and Sunday. You do not need to be online when it is played. One league lasts two months.</p></div>
+  <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>Against seven computer teams</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>`;
+  $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');
+}
+function teamKeyDialog(){
+  const k=prompt('This key is your team. Keep it secret.\n\nTo play this team on another device: open the game there, choose Online league, then come to this button and paste the key into this box.\n\nYour key (copy it), or paste another key to switch to that team:',myKey());
+  if(k&&k.trim()!==myKey()){if(/^[a-f0-9]{32}$/.test(k.trim())){localStorage.setItem('b3key',k.trim());localStorage.setItem('b3seen','0');setMode('online');}else toast('That is not a team key.');}
+}
+function boot(){
+  const m=localStorage.getItem('b3mode');
+  setMode(m==='online'||m==='practice'?m:(localStorage.getItem('sundayleague2')?'practice':null));
+}
+// the match may have been played while the page was open
+setInterval(()=>{if(ONLINE&&SCREEN==='game'&&V&&V.league&&!netBusy){if(Date.now()+SKEW>V.league.next_match_at+4000)goOnline('view');else if(S.phase==='week'&&S.tab==='room')renderPlan();}},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ONLINE&&SCREEN==='game'&&!netBusy&&Date.now()-viewAt>120000)goOnline('view');});
+
+// ───────────────────────── talking ─────────────────────────
+let bubble=null,parts=[],T=0,SAYDEF='';
+// what a reaction looks like in the gym
+function reactFx(p,before,strength){
+  if(p.fx)parts.push({x:clamp(p.x||160,70,1090),y:(p.y||300)-170,life:2.4,kind:'txt',txt:(p.fx[1]>0?'+ ':'− ')+STATNAME[p.fx[0]],col:p.fx[1]>0?'#2f9e44':'#e03131'});
+  const kind=p.mood==='happy'?'heart':p.mood==='angry'?'bolt':p.mood==='sad'||p.mood==='nervous'?'drop':p.mood==='cool'?'star':null;
+  if(kind&&(p.mood!==before||strength>=1))for(let k=0;k<(strength>=1?7:3);k++)parts.push({x:(p.x||0)+(R()-0.5)*70,y:300-80-R()*60,life:0.8+R()*0.8,kind});
+}
+function talk(tone){
+  const p=byId(S.me,S.sel);if(!p||p.talked||S.phase!=='week')return;
+  if(ONLINE){if(netBusy)return;netBusy++;
+    api('talk',{pid:p.id,tone}).then(v=>{applyView(v);const q=byId(S.me,v.said.pid);reactFx(q,v.said.before,1);bubble={id:q.id,text:v.said.text,t0:T};render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);
+    return;}
+  const before=p.mood;const r=talkTo(p,tone);reactFx(p,before,1);bubble={id:p.id,text:r[0],t0:T};
+  save();renderCard();renderPlan();
+}
+function teamTalk(tone){
+  if(S.me.teamTalked||S.phase!=='week')return;
+  if(ONLINE){if(netBusy)return;netBusy++;
+    api('teamtalk',{tone}).then(v=>{applyView(v);for(const p of S.me.players)if(p.mood!==v.team.before[p.id])reactFx(p,v.team.before[p.id],0.5);toast(v.team.msg);render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);
+    return;}
+  const before={};for(const p of S.me.players)before[p.id]=p.mood;
+  const res=teamTalkTo(S.me,tone);for(const p of S.me.players)reactFx(p,before[p.id],0.5);
+  toast(res.msg);
+  save();renderCard();renderPlan();
+}
+function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),4200);}
+
+// ───────────────────────── toon painter ─────────────────────────
+function bodyPath(c,bx,top,W,H,shape){
+  c.beginPath();
+  if(shape==='pear'){const r1=W*0.34,bw=W*0.62,bh=W*0.42,bot=top+H;c.moveTo(bx-r1,top+r1);c.arc(bx,top+r1,r1,Math.PI,0);c.bezierCurveTo(bx+r1,top+H*0.45,bx+bw,top+H*0.5,bx+bw,bot-bh);c.ellipse(bx,bot-bh,bw,bh,0,0,Math.PI);c.bezierCurveTo(bx-bw,top+H*0.5,bx-r1,top+H*0.45,bx-r1,top+r1);}
+  else{const r=W/2;c.moveTo(bx-r,top+r);c.arc(bx,top+r,r,Math.PI,0);c.lineTo(bx+r,top+H-r);c.arc(bx,top+H-r,r,0,Math.PI);}
+  c.closePath();
+}
+function pillH(c,x,y,w,h){const r=h/2;c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arc(x+w-r,y+r,r,-Math.PI/2,Math.PI/2);c.lineTo(x+r,y+h);c.arc(x+r,y+r,r,Math.PI/2,Math.PI*1.5);c.closePath();}
+function toon(c,p,x,y,s,t,o){
+  o=o||{};
+  const H=(70+p.h*60)*s,W=(50+p.bulk*30)*s,leg=20*s,lw=4*s;
+  const mood=o.mood||p.mood;
+  let bob=Math.sin(t*3+p.ph)*2.5*s,shake=0,sq=1+Math.sin(t*3+p.ph)*0.02,wob=0.25;
+  if(mood==='happy'){bob=-Math.abs(Math.sin(t*5+p.ph))*11*s;sq=1+Math.sin(t*10+p.ph*2)*0.04;wob=0.5;}
+  if(mood==='angry'){shake=Math.sin(t*38)*1.7*s;wob=0.45;}
+  if(mood==='nervous'){shake=Math.sin(t*26)*1.2*s;wob=0.6;}
+  if(mood==='sad'){bob=3*s;sq=0.97;}
+  if(o.sel){bob-=Math.abs(Math.sin(t*6))*5*s;}
+  const yawn=(mood==='ok'||mood==='cool')&&((t*0.6+p.ph*1.3)%9)<0.9;
+  const lean=p.shape==='bean'?Math.sin(t*1.5+p.ph)*0.05-0.07:0;
+  const bx=x+shake,top=y-leg-H*sq+bob,bot=top+H*sq;
+  c.save();c.lineJoin='round';c.lineCap='round';c.strokeStyle=INK;c.lineWidth=lw;
+  c.fillStyle='rgba(43,34,51,.18)';c.beginPath();c.ellipse(x,y+3*s,Math.max(8,W*0.62+bob*0.3),7*s,0,0,Math.PI*2);c.fill();
+  // legs + big sneakers
+  for(const d of [-1,1]){const lx=bx+d*W*0.22;const fy=y-3*s+(bob<0?bob*0.5:0);c.beginPath();c.moveTo(lx,bot-6*s);c.lineTo(lx,fy-2*s);c.stroke();c.fillStyle=d<0?'#fff':'#fff';c.beginPath();c.ellipse(lx+4*s,fy,12*s,7*s,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=p.col;c.beginPath();c.ellipse(lx+9*s,fy-1*s,4*s,3*s,0,0,Math.PI*2);c.fill();}
+  c.translate(bx,bot);c.rotate(lean);c.translate(-bx,-bot);
+  // arms
+  const armY=top+H*sq*0.55;const L=24*s;
+  const arm=(d,ang,len)=>{const ax=bx+d*W*0.47,ay=armY;const ex=ax+Math.cos(ang)*len*d,ey=ay+Math.sin(ang)*len;c.beginPath();c.moveTo(ax,ay);c.quadraticCurveTo(ax+d*len*0.6,ay+len*0.1,ex,ey);c.stroke();c.fillStyle=p.col;c.beginPath();c.arc(ex,ey,5.5*s,0,Math.PI*2);c.fill();c.stroke();return [ex,ey];};
+  const hasBall=o.ball&&mood!=='happy'&&mood!=='angry'&&mood!=='sad';
+  if(mood==='happy'){arm(-1,-1.1+Math.sin(t*10)*0.2,L);arm(1,-1.1-Math.sin(t*10)*0.2,L);}
+  else if(mood==='angry'){arm(-1,0.9,L*0.7);arm(1,0.9,L*0.7);}
+  else if(mood==='sad'){arm(-1,1.45,L);arm(1,1.45,L);}
+  else if(yawn){arm(-1,1.2,L);arm(1,-1.2,L);}
+  else{arm(-1,1.2+Math.sin(t*3+p.ph)*0.1,L);const h=arm(1,hasBall?0.5:1.2-Math.sin(t*3+p.ph)*0.1,L);
+    if(hasBall){const bb=Math.abs(Math.sin(t*4+p.ph));const by=lerp(y-9*s,h[1]+10*s,bb);c.fillStyle='#ff8c2a';c.beginPath();c.arc(h[0]+4*s,by,9*s,0,Math.PI*2);c.fill();c.stroke();c.lineWidth=lw*0.5;c.beginPath();c.moveTo(h[0]-5*s,by);c.lineTo(h[0]+13*s,by);c.stroke();c.lineWidth=lw;}}
+  // body + jersey
+  c.fillStyle=p.col;bodyPath(c,bx,top,W,H*sq,p.shape);c.fill();
+  c.save();bodyPath(c,bx,top,W,H*sq,p.shape);c.clip();c.fillStyle='#fff';c.fillRect(bx-W,top+H*sq*0.6,W*2,H);c.fillStyle='#ff9f1c';c.fillRect(bx-W,top+H*sq*0.6,W*2,6*s);c.restore();
+  bodyPath(c,bx,top,W,H*sq,p.shape);c.stroke();
+  c.fillStyle=INK;c.font=`900 ${Math.round(15*s)}px system-ui`;c.textAlign='center';c.fillText(p.num,bx,top+H*sq*0.6+24*s);
+  // head gear
+  const hw=p.shape==='pear'?W*0.68:W;
+  toppers(c,p,bx,top,hw,s,t,lw);
+  // googly eyes
+  const fy=top+hw*0.5,ex=hw*0.21,erB=hw*0.17;
+  const blink=((t+p.ph*3)%3.6)<0.12||yawn;
+  const look=Math.sin(t*0.7+p.ph)*0.3;
+  for(const d of [-1,1]){
+    const er=erB*(1+d*p.eye);
+    if(blink){c.beginPath();c.arc(bx+d*ex,fy,er*0.8,0.1*Math.PI,0.9*Math.PI);c.stroke();}
+    else{c.fillStyle='#fff';c.beginPath();c.arc(bx+d*ex,fy,er,0,Math.PI*2);c.fill();c.stroke();
+      let px=look*er+Math.sin(t*7+p.ph+d)*er*wob*0.5,py=Math.cos(t*5.3+p.ph+d*2)*er*wob*0.5;
+      if(mood==='sad'){py=er*0.4;px*=0.3;}
+      c.fillStyle=INK;c.beginPath();c.arc(bx+d*ex+px,fy+py,er*0.42,0,Math.PI*2);c.fill();
+      c.fillStyle='#fff';c.beginPath();c.arc(bx+d*ex+px-er*0.12,fy+py-er*0.14,er*0.12,0,Math.PI*2);c.fill();}
+    c.beginPath();
+    if(mood==='angry'){c.moveTo(bx+d*(ex+er),fy-er*1.55);c.lineTo(bx+d*(ex-er*0.8),fy-er*0.75);c.stroke();}
+    else if(mood==='sad'||mood==='nervous'){c.moveTo(bx+d*(ex+er),fy-er*0.9);c.lineTo(bx+d*(ex-er*0.7),fy-er*1.55);c.stroke();}
+    else if(mood==='cool'&&!yawn){c.moveTo(bx+d*(ex-er),fy-er*1.3);c.lineTo(bx+d*(ex+er),fy-er*1.3);c.stroke();}
+  }
+  // mouth
+  const er=erB,my=fy+er*1.9;
+  c.beginPath();
+  if(yawn){c.fillStyle='#7a2233';c.ellipse(bx,my,er*0.7,er*0.95,0,0,Math.PI*2);c.fill();c.stroke();}
+  else if(mood==='happy'){c.fillStyle='#7a2233';c.arc(bx,my-er*0.3,er*1.15,0,Math.PI);c.closePath();c.fill();c.stroke();if(p.temp==='joker'||p.teeth){c.fillStyle='#ff8fa3';c.beginPath();c.ellipse(bx+er*0.2,my+er*0.55,er*0.5,er*0.6,0,0,Math.PI*2);c.fill();c.stroke();}c.fillStyle='#ffb3c1';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*hw*0.36,fy+er*1.1,er*0.5,0,Math.PI*2);c.fill();}}
+  else if(mood==='angry'){c.fillStyle='#fff';c.rect(bx-er*1.1,my-er*0.5,er*2.2,er*0.9);c.fill();c.stroke();c.beginPath();for(let k=-1;k<=1;k++){c.moveTo(bx+k*er*0.55,my-er*0.5);c.lineTo(bx+k*er*0.55,my+er*0.4);}c.stroke();}
+  else if(mood==='sad'){c.arc(bx,my+er*0.9,er*0.9,Math.PI*1.2,Math.PI*1.8);c.stroke();}
+  else if(mood==='nervous'){c.moveTo(bx-er,my);for(let k=0;k<=6;k++)c.lineTo(bx-er+k*er/3,my+(k%2?-1:1)*er*0.22);c.stroke();}
+  else if(mood==='cool'){c.moveTo(bx-er*0.8,my);c.lineTo(bx+er*0.8,my);c.stroke();}
+  else{c.arc(bx,my-er*0.5,er*0.9,Math.PI*0.15,Math.PI*0.85);c.stroke();if(p.teeth){c.fillStyle='#fff';c.fillRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.strokeRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.beginPath();c.moveTo(bx,my+er*0.2);c.lineTo(bx,my+er*0.75);c.stroke();}}
+  // mood marks
+  if(mood==='angry'){const mx=bx+hw*0.6,mmy=top-2*s;c.strokeStyle='#ef476f';for(const a of [0,1,2,3]){const ang=a*Math.PI/2+Math.PI/4;c.beginPath();c.arc(mx+Math.cos(ang)*8*s,mmy+Math.sin(ang)*8*s,5*s,ang+Math.PI*0.75,ang+Math.PI*1.25);c.stroke();}c.strokeStyle=INK;
+    const k=(t*2+p.ph)%1;c.fillStyle='rgba(255,255,255,.8)';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*(hw*0.55+k*14*s),top+hw*0.5-k*10*s,(3+k*5)*s,0,Math.PI*2);c.globalAlpha=1-k;c.fill();c.globalAlpha=1;}}
+  if(mood==='nervous'){const k=(t*1.3+p.ph)%1;c.fillStyle='#6ec6ff';const dx=bx+hw*0.55,dy=top+10*s+k*26*s;c.beginPath();c.moveTo(dx,dy-8*s);c.quadraticCurveTo(dx+7*s,dy+4*s,dx,dy+6*s);c.quadraticCurveTo(dx-7*s,dy+4*s,dx,dy-8*s);c.globalAlpha=1-k;c.fill();c.stroke();c.globalAlpha=1;}
+  if(mood==='sad'){c.fillStyle='#9aa7c7';c.beginPath();const cx=bx,cy=top-30*s;c.arc(cx-10*s,cy,9*s,0,Math.PI*2);c.arc(cx+2*s,cy-5*s,11*s,0,Math.PI*2);c.arc(cx+13*s,cy,8*s,0,Math.PI*2);c.fill();c.stroke();c.strokeStyle='#6b7fd7';c.lineWidth=lw*0.7;for(let k=0;k<3;k++){const kk=(t*1.5+k*0.33)%1;c.beginPath();c.moveTo(cx-10*s+k*10*s,cy+10*s+kk*10*s);c.lineTo(cx-10*s+k*10*s,cy+15*s+kk*10*s);c.stroke();}c.strokeStyle=INK;c.lineWidth=lw;}
+  if(mood==='happy'){const k=(t*1.5+p.ph)%1;c.fillStyle='#ffd23f';for(const d of [-1,1]){const sx=bx+d*hw*0.8,sy=top+12*s-k*14*s;c.beginPath();for(let q=0;q<8;q++){const rr=q%2?3*s:8*s,a=q*Math.PI/4;c.lineTo(sx+Math.cos(a)*rr,sy+Math.sin(a)*rr);}c.closePath();c.globalAlpha=1-k;c.fill();c.stroke();c.globalAlpha=1;}}
+  if(yawn){c.fillStyle=INK;c.font=`900 ${Math.round(13*s)}px system-ui`;c.fillText('z',bx+hw*0.6,top-4*s);c.font=`900 ${Math.round(17*s)}px system-ui`;c.fillText('Z',bx+hw*0.78,top-16*s);}
+  c.restore();
+  return {top:top,W,H};
+}
+function toppers(c,p,bx,top,W,s,t,lw){
+  c.fillStyle=INK;
+  switch(p.top){
+    case 'horns':for(const d of [-1,1]){c.fillStyle='#fff3d6';c.beginPath();c.moveTo(bx+d*W*0.2,top+6*s);c.lineTo(bx+d*W*0.5,top-16*s);c.lineTo(bx+d*W*0.42,top+10*s);c.closePath();c.fill();c.stroke();}break;
+    case 'tuft':c.beginPath();c.moveTo(bx-6*s,top+2*s);c.quadraticCurveTo(bx-10*s,top-16*s,bx,top-10*s);c.quadraticCurveTo(bx+10*s,top-20*s,bx+7*s,top+2*s);c.fillStyle=p.col;c.fill();c.stroke();break;
+    case 'antenna':{const ax=bx+Math.sin(t*4+p.ph)*5*s;c.beginPath();c.moveTo(bx,top);c.quadraticCurveTo(bx+6*s,top-14*s,ax,top-22*s);c.stroke();c.fillStyle='#ffd23f';c.beginPath();c.arc(ax,top-25*s,5.5*s,0,Math.PI*2);c.fill();c.stroke();break;}
+    case 'mohawk':c.fillStyle=INK;for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(bx+k*5*s-3*s,top+3*s);c.lineTo(bx+k*5*s,top-15*s+Math.abs(k)*3*s);c.lineTo(bx+k*5*s+3*s,top+3*s);c.closePath();c.fill();}break;
+    case 'cap':c.fillStyle='#4d9de0';c.beginPath();c.arc(bx,top+W*0.26,W*0.5,Math.PI,0);c.closePath();c.fill();c.stroke();c.beginPath();c.moveTo(bx+W*0.3,top+W*0.26);c.lineTo(bx+W*0.8,top+W*0.3);c.stroke();break;
+    case 'bun':c.fillStyle=p.col;c.beginPath();c.arc(bx,top-7*s,10*s,0,Math.PI*2);c.fill();c.stroke();break;
+    case 'band':c.fillStyle='#fff';c.fillRect(bx-W*0.47,top+W*0.14,W*0.94,8*s);c.strokeRect(bx-W*0.47,top+W*0.14,W*0.94,8*s);break;
+    case 'propeller':{c.fillStyle='#ef476f';c.beginPath();c.arc(bx,top+W*0.2,W*0.42,Math.PI,0);c.closePath();c.fill();c.stroke();c.beginPath();c.moveTo(bx,top+W*0.2-W*0.42);c.lineTo(bx,top-12*s);c.stroke();const a=t*14;c.fillStyle='#ffd23f';c.beginPath();c.ellipse(bx,top-13*s,Math.abs(Math.cos(a))*18*s+3*s,4*s,0,0,Math.PI*2);c.fill();c.stroke();break;}
+    case 'cone':c.fillStyle='#ff9f1c';c.beginPath();c.moveTo(bx-13*s,top+5*s);c.lineTo(bx,top-30*s);c.lineTo(bx+13*s,top+5*s);c.closePath();c.fill();c.stroke();c.fillStyle='#fff';c.fillRect(bx-7*s,top-10*s,14*s,5*s);break;
+    case 'duck':{const dy=top-8*s+Math.sin(t*3+p.ph)*1.5*s;c.fillStyle='#ffd23f';c.beginPath();c.ellipse(bx,dy,13*s,9*s,0,0,Math.PI*2);c.fill();c.stroke();c.beginPath();c.arc(bx+9*s,dy-9*s,7*s,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#ff9f1c';c.beginPath();c.moveTo(bx+15*s,dy-10*s);c.lineTo(bx+24*s,dy-8*s);c.lineTo(bx+15*s,dy-5*s);c.closePath();c.fill();c.stroke();c.fillStyle=INK;c.beginPath();c.arc(bx+11*s,dy-11*s,1.6*s,0,Math.PI*2);c.fill();break;}
+    case 'sprout':c.beginPath();c.moveTo(bx,top+2*s);c.lineTo(bx,top-12*s);c.stroke();c.fillStyle='#6bcb77';for(const d of [-1,1]){c.beginPath();c.ellipse(bx+d*8*s,top-15*s,9*s,5*s,d*-0.5+Math.sin(t*2+p.ph)*0.1,0,Math.PI*2);c.fill();c.stroke();}break;
+    case 'crown':c.fillStyle='#ffd23f';c.beginPath();c.moveTo(bx-14*s,top+4*s);c.lineTo(bx-16*s,top-14*s);c.lineTo(bx-7*s,top-5*s);c.lineTo(bx,top-18*s);c.lineTo(bx+7*s,top-5*s);c.lineTo(bx+16*s,top-14*s);c.lineTo(bx+14*s,top+4*s);c.closePath();c.fill();c.stroke();break;
+    case 'pan':c.fillStyle='#8d99ae';c.beginPath();c.ellipse(bx,top+2*s,W*0.5,8*s,0,Math.PI,0);c.closePath();c.fill();c.stroke();c.lineWidth=lw*1.6;c.beginPath();c.moveTo(bx+W*0.5,top);c.lineTo(bx+W*0.5+20*s,top-6*s);c.stroke();c.lineWidth=lw;break;
+  }
+}
+
+// ───────────────────────── the gym ─────────────────────────
+const gym=$('gym'),g=gym.getContext('2d');
+const SLOT=i=>110+i*157;
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+function wrapText(c,text,maxW){const words=text.split(' ');const lines=[];let cur='';for(const w of words){const tt=cur?cur+' '+w:w;if(c.measureText(tt).width>maxW&&cur){lines.push(cur);cur=w;}else cur=tt;}if(cur)lines.push(cur);return lines;}
+function drawGym(t,dt){
+  const W=1160,H=400;const me=S.me;if(!me)return;
+  g.fillStyle='#bfe9ff';g.fillRect(0,0,W,H);g.fillStyle='#a8dcf7';for(let i=0;i<W;i+=58){g.fillRect(i,0,29,210);}
+  g.lineWidth=5;g.strokeStyle=INK;g.fillStyle='#fff';g.fillRect(1030,40,96,66);g.strokeRect(1030,40,96,66);g.strokeStyle='#ef476f';g.strokeRect(1058,62,40,30);g.strokeStyle=INK;g.fillStyle='#ff9f1c';g.fillRect(1052,104,52,8);g.strokeRect(1052,104,52,8);
+  g.lineWidth=2;for(let k=0;k<5;k++){g.beginPath();g.moveTo(1056+k*11,112);g.lineTo(1062+k*8,140);g.stroke();}
+  g.save();g.translate(40,36);g.rotate(-0.04);g.font='900 21px system-ui';const bn='GO '+me.name.toUpperCase().replace(/^THE /,'')+'!';const bw=g.measureText(bn).width+40;g.fillStyle='#ffd23f';g.lineWidth=4;g.fillRect(0,0,bw,44);g.strokeRect(0,0,bw,44);g.fillStyle=INK;g.textAlign='center';g.fillText(bn,bw/2,30);g.restore();
+  g.fillStyle='#f2c078';g.fillRect(0,210,W,190);g.fillStyle='#e9b165';for(let i=0;i<W;i+=80){g.fillRect(i,210,3,190);}
+  g.lineWidth=5;g.strokeStyle=INK;g.beginPath();g.moveTo(0,210);g.lineTo(W,210);g.stroke();
+  g.strokeStyle='#fff';g.lineWidth=6;g.beginPath();g.ellipse(SLOT(1),330,300,62,0,Math.PI,0);g.stroke();
+  g.fillStyle='#4d9de0';g.strokeStyle=INK;g.lineWidth=4;g.fillRect(SLOT(3)-70,252,SLOT(6)-SLOT(3)+140,16);g.strokeRect(SLOT(3)-70,252,SLOT(6)-SLOT(3)+140,16);
+  for(const bx of [SLOT(3)-50,SLOT(6)+50]){g.fillRect(bx-5,268,10,22);g.strokeRect(bx-5,268,10,22);}
+  // slots: starters first (in their order), then bench in squad order
+  const starters=me.starters.map(id=>byId(me,id)).filter(Boolean);
+  const subsP=me.subs.map(id=>byId(me,id)).filter(Boolean);
+  const bench=[...subsP,...me.players.filter(p=>!me.starters.includes(p.id)&&!me.subs.includes(p.id))];
+  const out=S.rule==='tall_out'?tallestId(me):null;
+  const order=[];
+  starters.forEach((p,i)=>order.push([p,SLOT(i),336,1,true]));
+  bench.forEach((p,i)=>order.push([p,SLOT(Math.max(3,starters.length)+i-(Math.max(3,starters.length)-3)),300,0.86,false]));
+  const boxes={};
+  for(const [p,tx,ty,ts,st] of [...order].sort((a,b)=>a[2]-b[2])){
+    if(p.x===null||p.x===undefined){p.x=tx;p.y=ty;p.s=ts;}
+    p.x=lerp(p.x,tx,Math.min(1,dt*7));p.y=lerp(p.y,ty,Math.min(1,dt*7));p.s=lerp(p.s,ts,Math.min(1,dt*7));
+    const b=toon(g,p,p.x,p.y,p.s,t,{sel:p.id===S.sel,ball:me.ball===p.id});boxes[p.id]={x:p.x,y:p.y,top:b.top};
+    g.font='800 15px system-ui';const tw=g.measureText(p.n).width+22;g.lineWidth=3;g.strokeStyle=INK;g.fillStyle=p.id===S.sel?'#ffd23f':'#fff';pillH(g,p.x-tw/2,p.y+10,tw,24);g.fill();g.stroke();g.fillStyle=INK;g.textAlign='center';g.fillText(p.n,p.x,p.y+27);
+    if(st){g.fillStyle='#6bcb77';g.font='900 11px system-ui';pillH(g,p.x-26,p.y+38,52,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('STARTS',p.x,p.y+51);}
+    else if(me.subs.includes(p.id)){g.fillStyle='#74c0fc';g.font='900 11px system-ui';pillH(g,p.x-20,p.y+38,40,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SUB',p.x,p.y+51);}
+    else if(p.id===out){g.fillStyle='#ffb3b3';g.font='900 11px system-ui';pillH(g,p.x-32,p.y+38,64,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SITS OUT',p.x,p.y+51);}
+    if(p.talked){g.fillStyle='#4d9de0';g.beginPath();g.arc(p.x+tw/2+2,p.y+12,9,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#fff';g.font='900 12px system-ui';g.fillText('✓',p.x+tw/2+2,p.y+16);}
+  }
+  parts=parts.filter(q=>q.life>0);
+  for(const q of parts){q.y-=(q.kind==='txt'?16:40)*dt;if(q.kind!=='txt')q.x+=Math.sin(q.life*8)*0.6;q.life-=dt;g.globalAlpha=Math.min(1,q.life*1.5);g.lineWidth=3;g.strokeStyle=INK;
+    if(q.kind==='heart'){g.fillStyle='#ff5d8f';g.beginPath();g.moveTo(q.x,q.y+6);g.bezierCurveTo(q.x-14,q.y-6,q.x-6,q.y-16,q.x,q.y-6);g.bezierCurveTo(q.x+6,q.y-16,q.x+14,q.y-6,q.x,q.y+6);g.fill();g.stroke();}
+    else if(q.kind==='bolt'){g.fillStyle='#ef476f';g.beginPath();g.moveTo(q.x-3,q.y-10);g.lineTo(q.x+6,q.y-10);g.lineTo(q.x+1,q.y-2);g.lineTo(q.x+7,q.y-2);g.lineTo(q.x-5,q.y+10);g.lineTo(q.x-1,q.y+1);g.lineTo(q.x-7,q.y+1);g.closePath();g.fill();g.stroke();}
+    else if(q.kind==='txt'){g.font='900 18px system-ui';g.textAlign='center';g.lineWidth=5;g.strokeStyle='#fff';g.strokeText(q.txt,q.x,q.y);g.fillStyle=q.col;g.fillText(q.txt,q.x,q.y);g.strokeStyle=INK;}
+    else if(q.kind==='star'){g.fillStyle='#ffd23f';g.beginPath();for(let k=0;k<10;k++){const r2=k%2?4:9,a=k*Math.PI/5-Math.PI/2;g.lineTo(q.x+Math.cos(a)*r2,q.y+Math.sin(a)*r2);}g.closePath();g.fill();g.stroke();}
+    else{g.fillStyle='#6ec6ff';g.beginPath();g.arc(q.x,q.y,5,0,Math.PI*2);g.fill();g.stroke();}
+    g.globalAlpha=1;}
+  if(bubble&&t-bubble.t0<7&&boxes[bubble.id]){
+    const b=boxes[bubble.id];const k=Math.min(1,(t-bubble.t0)*5);const sc=0.6+0.4*k+Math.sin(k*Math.PI)*0.12;
+    g.font='800 17px system-ui';const lines=wrapText(g,bubble.text,220);const bw=Math.max(...lines.map(l=>g.measureText(l).width))+30,bh=lines.length*22+20;
+    const bx=clamp(b.x-bw/2,10,W-bw-10),by=Math.max(8,b.top-bh-40);
+    g.save();g.translate(b.x,b.top-16);g.scale(sc,sc);g.translate(-b.x,-(b.top-16));
+    g.fillStyle='#fff';g.strokeStyle=INK;g.lineWidth=4;
+    g.beginPath();g.moveTo(b.x-10,by+bh-2);g.lineTo(b.x,b.top-22);g.lineTo(b.x+12,by+bh-2);g.closePath();g.fill();g.stroke();
+    rr(g,bx,by,bw,bh,16);g.fill();g.stroke();g.fillStyle='#fff';g.fillRect(b.x-8,by+bh-5,18,6);
+    g.fillStyle=INK;g.textAlign='left';lines.forEach((l,i)=>g.fillText(l,bx+15,by+28+i*22));
+    g.restore();
+  }
+}
+gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRect();const mx=(e.clientX-r.left)*1160/r.width;let best=null,bd=1e9;for(const p of S.me.players){const d=Math.abs((p.x||0)-mx);if(d<bd){bd=d;best=p;}}if(best){S.sel=best.id;renderCard();}});
+
+// ───────────────────────── screens ─────────────────────────
+const pips=(n,label,tr)=>{n=Math.round(n);const ar=tr>0.04?'<b style="color:#2f9e44">▲</b>':tr<-0.04?'<b style="color:#e03131">▼</b>':'';return `<div class="pip">${label} ${[1,2,3,4].map(k=>`<i class="${k<=n?'f':''}"></i>`).join('')}${ar}</div>`;};
+const TRUSTW=['does not trust you','is wary of you','is unsure about you','trusts you','would run through a wall for you'];
+const MOODTIP={happy:'Buzzing: shoots better and loves a fast game. A good day to be the star.',cool:'Locked in: defends better, follows set plays, holds a zone, can shadow their star.',ok:'Fine: plays to the dots, nothing more, nothing less.',nervous:'Anxious: rushes shots and fumbles in a fast game. A slow tempo steadies them. Never the star today.',sad:'Sulking: slow and half-hearted. Poor in a fast game or a press, and does not get back on defence.',angry:'Fuming: ignores the plan and wanders out of a zone, but hounds the ball in a press and fights for rebounds.'};
+const DESC={
+  tempo:['Fewer, harder shots, fresher legs. Takes the running out of a quick team. Steadies anxious players.','Nothing special.','More shots and fast breaks if you are quicker. Tires legs. Bad for sulking or anxious players.'],
+  shots:['Close shots. Height decides.','A bit of both.','Long shots. Attack dots decide.'],
+  off:['Everyone shoots. Nobody for them to double. Bad if a starter is in no state to shoot.','Most balls go to your star. As good as the mood of your star today.','Rehearsed moves. Work only if the starters trust you. Spoiled by a fast tempo or by their press.'],
+  def:['Each guards his man. Defence dots decide.','Guards the hoop, leaves long shots open. Hides weak defenders. Fuming players wander out of it.','Steals the ball, tires you, gives easy shots when beaten. Fuming players love it, sulking ones jog.'],
+  guard:['Nobody special on their star.','Your best defender follows their star everywhere. Tiring, and their others get a little more room.','Two on their star. Stops the star, leaves someone else open. Bad against a team that shares.'],
+  boards:['Run back after every shot. Stops their fast breaks, gives up second shots.','A bit of both.','Everyone to the hoop for second shots. A quick team runs past you. Tires legs.']};
+const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
+function render(){
+  $('start').classList.toggle('hide',SCREEN==='game');
+  $('foot').textContent=SCREEN!=='game'?'':ONLINE?'online league · a match every Wednesday and Sunday':'practice mode · seven rival teams are run by the computer';
+  if(SCREEN!=='game'){for(const id of ['tabs','chipTeam','chipCup','draft','room','league'])$(id).classList.add('hide');renderStart();return;}
+  const inLeague=S.phase!=='draft';
+  $('tabs').classList.toggle('hide',!inLeague);
+  $('chipTeam').classList.toggle('hide',!inLeague);$('chipCup').classList.toggle('hide',!inLeague);
+  $('draft').classList.toggle('hide',S.phase!=='draft');
+  $('room').classList.toggle('hide',!inLeague||S.tab!=='room');
+  $('league').classList.toggle('hide',!inLeague||S.tab!=='league');
+  $('tRoom').classList.toggle('on',S.tab==='room');$('tLeague').classList.toggle('on',S.tab==='league');
+  if(S.phase==='draft'){renderDraft();return;}
+  const pl=placeOf(S.me);
+  $('chipTeam').innerHTML=`${S.me.name} · <b>${ord(pl)}</b>`;
+  $('chipCup').innerHTML=S.phase==='cupend'?`League ${S.cup} is over`:`League ${S.cup} · ${ONLINE?'Match':'Sunday'} <b>${S.sunday}</b> of ${ONLINE?V.league.of:7}${nextOpp()&&S.phase==='week'?' · vs '+nextOpp().name:''}`;
+  const rule=ruleOf(ONLINE&&S.phase==='results'&&S.lastResults?S.lastResults.rule:S.rule);$('ruleLab').textContent=S.phase==='cupend'?'FIRST RULE OF THE NEXT LEAGUE':S.phase==='results'?'THIS MATCH WAS PLAYED UNDER':ONLINE?'RULE OF THE NEXT MATCH':'RULE OF THE WEEK';$('ruleTxt').textContent=rule.txt;$('ruleWhy').textContent=rule.why;
+  $('weekUI').classList.toggle('hide',S.phase!=='week');
+  $('resUI').classList.toggle('hide',S.phase==='week');
+  if(S.phase==='week'){renderCard();renderPlan();}
+  if(S.phase==='results')renderResults();
+  if(S.phase==='cupend')renderCupEnd();
+  if(S.tab==='league')renderLeague();
+}
+function renderCard(){
+  const me=S.me;let p=byId(me,S.sel);if(!p){p=me.players[0];S.sel=p.id;}
+  const out=S.rule==='tall_out'&&tallestId(me)===p.id;const st=me.starters.includes(p.id),sb=me.subs.includes(p.id);
+  const role=out?'sits out this '+DAY()+' (the rule)':st?'starts on '+DAY():sb?'is a substitute':'is not playing this '+DAY();
+  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${heightWord(p.h)[0].toUpperCase()+heightWord(p.h).slice(1)}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}</div><div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
+  $('pcard').classList.remove('pop');void $('pcard').offsetWidth;$('pcard').classList.add('pop');
+  $('bStart').onclick=()=>{if(st){me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else if(me.starters.length<3){me.starters.push(p.id);me.subs=me.subs.filter(id=>id!==p.id);}else toast('Three start. Take someone off first.');save();renderCard();renderPlan();};
+  $('bSub').onclick=()=>{if(sb){me.subs=me.subs.filter(id=>id!==p.id);}else if(me.subs.length<2){me.subs.push(p.id);me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else toast('Two substitutes at most.');save();renderCard();renderPlan();};
+  $('bBall').onclick=()=>{me.ball=me.ball===p.id?null:p.id;save();renderCard();renderPlan();};
+  $('talkh').textContent=p.talked?`You have talked to ${p.n}`:`Talk to ${p.n}`;
+  const mk=t=>p.notes[t]==='good'?'<span class="mark" style="color:#2f9e44">✓</span>':p.notes[t]==='bad'?'<span class="mark" style="color:#e03131">✗</span>':p.notes[t]==='meh'?'<span class="mark" style="color:#868e96">~</span>':'';
+  $('tones').innerHTML=TONES.map(t=>`<button data-t="${t}" ${p.talked?'disabled':''}>${TONE_LABEL[t]}${mk(t)}</button>`).join('');
+  $('talkres').innerHTML=p.talked&&p.lastRes?p.lastRes:'';
+  SAYDEF=`You have tried ${Object.keys(p.notes).length} of 9 talks with ${p.n}. ✓ worked, ✗ backfired, ~ nothing much.`;$('sayhint').textContent=SAYDEF;
+  $('teamh').textContent=S.me.teamTalked?'You have talked to the whole team':'Talk to the whole team';
+  $('teamtones').innerHTML=TONES.map(t=>`<button data-t="${t}" ${S.me.teamTalked?'disabled':''}>${TONE_LABEL[t]}</button>`).join('');
+}
+function oppView(op){
+  let top=(op.starters||[]).map(id=>byId(op,id)).filter(Boolean);
+  if(top.length<3)top=[...op.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3);
+  const star=byId(op,op.ball)||[...top].sort((a,b)=>b.sh-a.sh)[0];
+  const ls=S.lastSheets&&S.lastSheets.find(x=>x.name===op.name);
+  return {top,star,last:ls?ls.sheet:null};
+}
+// the assistant: what this plan means for these players, in this mood, against this opponent
+function planCheck(){
+  const me=S.me,sh=me.sheet,L=[];
+  const st=me.starters.map(id=>byId(me,id)).filter(Boolean);
+  if(st.length<3)return [[0,'Pick three starters and I will tell you what I think of the plan.']];
+  const op=nextOpp(),ov=op?oppView(op):null,ol=ov&&ov.last,oStar=ov&&ov.star;
+  const star=byId(me,me.ball);
+  const names=a=>a.map(p=>p.n).join(' and '),are=a=>a.length>1?'are':'is';
+  const is=m=>st.filter(p=>p.mood===m);
+  const sad=is('sad'),nerv=is('nervous'),ang=is('angry'),cool=is('cool');
+  const A=(a,f)=>a.reduce((x,p)=>x+f(p),0)/a.length;
+  const mySp=A(st,p=>p.sp),myH=A(st,p=>p.h),mySh=A(st,p=>p.sh),myDf=A(st,p=>p.df);
+  const oSp=ov?A(ov.top,p=>p.sp):2.5,oH=ov?A(ov.top,p=>p.h):0.5,oSh=ov?A(ov.top,p=>p.sh):2.5;
+  const noRun=S.rule==='no_dribble'||S.rule==='tiny_court';
+  const ro=p=>MOODFX[p.mood][2]+0.08*p.trust;
+  // tempo
+  if(sh.tempo===2){
+    if(sad.length)L.push([-1,`${names(sad)} ${are(sad)} sulking and will drag in a fast game.`]);
+    else if(nerv.length)L.push([-1,`A fast game rushes ${names(nerv)}, who ${are(nerv)} anxious, into fumbles.`]);
+    else if(noRun)L.push([-1,'Nobody can run under this week\'s rule. A fast tempo only tires legs.']);
+    else if(mySp>oSp+0.15)L.push([1,'You are quicker than them: a fast tempo gives you fast breaks.']);
+    else if(mySp<=oSp)L.push([-1,'They are at least as quick as you: a fast tempo only tires your legs.']);
+  }
+  if(sh.tempo===0){
+    if(nerv.length)L.push([1,`A slow game steadies the nerves of ${names(nerv)}.`]);
+    else if(!noRun&&mySp>oSp+0.5)L.push([-1,'You are much quicker than them and a slow game wastes it.']);
+    else if(!noRun&&oSp>mySp&&ol&&ol.tempo===2)L.push([1,'They are quicker and played fast last time: a slow game takes the running out of them.']);
+  }
+  // shots
+  if(sh.shots===0){
+    if(ol&&ol.def===1)L.push([-1,'They played a zone last time. A zone guards the hoop against close shots.']);
+    else if(myH>oH+0.1)L.push([1,'You are taller than them: close shots will go in.']);
+    else if(myH<oH-0.1)L.push([-1,'They are taller than you: close shots will be hard.']);
+  }
+  if(sh.shots===2){
+    if(ol&&ol.def===1)L.push([1,'They played a zone last time: it leaves long shots open.']);
+    else if(mySh>=3)L.push([1,'Your starters shoot well enough to live outside.']);
+    else if(mySh<=2.2)L.push([-1,'Your starters are poor shooters. Long shots will mostly miss.']);
+  }
+  // attack
+  if(sh.off===1){
+    if(!star)L.push([-1,'Star ball with no star. Open a starter\'s card and press "Make the star".']);
+    else{const m=star.mood;
+      if(m==='nervous')L.push([-1,`${star.n} is anxious and will crumble with every ball coming to him.`]);
+      else if(m==='sad')L.push([-1,`${star.n} is sulking. Do not build the attack on him today.`]);
+      else if(m==='angry'&&star.temp!=='fighter')L.push([-1,`${star.n} is fuming and will force bad shots as the star.`]);
+      else if(star.sh<2.5)L.push([-1,`${star.n} is not a good enough shooter to carry the attack.`]);
+      else if(m==='happy'||m==='cool'||m==='angry')L.push([1,`${star.n} is ${WORD[m]}: the right day to run everything through him.`]);
+      if(ol&&ol.guard===2)L.push([-1,'They double-teamed the star last time. Star ball walks into that.']);
+      else if(ol&&ol.guard===1)L.push([-1,'They put a shadow on the star last time.']);
+    }
+  }
+  if(sh.off===2){const r=A(st,ro),worst=[...st].sort((a,b)=>ro(a)-ro(b))[0];
+    if(r>=1.03)L.push([1,'Your starters trust you: they will run the set plays properly.']);
+    else if(r<0.95)L.push([-1,`${worst.n} ${worst.mood==='angry'?'is fuming and will ignore':worst.mood==='sad'?'is sulking and will forget':'does not trust you enough to follow'} the set plays.`]);
+    else L.push([0,'Set plays live on trust. Your starters trust you only so-so, so expect little.']);
+    if(sh.tempo===2)L.push([-1,'Set plays need time. A fast tempo breaks them.']);
+    if(ol&&ol.def===2)L.push([-1,'They pressed last time. A press breaks the rhythm of set plays.']);
+  }
+  if(sh.off===0){const weak=[...sad,...nerv];
+    if(weak.length)L.push([-1,`Sharing means ${names(weak)}, in no state to shoot, ${weak.length>1?'shoot':'shoots'} as often as anyone.`]);
+    else if(ol&&ol.guard===2)L.push([1,'They double-teamed the star last time. Sharing gives them nobody to double.']);
+  }
+  // defence
+  if(sh.def===2){
+    if(sad.length)L.push([-1,`${names(sad)} ${are(sad)} sulking and will not chase in a press.`]);
+    else if(ang.length)L.push([1,`${names(ang)} ${are(ang)} fuming: just right for hounding the ball in a press.`]);
+    if(ol&&ol.off===2)L.push([1,'They ran set plays last time. A press breaks their rhythm.']);
+    if(S.rule==='iron')L.push([-1,'No substitutions this week. A press burns your starters out.']);
+    else if(!me.subs.length)L.push([-1,'A press with no substitutes: legs gone by the end.']);
+  }
+  if(sh.def===1){
+    if(ang.length)L.push([-1,`${names(ang)} ${are(ang)} fuming and will wander out of the zone.`]);
+    else if(cool.length)L.push([1,`${names(cool)} ${are(cool)} locked in and will hold the zone tight.`]);
+    if(ol&&ol.shots===2)L.push([-1,'They shot from outside last time. A zone leaves exactly that open.']);
+    else if(oSh>=3)L.push([-1,'They shoot well. A zone leaves long shots open.']);
+    else if(oH>myH+0.1)L.push([1,'They are taller than you: a zone protects the hoop.']);
+    else if(ol&&ol.shots===0)L.push([1,'They went inside last time: a zone protects the hoop.']);
+    if(myDf<=2.2)L.push([1,'A zone hides your weak defenders.']);
+    else if(myDf>=3.2)L.push([-1,'Your starters are fine defenders, and a zone wastes that.']);
+  }
+  if(sh.def===0){
+    if(myDf>=3)L.push([1,'Your starters defend well: man to man lets each win his own duel.']);
+    else if(myDf<=2.1)L.push([-1,'Your starters defend poorly, and man to man leaves each alone with his man.']);
+  }
+  // their star
+  if(oStar){
+    if(sh.guard===2){
+      if(ol&&ol.off===1)L.push([1,`They ran everything through ${oStar.n} last time: two on him should hurt.`]);
+      else if(ol&&ol.off===0)L.push([-1,'They shared the ball last time. A double team leaves someone open.']);
+      else L.push([0,`Doubling ${oStar.n} pays only if they keep giving him the ball.`]);
+    }
+    if(sh.guard===1){const s=[...st].sort((a,b)=>b.df-a.df)[0];
+      if(s.mood==='angry'&&s.temp!=='fighter')L.push([-1,`${s.n}, your best defender, is fuming and will be reckless shadowing ${oStar.n}.`]);
+      else if(s.mood==='sad')L.push([-1,`${s.n}, your best defender, is sulking and will not stick to ${oStar.n}.`]);
+      else if(s.df<2.5)L.push([-1,`${s.n} is your best defender and still not good enough to shadow ${oStar.n}.`]);
+      else if(s.mood==='cool')L.push([1,`${s.n} is locked in and will stick to ${oStar.n} like glue.`]);
+      else L.push([0,`${s.n} will shadow ${oStar.n}. It will tire him.`]);
+    }
+    if(sh.guard===0&&ol&&ol.off===1&&oStar.sh>=3)L.push([-1,`${oStar.n} got the ball all game last time, and you have nobody on him.`]);
+  }
+  // rebounds
+  if(sh.boards===2){
+    if(!noRun&&oSp>mySp)L.push([-1,'They are quicker: send everyone to the hoop and they run past you.']);
+    else if(myH>oH+0.1)L.push([1,'You are taller: crashing the hoop wins second shots.']);
+    else if(sad.length)L.push([-1,`${names(sad)} will not fight for rebounds while sulking.`]);
+    else if(ang.length)L.push([1,`${names(ang)} will fight for every rebound.`]);
+  }
+  if(sh.boards===0){
+    if(noRun)L.push([-1,'Nobody can run under this week\'s rule. Getting back guards against nothing.']);
+    else if(oSp<=mySp)L.push([-1,'They are not quicker than you. Getting back guards against nothing and gives up second shots.']);
+    else if(ol&&ol.tempo===2)L.push([1,'They are quicker and played fast last time: getting back stops their fast breaks.']);
+    else L.push([0,'They are quicker, but only a fast tempo lets them use it. Getting back is a guess.']);
+  }
+  return L;
+}
+function renderPlan(){
+  const sh=S.me.sheet;
+  document.querySelectorAll('.seg').forEach(s=>{const k=s.dataset.k;[...s.children].forEach((b,i)=>b.classList.toggle('on',sh[k]===i));});
+  const n=S.me.starters.length;
+  document.querySelectorAll('.dial .d').forEach(d=>{d.textContent=DESC[d.dataset.d][sh[d.dataset.d]];});
+  const sn=S.me.subs.map(id=>byId(S.me,id)).filter(Boolean).map(q=>q.n);
+  const idle=S.me.players.filter(q=>!S.me.starters.includes(q.id)&&!S.me.subs.includes(q.id)).map(q=>q.n);
+  $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
+  const op=nextOpp();if(op){const ov=oppView(op);
+    $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`;}
+  const L=planCheck();
+  $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant looks at this plan, your players today, and the opponent</div>'+(L.length?L.map(([k,t])=>`<div class="chk ${k>0?'g':k<0?'b':''}"><i>${k>0?'✓':k<0?'✗':'·'}</i><span>${t}</span></div>`).join(''):'<div class="chk"><i>·</i><span>Nothing stands out. A plain plan for a plain day.</span></div>');
+  $('planH').textContent='Game plan for '+DAY();
+  $('play').classList.toggle('hide',ONLINE);$('nextInfo').classList.toggle('hide',!ONLINE);
+  $('play').disabled=n!==3;$('play').textContent=n===3?'Play Sunday!':`Pick three starters (${n} of 3)`;
+  $('playNote').textContent=ONLINE?'':'Practice mode: you press the button. In the online league the match comes by itself.';
+  if(ONLINE){const t=V.league.next_match_at,left=t-(Date.now()+SKEW);
+    const d=Math.floor(left/86400000),hh=Math.floor(left%86400000/3600000),mm=Math.floor(left%3600000/60000);
+    $('nextInfo').innerHTML=`<h3 style="margin:0">Next match: ${new Date(t).toLocaleString(undefined,{weekday:'long',hour:'2-digit',minute:'2-digit'})}</h3><div>${left<=0?'It is being played now.':'In '+(d?d+' day'+(d>1?'s ':' '):'')+hh+' h '+mm+' min.'} Your talks and your plan are saved as you make them. You do not need to be here when it is played.</div>${n===3?'':'<div style="color:#c92a2a">You have '+n+' of 3 starters. If you leave it like this, your best remaining players fill in.</div>'}`;}
+}
+$('tones').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.t)talk(b.dataset.t);};
+
+for(const id of ['tones','teamtones']){$(id).addEventListener('mouseover',e=>{const b=e.target.closest('button');const t=b&&b.dataset.t;if(t)$('sayhint').textContent='You say: "'+TONE_SAY[t]+'"';});$(id).addEventListener('mouseleave',()=>{$('sayhint').textContent=SAYDEF;});}
+$('teamtones').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.t)teamTalk(b.dataset.t);};
+document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{if(e.target.tagName!=='BUTTON'||S.phase!=='week')return;S.me.sheet[s.dataset.k]=[...s.children].indexOf(e.target);save();renderPlan();}));
+$('play').onclick=()=>playSunday();
+function renderHelp(){
+  const chars=Object.keys(CHAR).map(k=>`<div class="hrow"><span class="chr" style="background:${CHAR[k][1]}">${CHAR[k][0]}</span><span>${CHAR[k][2]}</span></div>`).join('');
+  const moods=['happy','cool','ok','nervous','sad','angry'].map(m=>{const i=MOODTIP[m].indexOf(':');return `<li><b>${MOODTIP[m].slice(0,i)}</b>${MOODTIP[m].slice(i)}</li>`;}).join('');
+  const dial=(n,k,o)=>`<div class="dl"><b>${n}</b>${o.map((x,i)=>(k==='tempo'||k==='shots'||k==='boards')&&i===1?'':`<div><span>${x}</span>${DESC[k][i]}</div>`).join('')}</div>`;
+  $('helpBody').innerHTML=`<button class="x" id="helpX">Close ✕</button>
+  <h2>How the game is played</h2>
+  <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
+  <h4><i>1</i>Pick your team</h4>
+  <p>Choose <b>7 players</b> out of 14 and give your team a name. Look at their stats and at their character.</p>
+  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is.</li>
+  <li><b>Character</b>: tells you roughly how the player takes being talked to.</li></ul>
+  <div class="two">${chars}</div>
+  <h4><i>2</i>Talk to your players</h4>
+  <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>. There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
+  <ul><li>The same words do not work on everyone. Praise makes one player buzz and another anxious. Study each personality.</li>
+  <li>Every player also has a secret <b>soft spot</b> (one talk that always works) and a <b>sore spot</b> (one that always backfires). You find them only by trying.</li>
+  <li>The player's card remembers what you tried: ✓ worked, ✗ backfired, ~ nothing much.</li>
+  <li>Saying the same thing two weeks in a row falls flat.</li>
+  <li>A talk changes the player's <b>mood</b>, how much they <b>trust</b> you, and moves one of their stats a little, up or down.</li>
+  <li>A talk to the whole team reaches everybody, but more weakly. Some will like it and some will not.</li></ul>
+  <h4><i>3</i>Moods, trust and form</h4>
+  <p>The mood decides how a player performs and which tactics suit them today.</p>
+  <ul>${moods}</ul>
+  <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like. Stats also move after each match: a player who shot well improves, one who never plays gets rusty, and a player you leave out completely may sulk or get angry.</p>
+  <h4><i>4</i>Set the game plan</h4>
+  <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
+  <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. Substitutes come on when a starter tires.</li>
+  <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game.</li>
+  </ul><p>Then six dials:</p>
+  <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
+  <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
+  <h4><i>5</i>The rule of the week</h4>
+  <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
+  <h4><i>6</i>The match</h4>
+  <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
+  <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li></ul>
+  <h4><i>7</i>The league</h4>
+  <p>One league lasts <b>two months</b>. The team with the most points wins it. Then every manager may swap up to <b>two</b> of their seven players for free agents, and a new league starts. Over a year you can see how many leagues your team has won.</p>
+  <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, and a league is seven matches.'}</div>
+  <button class="go" id="helpOk" style="animation:none">Got it</button>`;
+  $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
+}
+$('bHelp').onclick=()=>{renderHelp();$('help').classList.remove('hide');$('help').scrollTop=0;};
+$('help').addEventListener('click',e=>{if(e.target===$('help'))$('help').classList.add('hide');});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('help').classList.add('hide');});
+$('tRoom').onclick=()=>{S.tab='room';render();};
+$('tLeague').onclick=()=>{S.tab='league';render();};
+
+function renderResults(){
+  const r=S.results;
+  let h=`<div class="card pop" style="margin-top:16px"><h3>${ONLINE?'Match '+V.me.last.match:'Sunday '+S.sunday} · full time</h3>`;
+  for(const m of r.list){h+=`<div class="res"><div class="sc ${m.won?'w':'l'}" data-us="${m.us}" data-them="${m.them}">0–0</div><div><div>${m.won?'beat':'lost to'} ${m.opp}<span class="stamp ${m.won?'w':'l'}">${m.won?'WIN':'LOSS'}</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;}
+  h+=`<div class="small">${r.moves.length?'Afterwards: '+r.moves.join(', ')+'.':'The mood in the locker room is unchanged.'} You are ${ord(r.place)} of ${r.of||8}.</div></div>`;
+  h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for the rule of the match after the next one':"Vote for next Sunday's rule"}</h3><div class="grid3">`;
+  S.vote.opts.forEach((k,i)=>{h+=`<div class="card vote ${S.myVote===i?'on':''}" data-v="${i}">${ruleOf(k).txt}<small>${ruleOf(k).why}</small></div>`;});
+  h+=`</div><button class="go" id="next">${ONLINE?(S.me.final&&!S.me.final.seen?'The league is over. See how it ended':'Back to the locker room'):S.sunday>=7?'The league is over. See the final table':'On to next week'}</button>`;
+  $('resUI').innerHTML=h;
+  $('resUI').querySelectorAll('.vote').forEach(v=>v.onclick=()=>{if(ONLINE){S.myVote=+v.dataset.v;renderResults();api('vote',{i:S.myVote}).catch(e=>toast(e.message));return;}S.myVote=+v.dataset.v;const t=S.vote.tally.slice();t[S.myVote]++;S.vote.winner=S.vote.opts[t.indexOf(Math.max(...t))];save();renderResults();});
+  $('next').onclick=()=>{if(ONLINE){localStorage.setItem('b3seen',String(resKey(V.me.last)));applyView(V);render();}else nextWeek();};
+  // count the scores up
+  const t0=performance.now();const els=[...$('resUI').querySelectorAll('.sc')];
+  (function tick(now){const k=clamp((now-t0)/1100,0,1);for(const e of els){e.textContent=Math.round(e.dataset.us*k)+'–'+Math.round(e.dataset.them*k);}if(k<1)requestAnimationFrame(tick);})(t0);
+}
+function renderLeague(){
+  let h='';
+  if(S.lastResults){
+    {h+=`<div class="card" style="margin-bottom:16px"><h3>${ONLINE?'Last match':'Last Sunday'} · ${ruleOf(S.lastResults.rule).txt}</h3>`;for(const m of S.lastResults.list)h+=`<div class="res"><div class="sc ${m.won?'w':'l'}">${m.us}–${m.them}</div><div><div>${m.won?'beat':'lost to'} ${m.opp} <span class="small">(${sheetWords(m.oppSheet)})</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;h+=`</div>`;}
+  }
+  h+=`<div class="row" style="margin-top:0"><div class="card"><h3>League ${S.cup} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
+  table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
+  h+=`</table><div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one every Wednesday and Sunday. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may swap up to two of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
+  h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
+  if(S.lastSheets){h+=`<table><tr><th>team</th><th>plan</th><th class="n">that day</th></tr>`;for(const t of [...S.lastSheets].sort((a,b)=>b.w-a.w))h+=`<tr class="${t.human?'me':''}"><td>${t.name}</td><td>${sheetWords(t.sheet)}</td><td class="n">${t.w}–${t.l}</td></tr>`;h+=`</table><div class="small">Plans become public after the games. See what worked under that rule. Your rivals read yours too, so do not play the same match twice.</div>`;}
+  else h+=`<div class="small">Nothing yet. Plans become public after the first match.</div>`;
+  h+=`</div></div><div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
+    ?`<button id="toPractice" style="font-size:13px">Go to practice mode</button><button id="showKey" style="font-size:13px">Play this team on another device</button>`
+    :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+`</div>`;
+  $('league').innerHTML=h;
+  if($('wipe'))$('wipe').onclick=()=>{if(confirm('Start over? Your team and league will be lost.')){localStorage.removeItem('sundayleague2');S.tab='room';newGame();}};
+  if($('toPractice'))$('toPractice').onclick=()=>setMode('practice');
+  if($('toOnline'))$('toOnline').onclick=()=>setMode('online');
+  if($('showKey'))$('showKey').onclick=teamKeyDialog;
+}
+function candHtml(p,cls,i){return `<div class="cand ${cls}" data-i="${i}"><canvas width="150" height="170" data-pid="${p.id}"></canvas><div class="nm">${p.n}</div>${chip(p)}<div class="h">${CHAR[p.temp][2]}</div><div class="pips">${pips(p.sh,'attack')}${pips(p.df,'defend')}${pips(p.sp,'speed')}</div></div>`;}
+let drawList=[];
+function renderDraft(){
+  const n=S.pool.filter(p=>p.picked).length;
+  $('draft').innerHTML=`<div class="card"><h3>Pick your seven · ${n} of 7</h3><div class="pool">${S.pool.map((p,i)=>candHtml(p,p.picked?'in':'',i)).join('')}</div><div class="small">Each has a character, which tells you roughly how they take being talked to. Each also has a personal soft spot and a sore spot that you only find by talking to them.</div>
+  <div style="display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap"><input type="text" id="tname" placeholder="Name your team" maxlength="22" value="${S.draftName||''}"><button id="reroll">Show me different players</button></div>
+  <button class="go" id="start" ${n===7?'':'disabled'}>${n===7?'To the locker room!':'Pick '+(7-n)+' more'}</button></div>`;
+  drawList=S.pool.map(p=>p);
+  $('draft').querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const p=S.pool[+d.dataset.i];S.draftName=$('tname').value;const k=S.pool.filter(x=>x.picked).length;if(p.picked)p.picked=false;else if(k<7)p.picked=true;renderDraft();});
+  $('reroll').onclick=()=>{S.draftName=$('tname').value;if(ONLINE)goOnline('reroll');else newGame();};
+  $('start').onclick=()=>{const nm=($('tname').value||'').trim();if(ONLINE){S.draftName=nm;goOnline('join',{name:nm,picks:S.pool.filter(p=>p.picked).map(p=>p.id)});}else startLeague(nm);};
+}
+function renderCupEnd(){
+  const won=S.finalPlace===1;
+  let h=`<div class="card pop" style="margin-top:16px;text-align:center"><h3 style="font-size:28px">${won?'YOU WON THE LEAGUE!':'League '+(ONLINE?S.me.final.league:S.cup)+' is over'}</h3><div>${won?'Somebody find a bigger shelf. That is '+(S.won||1)+' of '+(S.played||1)+' leagues won.':'You finished '+ord(S.finalPlace)+' of '+(ONLINE?S.me.final.of:8)+'. '+S.champion+' took the title.'}</div></div>`;
+  h+=`<div class="card" style="margin-top:16px"><h3>Swap up to two · out ${S.swapOut.length}, in ${S.swapIn.length}</h3><div class="small" style="margin:0 0 8px">Click one of yours to let go, and a free agent to bring in.</div><div class="pool">${S.me.players.map((p,i)=>candHtml(p,S.swapOut.includes(p.id)?'out':'',i)).join('')}</div>
+  <h3 style="margin-top:16px">Free agents</h3><div class="pool">${S.agents.map((p,i)=>candHtml(p,S.swapIn.includes(p.id)?'in':'',i)).join('')}</div></div>
+  <button class="go" id="newcup" ${S.swapOut.length===S.swapIn.length?'':'disabled'}>${S.swapOut.length===S.swapIn.length?'Start league '+(ONLINE?S.cup:S.cup+1):'Match the outs and ins'}</button>`;
+  $('resUI').innerHTML=h;
+  drawList=[...S.me.players,...S.agents];
+  const pools=$('resUI').querySelectorAll('.pool');
+  pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.me.players[+d.dataset.i].id;if(S.swapOut.includes(id))S.swapOut=S.swapOut.filter(x=>x!==id);else if(S.swapOut.length<2)S.swapOut.push(id);renderCupEnd();});
+  pools[1].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.agents[+d.dataset.i].id;if(S.swapIn.includes(id))S.swapIn=S.swapIn.filter(x=>x!==id);else if(S.swapIn.length<2)S.swapIn.push(id);renderCupEnd();});
+  $('newcup').onclick=()=>{if(ONLINE)goOnline('swap',{outs:S.swapOut,ins:S.swapIn});else newCup();};
+}
+function drawCards(t){document.querySelectorAll('canvas[data-pid]').forEach(cv=>{const p=drawList.find(x=>x.id==cv.dataset.pid);if(!p)return;const k=cv.getContext('2d');k.clearRect(0,0,150,170);toon(k,p,75,158,0.85,t,{});});}
+
+let last=performance.now();
+function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;T+=dt;
+  if(SCREEN==='game'&&S.phase!=='draft'&&S.tab==='room')drawGym(T,dt);
+  if(SCREEN==='game'&&(S.phase==='draft'||S.phase==='cupend'))drawCards(T);
+  requestAnimationFrame(loop);}
+boot();
+requestAnimationFrame(loop);
+Object.assign(window,{setMode,applyView,api,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
+</script>
+</body>
+</html>
