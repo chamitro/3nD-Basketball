@@ -119,6 +119,8 @@
   .sheet .x{position:absolute;right:14px;top:12px;padding:4px 14px}
   @media(max-width:700px){.sheet .two{grid-template-columns:1fr}}
   .btnlink{display:inline-block;font-weight:800;font-size:16px;color:var(--ink);background:var(--teal);border:3px solid var(--ink);border-radius:14px;padding:8px 16px;box-shadow:0 5px 0 var(--ink);text-decoration:none}
+  .update{position:fixed;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;background:var(--yellow);border:4px solid var(--ink);border-radius:18px;box-shadow:0 6px 0 var(--ink);padding:10px 14px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:16px;animation:pop .25s}
+  .update button{background:var(--pink);color:#fff;text-shadow:0 2px 0 var(--ink)}
   .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
   .mode{cursor:pointer;text-align:center;padding:26px 18px;transition:transform .12s}
   @media(hover:hover){.mode:hover{transform:translateY(-5px) rotate(-1deg)}}
@@ -423,6 +425,27 @@ function installHtml(){
 function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>toast('Link copied. Paste it into your browser.');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(PAGE).then(done).catch(()=>prompt('Copy this link:',PAGE));else prompt('Copy this link:',PAGE);};
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+// A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
+const APP_VERSION='2026.11.05-1432';   // stamped by build.py
+let updateShown=false;
+async function checkUpdate(){
+  if(updateShown||!location.protocol.startsWith('http'))return;
+  try{
+    const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const v=(await r.json()).version;
+    if(!v||v===APP_VERSION||APP_VERSION==='dev')return;
+    updateShown=true;
+    const d=document.createElement('div');d.className='update';
+    d.innerHTML='<span>A newer version of 3nD Basketball is ready.</span><button id="bUpdate">Update now</button>';
+    document.body.appendChild(d);
+    $('bUpdate').onclick=async()=>{
+      try{if('serviceWorker' in navigator){const reg=await navigator.serviceWorker.getRegistration();if(reg)await reg.update();}}catch(_e){}
+      location.replace(location.pathname+'?v='+encodeURIComponent(v));
+    };
+  }catch(_e){}
+}
+setTimeout(checkUpdate,2500);setInterval(checkUpdate,30*60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate();});
 function renderStart(){
   if(SCREEN==='loading'){$('start').innerHTML='<div class="card" style="text-align:center;padding:40px"><h3>Walking to the gym…</h3><div class="hint">Asking the league where things stand.</div></div>';return;}
   $('start').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
@@ -670,7 +693,7 @@ const DESC={
 const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
 function render(){
   $('start').classList.toggle('hide',SCREEN==='game');
-  $('foot').textContent=SCREEN!=='game'?'':ONLINE?'online league · a match every Wednesday and Sunday':'practice mode · seven rival teams are run by the computer';
+  $('foot').textContent=(SCREEN!=='game'?'':ONLINE?'online league · a match every Wednesday and Sunday · ':'practice mode · seven rival teams are run by the computer · ')+'version '+APP_VERSION;
   if(SCREEN!=='game'){for(const id of ['tabs','chipTeam','chipCup','draft','room','league'])$(id).classList.add('hide');renderStart();return;}
   const inLeague=S.phase!=='draft';
   $('tabs').classList.toggle('hide',!inLeague);
@@ -695,7 +718,7 @@ function renderCard(){
   const me=S.me;let p=byId(me,S.sel);if(!p){p=me.players[0];S.sel=p.id;}
   const out=S.rule==='tall_out'&&tallestId(me)===p.id;const st=me.starters.includes(p.id),sb=me.subs.includes(p.id);
   const role=out?'sits out this '+DAY()+' (the rule)':st?'starts on '+DAY():sb?'is a substitute':'is not playing this '+DAY();
-  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${heightWord(p.h)[0].toUpperCase()+heightWord(p.h).slice(1)}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}</div><div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
+  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${heightWord(p.h)[0].toUpperCase()+heightWord(p.h).slice(1)}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}</div><div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
   $('pcard').classList.remove('pop');void $('pcard').offsetWidth;$('pcard').classList.add('pop');
   $('bStart').onclick=()=>{if(st){me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else if(me.starters.length<3){me.starters.push(p.id);me.subs=me.subs.filter(id=>id!==p.id);}else toast('Three start. Take someone off first.');save();renderCard();renderPlan();};
   $('bSub').onclick=()=>{if(sb){me.subs=me.subs.filter(id=>id!==p.id);}else if(me.subs.length<2){me.subs.push(p.id);me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else toast('Two substitutes at most.');save();renderCard();renderPlan();};
@@ -875,6 +898,7 @@ function renderHelp(){
   <li>Every player also has a secret <b>soft spot</b> (one talk that always works) and a <b>sore spot</b> (one that always backfires). You find them only by trying.</li>
   <li>The player's card remembers what you tried: ✓ worked, ✗ backfired, ~ nothing much.</li>
   <li>Saying the same thing two weeks in a row falls flat.</li>
+  <li><b>Silence costs you.</b> A player you do not talk to for two matches in a row starts to feel ignored: they sulk or get angry, trust you less and play worse, and it gets worse every match. Old hands and fighters last a little longer, easy-going players longer still, and loners do not mind at all. A talk to the whole team counts for half.</li>
   <li>A talk changes the player's <b>mood</b>, how much they <b>trust</b> you, and moves one of their stats a little, up or down.</li>
   <li>A talk to the whole team reaches everybody, but more weakly. Some will like it and some will not.</li></ul>
   <h4><i>3</i>Moods, trust and form</h4>

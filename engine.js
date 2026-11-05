@@ -106,7 +106,7 @@ function enforceRule(team,rule){
   team.subs=team.subs.filter(id=>byId(team,id)&&!team.starters.includes(id)).slice(0,2);
   if(team.ball&&!team.starters.includes(team.ball))team.ball=null;
 }
-function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first&&R()<0.3&&p.mood!=='ok')p.mood='ok';}team.teamTalked=false;}
+function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
 
 // ───────────────────────── bots ─────────────────────────
 function botPrepare(team,opp,rule,oppLast){
@@ -372,6 +372,8 @@ function teamTalkTo(team,tone){
   team.teamTalked=true;
   return {liked,hated,changed,msg:`${liked.length?liked.join(', ')+' liked that. ':''}${hated.length?hated.join(', ')+' did not.':''}${!liked.length&&!hated.length?'They shuffle their feet. Nothing much changes.':''}`};
 }
+// how many matches of silence each character puts up with before feeling ignored (a loner never minds)
+const QUIET_LIMIT={showoff:2,pleaser:2,joker:2,worrier:2,hothead:2,veteran:3,fighter:3,easygoing:4,loner:999};
 // how a match leaves one team: moods, then form (stats drift). X is that team's side of playMatch's result.
 function aftermath(team,X,won,conceded){
   const moves=[],usage={};
@@ -398,6 +400,17 @@ function aftermath(team,X,won,conceded){
       }
     }else p.idle=0;
     if(p.mood!==before)moves.push(`${p.n} is ${WORD[p.mood]}${!played?' about not playing':''}`);
+  }
+  // silence: a player the coach does not talk to starts to feel ignored. A talk to the whole team counts for half.
+  for(const p of team.players){
+    p.quiet=p.talked?0:(p.quiet||0)+(team.teamTalked?0.5:1);
+    p.ignored=p.quiet>=QUIET_LIMIT[p.temp];
+    if(p.ignored){
+      p.mood=(p.temp==='showoff'||p.temp==='hothead')?'angry':'sad';p.trust=clamp(p.trust-1,-2,2);
+      const n=Math.floor(p.quiet);
+      for(let i=moves.length-1;i>=0;i--)if(moves[i].startsWith(p.n+' is '))moves.splice(i,1);
+      moves.push(`${p.n} is ${WORD[p.mood]}: you have not talked to them for ${n} match${n===1?'':'es'}`);
+    }
   }
   // form: stats drift with mood and with how the match went
   const ups=[];

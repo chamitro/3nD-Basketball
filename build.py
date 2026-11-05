@@ -1,13 +1,26 @@
 #!/usr/bin/env python3
-# Puts the server function together: the game rules (engine.js) + the league (server.js) + the database + the web part.
-# Run after changing engine.js or server.js:   python3 build.py
-import io, os
+# Run before every release:   python3 build.py
+# 1. Puts the server function together: the game rules (engine.js) + the league (server.js) + the database + the web part.
+# 2. Stamps one version number into index.html, sw.js and version.json. Phones that have the game open or installed
+#    compare their number with version.json and show an "Update now" button when it differs.
+import io, os, re, json, datetime
 here = os.path.dirname(os.path.abspath(__file__))
+rd = lambda p: io.open(os.path.join(here, p), encoding='utf-8').read()
+def wr(p, t): io.open(os.path.join(here, p), 'w', encoding='utf-8').write(t)
+
 parts = ['engine.js', 'server.js', 'store_rest.js', 'serve_deno.js']
 out = ['// @ts-nocheck', '// 3nD Basketball server function. BUILT FILE: do not edit here, edit the parts and run build.py.', '']
 for p in parts:
-    text = io.open(os.path.join(here, p), encoding='utf-8').read().replace("'use strict';\n", '')
-    out += ['// ======================= ' + p + ' =======================', text]
-dst = os.path.join(here, 'supabase', 'functions', 'b3', 'index.ts')
-io.open(dst, 'w', encoding='utf-8').write('\n'.join(out))
-print('wrote', dst, os.path.getsize(dst), 'bytes')
+    out += ['// ======================= ' + p + ' =======================', rd(p).replace("'use strict';\n", '')]
+new = '\n'.join(out)
+dst = os.path.join('supabase', 'functions', 'b3', 'index.ts')
+changed = (not os.path.exists(os.path.join(here, dst))) or rd(dst) != new
+wr(dst, new)
+print('server function:', 'CHANGED, deploy it again in Supabase' if changed else 'unchanged, nothing to deploy')
+
+version = datetime.datetime.utcnow().strftime('%Y.%m.%d-%H%M')
+page, n1 = re.subn(r"const APP_VERSION='[^']*';", "const APP_VERSION='%s';" % version, rd('index.html'))
+sw, n2 = re.subn(r"const CACHE_NAME = '[^']*';", "const CACHE_NAME = 'b3-%s';" % version, rd('sw.js'))
+assert n1 == 1 and n2 == 1, 'version markers not found'
+wr('index.html', page); wr('sw.js', sw); wr('version.json', json.dumps({'version': version}) + '\n')
+print('version', version)
