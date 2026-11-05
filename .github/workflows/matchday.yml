@@ -1,7 +1,8 @@
 # 3nD Basketball: plays match day on time and keeps the free Supabase project awake.
 # The league server plays a match the first time anyone asks it something after the hour. This job asks,
 # so the match is played even when no manager opens the game. It uses only the public key that is already in index.html.
-# Note: GitHub switches scheduled workflows off after 60 days without a commit to this repository.
+# GitHub switches a schedule off when a repository has had no commit for 60 days. The last step below switches
+# this one on again every time it runs, which restarts that count, so it should keep going by itself.
 name: match day and keep-alive
 on:
   schedule:
@@ -12,6 +13,8 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Ask the league server to play any match that is due
         run: |
@@ -20,3 +23,11 @@ jobs:
             -H "apikey: sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo" \
             -H "Authorization: Bearer sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo" \
             -d '{"a":"ping"}'
+      - name: Keep this schedule switched on
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -s -o /dev/null -w "enable: HTTP %{http_code}\n" -X PUT \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/matchday.yml/enable" || true

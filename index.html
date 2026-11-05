@@ -331,6 +331,7 @@ function newCup(){
 // In the online league the browser decides nothing. It sends choices and draws what the server answers.
 const NET={url:'https://qslofkasphxcmfzgsdry.supabase.co/functions/v1/b3',key:'sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo'};
 {const u=new URLSearchParams(location.search).get('api');if(u&&/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(u))NET.url=u;}   // for testing on this computer only
+const MATCH_WHEN='every Wednesday and Sunday at 18:00 UTC';   // keep in step with CFG.MATCH_HOUR_UTC and MATCH_DAYS in server.js
 let ONLINE=false,V=null,SCREEN='start',START_MSG='',netBusy=0,planTimer=null,viewAt=0,SKEW=0;   // SKEW: server clock minus this device's clock
 const DAY=()=>ONLINE&&V&&V.league?new Date(V.league.next_match_at).toLocaleDateString('en',{weekday:'long'}):'Sunday';
 const resKey=l=>l?l.league*1000+l.match:0;
@@ -426,7 +427,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1439';   // stamped by build.py
+const APP_VERSION='2026.11.05-1443';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -451,7 +452,7 @@ function renderStart(){
   $('start').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
   ${START_MSG?`<div class="card" style="margin-top:14px;background:#ffc9c9"><b>${START_MSG}</b> You can practise in the meantime.</div>`:''}
   ${inApp()?'<div style="margin-top:14px">'+installHtml()+'</div>':''}
-  <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match every Wednesday and Sunday. You do not need to be online when it is played. One league lasts two months.</p></div>
+  <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match ${MATCH_WHEN}. You do not need to be online when it is played. One league lasts two months.</p></div>
   <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>Against seven computer teams</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>
   <div style="margin-top:18px;text-align:center">${inApp()?'':installHtml()}</div>`;
   $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');wireInstall();
@@ -693,7 +694,7 @@ const DESC={
 const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
 function render(){
   $('start').classList.toggle('hide',SCREEN==='game');
-  $('foot').textContent=(SCREEN!=='game'?'':ONLINE?'online league · a match every Wednesday and Sunday · ':'practice mode · seven rival teams are run by the computer · ')+'version '+APP_VERSION;
+  $('foot').textContent=(SCREEN!=='game'?'':ONLINE?'online league · a match '+MATCH_WHEN+' · ':'practice mode · seven rival teams are run by the computer · ')+'version '+APP_VERSION;
   if(SCREEN!=='game'){for(const id of ['tabs','chipTeam','chipCup','draft','room','league'])$(id).classList.add('hide');renderStart();return;}
   const inLeague=S.phase!=='draft';
   $('tabs').classList.toggle('hide',!inLeague);
@@ -872,7 +873,7 @@ function renderPlan(){
   $('playNote').textContent=ONLINE?'':'Practice mode: you press the button. In the online league the match comes by itself.';
   if(ONLINE){const t=V.league.next_match_at,left=t-(Date.now()+SKEW);
     const d=Math.floor(left/86400000),hh=Math.floor(left%86400000/3600000),mm=Math.floor(left%3600000/60000);
-    $('nextInfo').innerHTML=`<h3 style="margin:0">Next match: ${new Date(t).toLocaleString(undefined,{weekday:'long',hour:'2-digit',minute:'2-digit'})}</h3><div>${left<=0?'It is being played now.':'In '+(d?d+' day'+(d>1?'s ':' '):'')+hh+' h '+mm+' min.'} Your talks and your plan are saved as you make them. You do not need to be here when it is played.</div>${n===3?'':'<div style="color:#c92a2a">You have '+n+' of 3 starters. If you leave it like this, your best remaining players fill in.</div>'}`;}
+    $('nextInfo').innerHTML=`<h3 style="margin:0">Next match: ${new Date(t).toLocaleString(undefined,{weekday:'long',hour:'2-digit',minute:'2-digit'})}</h3><div>${left<=0?'It is being played now.':'In '+(d?d+' day'+(d>1?'s ':' '):'')+hh+' h '+mm+' min.'} Your talks and your plan are saved as you make them. You do not need to be here when it is played.</div><div class="small" style="margin-top:6px;color:var(--ink)">Matches are played ${MATCH_WHEN}. That is ${new Date(t).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})} on this device's clock.</div>${n===3?'':'<div style="color:#c92a2a">You have '+n+' of 3 starters. If you leave it like this, your best remaining players fill in.</div>'}`;}
 }
 $('tones').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.t)talk(b.dataset.t);};
 
@@ -915,7 +916,7 @@ function renderHelp(){
   <h4><i>5</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
   <h4><i>6</i>The match</h4>
-  <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
+  <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b> at <b>18:00 UTC</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li></ul>
   <h4><i>7</i>The league</h4>
   <p>One league lasts <b>two months</b>. The team with the most points wins it. Then every manager may swap up to <b>two</b> of their seven players for free agents, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
@@ -963,7 +964,7 @@ function renderLeague(){
   }
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>League ${S.cup} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
   table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
-  h+=`</table><div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one every Wednesday and Sunday. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may swap up to two of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
+  h+=`</table><div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+MATCH_WHEN+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may swap up to two of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
   if(S.lastSheets){h+=`<table><tr><th>team</th><th>plan</th><th class="n">that day</th></tr>`;for(const t of [...S.lastSheets].sort((a,b)=>b.w-a.w))h+=`<tr class="${t.human?'me':''}"><td>${t.name}</td><td>${sheetWords(t.sheet)}</td><td class="n">${t.w}–${t.l}</td></tr>`;h+=`</table><div class="small">Plans become public after the games. See what worked under that rule. Your rivals read yours too, so do not play the same match twice.</div>`;}
   else h+=`<div class="small">Nothing yet. Plans become public after the first match.</div>`;
