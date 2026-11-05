@@ -2,7 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>3nD Basketball</title>
+<meta name="description" content="3nD Basketball: a cartoon basketball manager. Pick seven players, learn how to talk to each of them, set the tactics. A match every Wednesday and Sunday, and you do not need to be online when it is played.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="3nD Basketball">
+<meta property="og:description" content="You are the coach. Talk to your players, set the tactics, a match every Wednesday and Sunday.">
+<meta property="og:url" content="https://chamitro.github.io/3nD-Basketball/">
+<meta property="og:image" content="https://chamitro.github.io/3nD-Basketball/icons/icon-512.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff9f1c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="3nD Basketball">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
   :root{--ink:#2b2233;--paper:#fff6e3;--card:#ffffff;--orange:#ff9f1c;--yellow:#ffd23f;--teal:#2ec4b6;--pink:#ff5d8f;--blue:#4d9de0;--green:#6bcb77;--red:#ef476f;--soft:#6b6477}
   *{box-sizing:border-box}
@@ -14,7 +29,8 @@
   .chip b{color:var(--red)}
   .tabs{margin-left:auto;display:flex;gap:8px}
   button{font-family:inherit;font-weight:800;font-size:16px;color:var(--ink);background:var(--card);border:3px solid var(--ink);border-radius:14px;padding:8px 16px;box-shadow:0 5px 0 var(--ink);cursor:pointer;transition:transform .08s,box-shadow .08s,background .15s}
-  button:hover{transform:translateY(-2px);box-shadow:0 7px 0 var(--ink)}
+  button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  @media(hover:hover){button:hover{transform:translateY(-2px);box-shadow:0 7px 0 var(--ink)}}
   button:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
   button.on{background:var(--yellow)}
   button:disabled{opacity:.45;cursor:default;transform:none;box-shadow:0 5px 0 var(--ink)}
@@ -38,7 +54,7 @@
   .btns{display:flex;gap:8px;flex-wrap:wrap}
   .btns.tone{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .tone button{min-width:0;padding:9px 4px;font-size:15px}
-  .tone button:hover{background:#fff1a8}
+  @media(hover:hover){.tone button:hover{background:#fff1a8}}
   .tone.team button{padding:6px 4px;font-size:14px}
   .tone .warm:hover{background:#ffd6e0}.tone .firm:hover{background:#cfe8ff}.tone .harsh:hover{background:#ffc9c9}.tone .joking:hover{background:#fff1a8}.tone .honest:hover{background:#d3f5d6}
   .plan{margin-top:16px}
@@ -58,7 +74,7 @@
   @keyframes pop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .vote{cursor:pointer;text-align:center;font-size:19px;font-weight:900;padding:18px 12px;transition:transform .12s}
-  .vote:hover{transform:translateY(-4px) rotate(-1deg)}
+  @media(hover:hover){.vote:hover{transform:translateY(-4px) rotate(-1deg)}}
   .vote.on{background:var(--yellow)}
   .vote small{display:block;font-size:13px;color:var(--soft);margin-top:6px;font-weight:700}
   .res{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:3px dashed #e8dcc0}
@@ -75,7 +91,7 @@
   tr.me td{background:var(--yellow)}
   .pool{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
   .cand{background:var(--card);border:4px solid var(--ink);border-radius:18px;box-shadow:0 5px 0 var(--ink);text-align:center;padding:6px 6px 10px;cursor:pointer;transition:transform .12s}
-  .cand:hover{transform:translateY(-4px)}
+  @media(hover:hover){.cand:hover{transform:translateY(-4px)}}
   .cand.in{background:var(--yellow)} .cand.out{background:#ffc9c9}
   .cand canvas{width:100%;height:auto;display:block}
   .cand .nm{font-size:17px;font-weight:900}
@@ -104,10 +120,55 @@
   @media(max-width:700px){.sheet .two{grid-template-columns:1fr}}
   .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
   .mode{cursor:pointer;text-align:center;padding:26px 18px;transition:transform .12s}
-  .mode:hover{transform:translateY(-5px) rotate(-1deg)}
+  @media(hover:hover){.mode:hover{transform:translateY(-5px) rotate(-1deg)}}
   .mode h3{font-size:28px;margin:0 0 6px}
   .mode p{font-weight:600;color:var(--soft);margin:6px 0 0}
   @media(max-width:700px){.modes{grid-template-columns:1fr}}
+  /* phones */
+  @media(max-width:700px){
+    body{font-size:15px}
+    .wrap{padding:10px max(10px,env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
+    header{gap:8px;margin-bottom:10px}
+    .logo{font-size:22px;padding:1px 12px;border-width:3px;box-shadow:0 4px 0 var(--ink)}
+    .chip{font-size:13px;padding:3px 10px;border-width:2px;box-shadow:0 3px 0 var(--ink)}
+    .tabs{margin-left:0;width:100%;gap:6px}
+    .tabs>span{flex:2}.tabs>span button{flex:1}.tabs>button{flex:1}
+    .tabs button{padding:8px 4px;font-size:14px;white-space:nowrap}
+    button{font-size:15px;padding:9px 12px}
+    .rule{flex-direction:column;align-items:flex-start;gap:6px;padding:9px 14px;border-radius:18px;margin-bottom:10px}
+    .rule .txt{font-size:20px;text-shadow:0 2px 0 var(--ink)}
+    .rule .why{font-size:13px}
+    .scene{border-radius:20px}
+    .row{grid-template-columns:1fr;gap:12px;margin-top:12px}
+    .card{padding:12px 12px;border-radius:18px;border-width:3px;box-shadow:0 5px 0 var(--ink)}
+    .card h3{font-size:18px}
+    .dials{grid-template-columns:1fr;gap:10px}
+    .dial .d{min-height:0}
+    .seg button{padding:11px 2px;font-size:15px}
+    .btns.tone{gap:7px}
+    .tone button{padding:12px 2px;font-size:14px}
+    .tone.team button{padding:10px 2px;font-size:13px}
+    .grid3{grid-template-columns:1fr;gap:10px}
+    .vote{padding:12px 10px;font-size:17px}
+    .pool{grid-template-columns:repeat(3,1fr);gap:7px}
+    .cand{padding:3px 3px 8px;border-width:3px;border-radius:14px;box-shadow:0 4px 0 var(--ink)}
+    .cand .nm{font-size:15px}
+    .cand .h{font-size:11px;min-height:0}
+    .chr{font-size:11px;padding:0 6px}
+    .res{gap:10px}
+    .res .sc{font-size:24px;min-width:96px}
+    table{font-size:14px}
+    td,th{padding:5px 4px}
+    button.go{font-size:19px;padding:13px 14px}
+    input[type=text]{width:100%;font-size:16px}
+    .modal{padding:8px 6px}
+    .sheet h2{font-size:23px;padding-right:90px}
+    .sheet h4{font-size:17px}
+    .sheet .hrow .chr{flex:0 0 104px}
+    .mode{padding:18px 12px}
+    .mode h3{font-size:23px}
+    .toast{left:10px;right:10px;transform:none;text-align:center;bottom:calc(16px + env(safe-area-inset-bottom))}
+  }
   .hide{display:none!important}
 </style>
 </head>
@@ -126,6 +187,7 @@
   <div id="room" class="hide">
     <div class="rule"><small id="ruleLab">RULE OF THE WEEK</small><div><div class="txt" id="ruleTxt"></div><div class="why" id="ruleWhy"></div></div></div>
     <div class="scene"><canvas id="gym" width="1160" height="400"></canvas></div>
+    <div class="small hide" id="gymHint" style="text-align:center;margin-top:6px">Tap a player to talk to them or change their role.</div>
     <div id="weekUI">
       <div class="row">
         <div class="card" id="pcard"></div>
@@ -334,13 +396,27 @@ function setMode(m){
   else if(m==='practice'){SCREEN='game';if(load())render();else newGame();}
   else{SCREEN='start';render();}
 }
+// installing to the home screen
+let installEvt=null;
+const standalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(SCREEN==='start'||(SCREEN==='game'&&S.tab==='league'))render();});
+window.addEventListener('appinstalled',()=>{installEvt=null;});
+function installHtml(){
+  if(standalone())return '';
+  if(installEvt)return '<button id="bInstall" style="background:var(--teal)">Install as an app</button>';
+  if(/iphone|ipad|ipod/i.test(navigator.userAgent))return '<div class="small" style="margin:0">On iPhone: tap Share, then "Add to Home Screen" to keep it as an app.</div>';
+  return '';
+}
+function wireInstall(){const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
+if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 function renderStart(){
   if(SCREEN==='loading'){$('start').innerHTML='<div class="card" style="text-align:center;padding:40px"><h3>Walking to the gym…</h3><div class="hint">Asking the league where things stand.</div></div>';return;}
   $('start').innerHTML=`<div class="card" style="text-align:center"><h3 style="font-size:30px">You are the coach.</h3><div class="hint">Pick seven players, learn how to talk to each of them, choose the tactics. The match plays by itself.</div></div>
   ${START_MSG?`<div class="card" style="margin-top:14px;background:#ffc9c9"><b>${START_MSG}</b> You can practise in the meantime.</div>`:''}
   <div class="modes"><div class="card mode" id="mOnline" style="background:#d3f5d6"><h3>Online league</h3><div>Against other managers</div><p>A match every Wednesday and Sunday. You do not need to be online when it is played. One league lasts two months.</p></div>
-  <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>Against seven computer teams</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>`;
-  $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');
+  <div class="card mode" id="mPractice" style="background:#fff1a8"><h3>Practice</h3><div>Against seven computer teams</div><p>Play at your own pace and press the button when you are ready. Good for learning the game.</p></div></div>
+  <div style="margin-top:18px;text-align:center">${installHtml()}</div>`;
+  $('mOnline').onclick=()=>setMode('online');$('mPractice').onclick=()=>setMode('practice');wireInstall();
 }
 function teamKeyDialog(){
   const k=prompt('This key is your team. Keep it secret.\n\nTo play this team on another device: open the game there, choose Online league, then come to this button and paste the key into this box.\n\nYour key (copy it), or paste another key to switch to that team:',myKey());
@@ -358,9 +434,9 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ONLINE&&S
 let bubble=null,parts=[],T=0,SAYDEF='';
 // what a reaction looks like in the gym
 function reactFx(p,before,strength){
-  if(p.fx)parts.push({x:clamp(p.x||160,70,1090),y:(p.y||300)-170,life:2.4,kind:'txt',txt:(p.fx[1]>0?'+ ':'− ')+STATNAME[p.fx[0]],col:p.fx[1]>0?'#2f9e44':'#e03131'});
+  if(p.fx)parts.push({x:clamp(p.x||160,60,GL.W-60),y:(p.y||300)-170*(p.s||1),life:2.4,kind:'txt',txt:(p.fx[1]>0?'+ ':'− ')+STATNAME[p.fx[0]],col:p.fx[1]>0?'#2f9e44':'#e03131'});
   const kind=p.mood==='happy'?'heart':p.mood==='angry'?'bolt':p.mood==='sad'||p.mood==='nervous'?'drop':p.mood==='cool'?'star':null;
-  if(kind&&(p.mood!==before||strength>=1))for(let k=0;k<(strength>=1?7:3);k++)parts.push({x:(p.x||0)+(R()-0.5)*70,y:300-80-R()*60,life:0.8+R()*0.8,kind});
+  if(kind&&(p.mood!==before||strength>=1))for(let k=0;k<(strength>=1?7:3);k++)parts.push({x:(p.x||0)+(R()-0.5)*70,y:(p.y||300)-70-R()*60,life:0.8+R()*0.8,kind});
 }
 function talk(tone){
   const p=byId(S.me,S.sel);if(!p||p.talked||S.phase!=='week')return;
@@ -487,31 +563,47 @@ const gym=$('gym'),g=gym.getContext('2d');
 const SLOT=i=>110+i*157;
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
 function wrapText(c,text,maxW){const words=text.split(' ');const lines=[];let cur='';for(const w of words){const tt=cur?cur+' '+w:w;if(c.measureText(tt).width>maxW&&cur){lines.push(cur);cur=w;}else cur=tt;}if(cur)lines.push(cur);return lines;}
+// The gym is drawn on a 1160x400 board on wide screens and on a 480x585 board (two rows) on phones.
+let GL={W:1160,H:400,narrow:false},GS=1;
+function fitGym(){
+  const cw=gym.parentElement.clientWidth;if(!cw)return;
+  const narrow=cw<700;
+  if(narrow!==GL.narrow){GL=narrow?{W:480,H:585,narrow}:{W:1160,H:400,narrow};if(S.me)for(const p of S.me.players)p.x=null;}
+  GS=Math.max(1,Math.min(3,cw*Math.min(3,window.devicePixelRatio||1)/GL.W));   // sharp on phone screens
+  const w=Math.round(GL.W*GS),h=Math.round(GL.H*GS);if(gym.width!==w||gym.height!==h){gym.width=w;gym.height=h;}
+  $('gymHint').classList.toggle('hide',!narrow);
+}
 function drawGym(t,dt){
-  const W=1160,H=400;const me=S.me;if(!me)return;
-  g.fillStyle='#bfe9ff';g.fillRect(0,0,W,H);g.fillStyle='#a8dcf7';for(let i=0;i<W;i+=58){g.fillRect(i,0,29,210);}
-  g.lineWidth=5;g.strokeStyle=INK;g.fillStyle='#fff';g.fillRect(1030,40,96,66);g.strokeRect(1030,40,96,66);g.strokeStyle='#ef476f';g.strokeRect(1058,62,40,30);g.strokeStyle=INK;g.fillStyle='#ff9f1c';g.fillRect(1052,104,52,8);g.strokeRect(1052,104,52,8);
-  g.lineWidth=2;for(let k=0;k<5;k++){g.beginPath();g.moveTo(1056+k*11,112);g.lineTo(1062+k*8,140);g.stroke();}
-  g.save();g.translate(40,36);g.rotate(-0.04);g.font='900 21px system-ui';const bn='GO '+me.name.toUpperCase().replace(/^THE /,'')+'!';const bw=g.measureText(bn).width+40;g.fillStyle='#ffd23f';g.lineWidth=4;g.fillRect(0,0,bw,44);g.strokeRect(0,0,bw,44);g.fillStyle=INK;g.textAlign='center';g.fillText(bn,bw/2,30);g.restore();
-  g.fillStyle='#f2c078';g.fillRect(0,210,W,190);g.fillStyle='#e9b165';for(let i=0;i<W;i+=80){g.fillRect(i,210,3,190);}
-  g.lineWidth=5;g.strokeStyle=INK;g.beginPath();g.moveTo(0,210);g.lineTo(W,210);g.stroke();
-  g.strokeStyle='#fff';g.lineWidth=6;g.beginPath();g.ellipse(SLOT(1),330,300,62,0,Math.PI,0);g.stroke();
-  g.fillStyle='#4d9de0';g.strokeStyle=INK;g.lineWidth=4;g.fillRect(SLOT(3)-70,252,SLOT(6)-SLOT(3)+140,16);g.strokeRect(SLOT(3)-70,252,SLOT(6)-SLOT(3)+140,16);
-  for(const bx of [SLOT(3)-50,SLOT(6)+50]){g.fillRect(bx-5,268,10,22);g.strokeRect(bx-5,268,10,22);}
+  const me=S.me;if(!me)return;fitGym();
+  const W=GL.W,H=GL.H,N=GL.narrow,FY=N?140:210;
+  g.setTransform(GS,0,0,GS,0,0);
+  g.fillStyle='#bfe9ff';g.fillRect(0,0,W,H);g.fillStyle='#a8dcf7';for(let i=0;i<W;i+=58){g.fillRect(i,0,29,FY);}
+  const hx=W-(N?112:130),hy=N?12:40;
+  g.lineWidth=5;g.strokeStyle=INK;g.fillStyle='#fff';g.fillRect(hx,hy,96,66);g.strokeRect(hx,hy,96,66);g.strokeStyle='#ef476f';g.strokeRect(hx+28,hy+22,40,30);g.strokeStyle=INK;g.fillStyle='#ff9f1c';g.fillRect(hx+22,hy+64,52,8);g.strokeRect(hx+22,hy+64,52,8);
+  g.lineWidth=2;for(let k=0;k<5;k++){g.beginPath();g.moveTo(hx+26+k*11,hy+72);g.lineTo(hx+32+k*8,hy+100);g.stroke();}
+  g.save();g.translate(N?12:40,N?16:36);g.rotate(-0.04);g.font=`900 ${N?15:21}px system-ui`;const bn='GO '+me.name.toUpperCase().replace(/^THE /,'')+'!';const bw=g.measureText(bn).width+(N?22:40),bh0=N?32:44;g.fillStyle='#ffd23f';g.lineWidth=4;g.fillRect(0,0,bw,bh0);g.strokeRect(0,0,bw,bh0);g.fillStyle=INK;g.textAlign='center';g.fillText(bn,bw/2,N?22:30);g.restore();
+  g.fillStyle='#f2c078';g.fillRect(0,FY,W,H-FY);g.fillStyle='#e9b165';for(let i=0;i<W;i+=80){g.fillRect(i,FY,3,H-FY);}
+  g.lineWidth=5;g.strokeStyle=INK;g.beginPath();g.moveTo(0,FY);g.lineTo(W,FY);g.stroke();
+  const SY=N?520:336,BY=N?262:300;      // where the starters and the bench stand
+  g.strokeStyle='#fff';g.lineWidth=6;g.beginPath();if(N)g.ellipse(W/2,SY-6,222,60,0,Math.PI,0);else g.ellipse(SLOT(1),330,300,62,0,Math.PI,0);g.stroke();
+  const bx0=N?20:SLOT(3)-70,bx1=N?W-20:SLOT(6)+70;
+  g.fillStyle='#4d9de0';g.strokeStyle=INK;g.lineWidth=4;g.fillRect(bx0,BY-48,bx1-bx0,16);g.strokeRect(bx0,BY-48,bx1-bx0,16);
+  for(const bx of [bx0+20,bx1-20]){g.fillRect(bx-5,BY-32,10,22);g.strokeRect(bx-5,BY-32,10,22);}
   // slots: starters first (in their order), then bench in squad order
   const starters=me.starters.map(id=>byId(me,id)).filter(Boolean);
   const subsP=me.subs.map(id=>byId(me,id)).filter(Boolean);
   const bench=[...subsP,...me.players.filter(p=>!me.starters.includes(p.id)&&!me.subs.includes(p.id))];
   const out=S.rule==='tall_out'?tallestId(me):null;
   const order=[];
-  starters.forEach((p,i)=>order.push([p,SLOT(i),336,1,true]));
-  bench.forEach((p,i)=>order.push([p,SLOT(Math.max(3,starters.length)+i-(Math.max(3,starters.length)-3)),300,0.86,false]));
+  starters.forEach((p,i)=>order.push([p,N?[88,240,392][i]:SLOT(i),SY,1,true]));
+  const nb=Math.max(4,bench.length);
+  bench.forEach((p,i)=>order.push(N?[p,16+(i+0.5)*(W-32)/nb,BY,Math.min(0.8,3.3/nb),false]:[p,SLOT(Math.max(3,starters.length)+i-(Math.max(3,starters.length)-3)),300,0.86,false]));
   const boxes={};
   for(const [p,tx,ty,ts,st] of [...order].sort((a,b)=>a[2]-b[2])){
     if(p.x===null||p.x===undefined){p.x=tx;p.y=ty;p.s=ts;}
     p.x=lerp(p.x,tx,Math.min(1,dt*7));p.y=lerp(p.y,ty,Math.min(1,dt*7));p.s=lerp(p.s,ts,Math.min(1,dt*7));
     const b=toon(g,p,p.x,p.y,p.s,t,{sel:p.id===S.sel,ball:me.ball===p.id});boxes[p.id]={x:p.x,y:p.y,top:b.top};
-    g.font='800 15px system-ui';const tw=g.measureText(p.n).width+22;g.lineWidth=3;g.strokeStyle=INK;g.fillStyle=p.id===S.sel?'#ffd23f':'#fff';pillH(g,p.x-tw/2,p.y+10,tw,24);g.fill();g.stroke();g.fillStyle=INK;g.textAlign='center';g.fillText(p.n,p.x,p.y+27);
+    g.font=`800 ${N&&!st?13:15}px system-ui`;const tw=g.measureText(p.n).width+(N&&!st?16:22);g.lineWidth=3;g.strokeStyle=INK;g.fillStyle=p.id===S.sel?'#ffd23f':'#fff';pillH(g,p.x-tw/2,p.y+10,tw,24);g.fill();g.stroke();g.fillStyle=INK;g.textAlign='center';g.fillText(p.n,p.x,p.y+27);
     if(st){g.fillStyle='#6bcb77';g.font='900 11px system-ui';pillH(g,p.x-26,p.y+38,52,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('STARTS',p.x,p.y+51);}
     else if(me.subs.includes(p.id)){g.fillStyle='#74c0fc';g.font='900 11px system-ui';pillH(g,p.x-20,p.y+38,40,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SUB',p.x,p.y+51);}
     else if(p.id===out){g.fillStyle='#ffb3b3';g.font='900 11px system-ui';pillH(g,p.x-32,p.y+38,64,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SITS OUT',p.x,p.y+51);}
@@ -537,7 +629,7 @@ function drawGym(t,dt){
     g.restore();
   }
 }
-gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRect();const mx=(e.clientX-r.left)*1160/r.width;let best=null,bd=1e9;for(const p of S.me.players){const d=Math.abs((p.x||0)-mx);if(d<bd){bd=d;best=p;}}if(best){S.sel=best.id;renderCard();}});
+gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRect();const mx=(e.clientX-r.left)*GL.W/r.width,my=(e.clientY-r.top)*GL.H/r.height;let best=null,bd=1e9;for(const p of S.me.players){const d=Math.hypot((p.x||0)-mx,((p.y||0)-55*(p.s||1)-my)*(GL.narrow?1:0.01));if(d<bd){bd=d;best=p;}}if(best){S.sel=best.id;renderCard();if(GL.narrow)$('pcard').scrollIntoView({behavior:'smooth',block:'nearest'});}});
 
 // ───────────────────────── screens ─────────────────────────
 const pips=(n,label,tr)=>{n=Math.round(n);const ar=tr>0.04?'<b style="color:#2f9e44">▲</b>':tr<-0.04?'<b style="color:#e03131">▼</b>':'';return `<div class="pip">${label} ${[1,2,3,4].map(k=>`<i class="${k<=n?'f':''}"></i>`).join('')}${ar}</div>`;};
@@ -816,12 +908,13 @@ function renderLeague(){
   else h+=`<div class="small">Nothing yet. Plans become public after the first match.</div>`;
   h+=`</div></div><div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
     ?`<button id="toPractice" style="font-size:13px">Go to practice mode</button><button id="showKey" style="font-size:13px">Play this team on another device</button>`
-    :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+`</div>`;
+    :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+installHtml()+`</div>`;
   $('league').innerHTML=h;
   if($('wipe'))$('wipe').onclick=()=>{if(confirm('Start over? Your team and league will be lost.')){localStorage.removeItem('sundayleague2');S.tab='room';newGame();}};
   if($('toPractice'))$('toPractice').onclick=()=>setMode('practice');
   if($('toOnline'))$('toOnline').onclick=()=>setMode('online');
   if($('showKey'))$('showKey').onclick=teamKeyDialog;
+  wireInstall();
 }
 function candHtml(p,cls,i){return `<div class="cand ${cls}" data-i="${i}"><canvas width="150" height="170" data-pid="${p.id}"></canvas><div class="nm">${p.n}</div>${chip(p)}<div class="h">${CHAR[p.temp][2]}</div><div class="pips">${pips(p.sh,'attack')}${pips(p.df,'defend')}${pips(p.sp,'speed')}</div></div>`;}
 let drawList=[];
