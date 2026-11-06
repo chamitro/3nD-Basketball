@@ -502,7 +502,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.06-1629';   // stamped by build.py
+const APP_VERSION='2026.11.06-1640';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -818,129 +818,38 @@ function oppView(op){
   const ls=S.lastSheets&&S.lastSheets.find(x=>x.name===op.name);
   return {top,star,last:ls?ls.sheet:null};
 }
-// the assistant: what this plan means for these players, in this mood, against this opponent
+// The assistant reports on the manager's own players and nothing else: who is tired, who is in which mood, who
+// does not trust the coach. It does not judge the game plan and it says nothing about the opponent: choosing
+// the tactics is the manager's job. (How moods and tactics affect each other is explained in How to play.)
 function planCheck(){
-  const me=S.me,sh=me.sheet,L=[];
+  const me=S.me,L=[];
   const st=me.starters.map(id=>byId(me,id)).filter(Boolean);
-  if(st.length<3)return [[0,'Pick three starters and I will tell you what I think of the plan.']];
-  const op=nextOpp(),ov=op?oppView(op):null,ol=ov&&ov.last,oStar=ov&&ov.star;
-  const star=byId(me,me.ball);
+  if(st.length<3)return [[0,'Pick three starters and I will tell you how they are today.']];
   const names=a=>{const n=a.map(p=>p.n);return n.length>2?n.slice(0,-1).join(', ')+' and '+n[n.length-1]:n.join(' and ');},are=a=>a.length>1?'are':'is';
-  const is=m=>st.filter(p=>p.mood===m);
-  const sad=is('sad'),nerv=is('nervous'),ang=is('angry'),cool=is('cool');
-  const A=(a,f)=>a.reduce((x,p)=>x+f(p),0)/a.length;
-  const mySp=A(st,p=>p.sp),myH=A(st,p=>p.h),mySh=A(st,p=>p.sh),myDf=A(st,p=>p.df);
-  const oSp=ov?A(ov.top,p=>p.sp):2.5,oH=ov?A(ov.top,p=>p.h):0.5,oSh=ov?A(ov.top,p=>p.sh):2.5;
-  const noRun=S.rule==='no_dribble'||S.rule==='tiny_court';
-  const ro=p=>MOODFX[p.mood][2]+0.08*p.trust;
+  const out=S.rule==='tall_out'?tallestId(me):null;
   // energy
   if(hasEnergy(st[0])){
     const worn=st.filter(p=>energyOf(p)<=1.5),tired=st.filter(p=>energyOf(p)>1.5&&energyOf(p)<=2.5);
-    if(worn.length)L.push([-1,`${names(worn)} ${are(worn)} worn out and will play far below the dots. A match off gives energy back.`]);
-    if(tired.length)L.push([-1,`${names(tired)} ${are(tired)} tired. Starting again will cost more energy.`]);
-    if((worn.length||tired.length)&&(sh.tempo===2||sh.def===2))L.push([-1,`A ${sh.tempo===2&&sh.def===2?'fast tempo and a press both burn':sh.tempo===2?'fast tempo burns':'press burns'} extra energy.`]);
-    const fresh=me.players.filter(p=>!me.starters.includes(p.id)&&energyOf(p)>=3.5&&!(S.rule==='tall_out'&&tallestId(me)===p.id));
-    if((worn.length||tired.length)&&fresh.length)L.push([0,`Fresh on the bench: ${names(fresh.slice(0,3))}.`]);
+    if(worn.length)L.push([0,`${names(worn)} ${are(worn)} worn out.`]);
+    if(tired.length)L.push([0,`${names(tired)} ${are(tired)} tired.`]);
+    const fresh=me.players.filter(p=>!me.starters.includes(p.id)&&energyOf(p)>=3.5&&p.id!==out);
+    if((worn.length||tired.length)&&fresh.length)L.push([0,`Fresh and not starting: ${names(fresh.slice(0,3))}.`]);
   }
-  // tempo
-  if(sh.tempo===2){
-    if(sad.length)L.push([-1,`${names(sad)} ${are(sad)} sulking and will drag in a fast game.`]);
-    else if(nerv.length)L.push([-1,`A fast game rushes ${names(nerv)}, who ${are(nerv)} anxious, into fumbles.`]);
-    else if(noRun)L.push([-1,'Nobody can run under this week\'s rule. A fast tempo only tires legs.']);
-    else if(mySp>oSp+0.15)L.push([1,'You are quicker than them: a fast tempo gives you fast breaks.']);
-    else if(mySp<=oSp)L.push([-1,'They are at least as quick as you: a fast tempo only tires your legs.']);
-  }
-  if(sh.tempo===0){
-    if(nerv.length)L.push([1,`A slow game steadies the nerves of ${names(nerv)}.`]);
-    else if(!noRun&&mySp>oSp+0.5)L.push([-1,'You are much quicker than them and a slow game wastes it.']);
-    else if(!noRun&&oSp>mySp&&ol&&ol.tempo===2)L.push([1,'They are quicker and played fast last time: a slow game takes the running out of them.']);
-  }
-  // shots
-  if(sh.shots===0){
-    if(ol&&ol.def===1)L.push([-1,'They played a zone last time. A zone guards the hoop against close shots.']);
-    else if(myH>oH+0.1)L.push([1,'You are taller than them: close shots will go in.']);
-    else if(myH<oH-0.1)L.push([-1,'They are taller than you: close shots will be hard.']);
-  }
-  if(sh.shots===2){
-    if(ol&&ol.def===1)L.push([1,'They played a zone last time: it leaves long shots open.']);
-    else if(mySh>=3)L.push([1,'Your starters shoot well enough to live outside.']);
-    else if(mySh<=2.2)L.push([-1,'Your starters are poor shooters. Long shots will mostly miss.']);
-  }
-  // attack
-  if(sh.off===1){
-    if(!star)L.push([-1,'Star ball with no star. Open a starter\'s card and press "Make the star".']);
-    else{const m=star.mood;
-      if(m==='nervous')L.push([-1,`${star.n} is anxious and will crumble with every ball coming to him.`]);
-      else if(m==='sad')L.push([-1,`${star.n} is sulking. Do not build the attack on him today.`]);
-      else if(m==='angry'&&star.temp!=='fighter')L.push([-1,`${star.n} is fuming and will force bad shots as the star.`]);
-      else if(star.sh<2.5)L.push([-1,`${star.n} is not a good enough shooter to carry the attack.`]);
-      else if(m==='happy'||m==='cool'||m==='angry')L.push([1,`${star.n} is ${WORD[m]}: the right day to run everything through him.`]);
-      if(ol&&ol.guard===2)L.push([-1,'They double-teamed the star last time. Star ball walks into that.']);
-      else if(ol&&ol.guard===1)L.push([-1,'They put a shadow on the star last time.']);
-    }
-  }
-  if(sh.off===2){const r=A(st,ro),worst=[...st].sort((a,b)=>ro(a)-ro(b))[0];
-    if(r>=1.03)L.push([1,'Your starters trust you: they will run the set plays properly.']);
-    else if(r<0.95)L.push([-1,`${worst.n} ${worst.mood==='angry'?'is fuming and will ignore':worst.mood==='sad'?'is sulking and will forget':'does not trust you enough to follow'} the set plays.`]);
-    else L.push([0,'Set plays live on trust. Your starters trust you only so-so, so expect little.']);
-    if(sh.tempo===2)L.push([-1,'Set plays need time. A fast tempo breaks them.']);
-    if(ol&&ol.def===2)L.push([-1,'They pressed last time. A press breaks the rhythm of set plays.']);
-  }
-  if(sh.off===0){const weak=[...sad,...nerv];
-    if(weak.length)L.push([-1,`Sharing means ${names(weak)}, in no state to shoot, ${weak.length>1?'shoot':'shoots'} as often as anyone.`]);
-    else if(ol&&ol.guard===2)L.push([1,'They double-teamed the star last time. Sharing gives them nobody to double.']);
-  }
-  // defence
-  if(sh.def===2){
-    if(sad.length)L.push([-1,`${names(sad)} ${are(sad)} sulking and will not chase in a press.`]);
-    else if(ang.length)L.push([1,`${names(ang)} ${are(ang)} fuming: just right for hounding the ball in a press.`]);
-    if(ol&&ol.off===2)L.push([1,'They ran set plays last time. A press breaks their rhythm.']);
-    if(S.rule==='iron')L.push([-1,'No substitutions this week. A press burns your starters out.']);
-    else if(!me.subs.length)L.push([-1,'A press with no substitutes: legs gone by the end.']);
-  }
-  if(sh.def===1){
-    if(ang.length)L.push([-1,`${names(ang)} ${are(ang)} fuming and will wander out of the zone.`]);
-    else if(cool.length)L.push([1,`${names(cool)} ${are(cool)} locked in and will hold the zone tight.`]);
-    if(ol&&ol.shots===2)L.push([-1,'They shot from outside last time. A zone leaves exactly that open.']);
-    else if(oSh>=3)L.push([-1,'They shoot well. A zone leaves long shots open.']);
-    else if(oH>myH+0.1)L.push([1,'They are taller than you: a zone protects the hoop.']);
-    else if(ol&&ol.shots===0)L.push([1,'They went inside last time: a zone protects the hoop.']);
-    if(myDf<=2.2)L.push([1,'A zone hides your weak defenders.']);
-    else if(myDf>=3.2)L.push([-1,'Your starters are fine defenders, and a zone wastes that.']);
-  }
-  if(sh.def===0){
-    if(myDf>=3)L.push([1,'Your starters defend well: man to man lets each win his own duel.']);
-    else if(myDf<=2.1)L.push([-1,'Your starters defend poorly, and man to man leaves each alone with his man.']);
-  }
-  // their star
-  if(oStar){
-    if(sh.guard===2){
-      if(ol&&ol.off===1)L.push([1,`They ran everything through ${oStar.n} last time: two on him should hurt.`]);
-      else if(ol&&ol.off===0)L.push([-1,'They shared the ball last time. A double team leaves someone open.']);
-      else L.push([0,`Doubling ${oStar.n} pays only if they keep giving him the ball.`]);
-    }
-    if(sh.guard===1){const s=[...st].sort((a,b)=>b.df-a.df)[0];
-      if(s.mood==='angry'&&s.temp!=='fighter')L.push([-1,`${s.n}, your best defender, is fuming and will be reckless shadowing ${oStar.n}.`]);
-      else if(s.mood==='sad')L.push([-1,`${s.n}, your best defender, is sulking and will not stick to ${oStar.n}.`]);
-      else if(s.df<2.5)L.push([-1,`${s.n} is your best defender and still not good enough to shadow ${oStar.n}.`]);
-      else if(s.mood==='cool')L.push([1,`${s.n} is locked in and will stick to ${oStar.n} like glue.`]);
-      else L.push([0,`${s.n} will shadow ${oStar.n}. It will tire him.`]);
-    }
-    if(sh.guard===0&&ol&&ol.off===1&&oStar.sh>=3)L.push([-1,`${oStar.n} got the ball all game last time, and you have nobody on him.`]);
-  }
-  // rebounds
-  if(sh.boards===2){
-    if(!noRun&&oSp>mySp)L.push([-1,'They are quicker: send everyone to the hoop and they run past you.']);
-    else if(myH>oH+0.1)L.push([1,'You are taller: crashing the hoop wins second shots.']);
-    else if(sad.length)L.push([-1,`${names(sad)} will not fight for rebounds while sulking.`]);
-    else if(ang.length)L.push([1,`${names(ang)} will fight for every rebound.`]);
-  }
-  if(sh.boards===0){
-    if(noRun)L.push([-1,'Nobody can run under this week\'s rule. Getting back guards against nothing.']);
-    else if(oSp<=mySp)L.push([-1,'They are not quicker than you. Getting back guards against nothing and gives up second shots.']);
-    else if(ol&&ol.tempo===2)L.push([1,'They are quicker and played fast last time: getting back stops their fast breaks.']);
-    else L.push([0,'They are quicker, but only a fast tempo lets them use it. Getting back is a guess.']);
-  }
+  // moods of the starters
+  for(const m of ['sad','nervous','angry','happy','cool']){const a=st.filter(p=>p.mood===m);if(a.length)L.push([0,`${names(a)} ${are(a)} ${WORD[m]}.`]);}
+  // trust
+  const low=st.filter(p=>p.trust<=-1);
+  if(low.length)L.push([0,`${names(low)} ${low.length>1?'do':'does'} not trust you much.`]);
+  // the star
+  if(!byId(me,me.ball))L.push([0,'No starter is marked as the star.']);
+  // the substitutes, when something is up with them
+  const how=p=>[hasEnergy(p)&&energyOf(p)<=1.5?'worn out':hasEnergy(p)&&energyOf(p)<=2.5?'tired':'',p.mood!=='ok'?WORD[p.mood]:''].filter(Boolean).join(', ');
+  const subs=me.subs.map(id=>byId(me,id)).filter(p=>p&&how(p));
+  if(subs.length)L.push([0,`Your substitutes: ${subs.map(p=>p.n+' is '+how(p)).join('; ')}.`]);
+  // who has not been talked to before this match
+  const silent=me.players.filter(p=>!p.talked);
+  if(silent.length&&silent.length<me.players.length)L.push([0,silent.length<=3?`Not talked to before this match: ${names(silent)}.`:`You have talked to ${me.players.length-silent.length} of ${me.players.length} players before this match.`]);
+  if(!L.length)L.push([0,'Your three starters are fresh and in an ordinary mood.']);
   return L;
 }
 function renderPlan(){
@@ -956,7 +865,7 @@ function renderPlan(){
       +(ONLINE&&op.sc&&op.sc.n>=2?leagueSoFarHtml(op.sc):'')
       +(ONLINE&&op.rep&&((op.rep.pros||[]).length||(op.rep.cons||[]).length)?`<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their last match:</b> ${op.rep.us>op.rep.them?'beat':'lost to'} ${esc(op.rep.opp)} ${op.rep.us}–${op.rep.them}.${repLines(op.rep)}<div class="small" style="margin-top:4px">All match reports are in the Table tab.</div></div>`:'');}
   const L=planCheck();
-  $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant looks at this plan, your players today, and the opponent</div>'+(L.length?L.map(([k,t])=>`<div class="chk ${k>0?'g':k<0?'b':''}"><i>${k>0?'✓':k<0?'✗':'·'}</i><span>${t}</span></div>`).join(''):'<div class="chk"><i>·</i><span>Nothing stands out. A plain plan for a plain day.</span></div>');
+  $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant on your players today. The tactics are yours.</div>'+L.map(([k,t])=>`<div class="chk"><i>·</i><span>${t}</span></div>`).join('');
   $('planH').textContent='Game plan for '+DAY();
   $('play').classList.toggle('hide',ONLINE);$('nextInfo').classList.toggle('hide',!ONLINE);
   $('play').disabled=n!==3;$('play').textContent=n===3?'Play Sunday!':`Pick three starters (${n} of 3)`;
@@ -1003,7 +912,7 @@ function renderHelp(){
   <li><b>A tired player plays worse.</b> Shooting, defending, ball handling and running all drop below the dots.</li>
   <li><b>A worn-out player who is still made to play turns sour.</b> Most start sulking or fuming, and at one dot they stop trusting you. Loners and easy-going players tire just the same but do not turn sour.</li>
   <li><b>Resting a tired player does not upset them</b> and costs them no form. Leaving out a fresh player still does.</li>
-  <li>A small battery appears beside the name of a tired player in the gym, and your assistant warns you before the match.</li></ul>
+  <li>A small battery appears beside the name of a tired player in the gym, and your assistant tells you before the match who is tired.</li></ul>
   <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
   <h4><i>5</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
@@ -1011,7 +920,8 @@ function renderHelp(){
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game.</li>
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
-  <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
+  <p>Under the dials your <b>assistant</b> tells you how your own players are today: who is tired or worn out, who is sulking, anxious, fuming, buzzing or locked in, and who does not trust you much. <b>It does not tell you which tactics to choose, and it says nothing about the opponent.</b> The tactics are your decision: what each dial does is written under it, and what each mood means is in section 3.</p>
+  <p>After every match all game plans become public, yours too, so do not play the same match twice.</p>
   <h4><i>6</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
   <h4><i>7</i>The match</h4>
@@ -1021,7 +931,7 @@ function renderHelp(){
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
   <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that keeps losing the ball, shoots badly from long range or gets outrun tells you how to play them.</li>
   <li><b>Their league so far.</b> From an opponent's second match of the league on, you also see next to their name what they have done in the whole league: the plans they chose most often and their numbers per match (ball losses, fast breaks, second shots, how they shoot and how teams shoot against them).</li>
-  <li><b>The reading is yours.</b> Your assistant does not judge these numbers for you. It knows your own players and what the opponent did last time; what an opponent's history means for your plan is your decision.</li>
+  <li><b>The reading is yours.</b> Your assistant only knows your own players. What an opponent's reports and numbers mean for your game plan is your decision.</li>
   <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
   <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of older match days.</li></ul>
   <p>Match reports are part of the online league.</p>
