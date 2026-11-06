@@ -367,7 +367,8 @@ function applyView(v){
   if(S.me)for(const p of me.players){const o=S.me.players.find(q=>q.id===p.id);if(o){p.x=o.x;p.y=o.y;p.s=o.s;}}   // keep them where they stand in the gym
   S.me=me;S.pool=[];
   S.teams=v.table.map(t=>t.id===me.id?me:{id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,players:[],human:false});
-  if(!S.teams.includes(me))S.teams.push(me);
+  S.out=!!me.out;   // the running league is one this team has not entered
+  if(!S.teams.includes(me)&&!S.out)S.teams.push(me);
   S.opp=null;
   if(v.opp){const o={...v.opp,human:false};const i=S.teams.findIndex(t=>t.id===o.id);if(i>=0)S.teams[i]=o;S.opp=o;}
   S.lastSheets=v.table.filter(t=>t.ls).map(t=>({name:t.name,sheet:t.ls,w:t.lw===true?1:0,l:t.lw===false?1:0,human:t.id===me.id}));
@@ -378,14 +379,14 @@ function applyView(v){
   S.lastResults=last?{list:res.list,rule:last.rule}:null;
   const seen=+(localStorage.getItem('b3seen')||0);
   if(last&&resKey(last)>seen){S.phase='results';S.results=res;}
-  else if(me.final&&!me.final.seen){if(S.phase!=='cupend'){S.swapOut=[];S.swapIn=[];}S.phase='cupend';S.agents=me.agents;S.finalPlace=me.final.place;S.champion=me.final.champion;}
+  else if(me.out||(me.final&&!me.final.seen)){const fresh=!!(me.final&&!me.final.seen);if(S.phase!=='cupend'){S.swapOut=[];S.swapIn=[];}S.phase='cupend';S.agents=fresh?me.agents||[]:[];S.finalPlace=me.final?me.final.place:0;S.champion=me.final?me.final.champion:'';}
   else{S.phase='week';S.results=null;}
   if(!byId(me,S.sel))S.sel=me.players[0].id;
 }
 // any action that changes the screen: ask, then draw the answer
 async function goOnline(a,body){
   if(netBusy)return;netBusy++;
-  try{const v=await api(a||'view',body);if(v.joined)localStorage.setItem('b3seen','0');applyView(v);SCREEN='game';}
+  try{const v=await api(a||'view',body);if(v.joined)localStorage.setItem('b3seen','0');applyView(v);SCREEN='game';if(v.entered){S.tab='room';toast(v.me.name+' is in league '+v.league.no+'.');}}
   catch(e){if(SCREEN==='game')toast(e.message);else{SCREEN='start';START_MSG=e.message;}}
   finally{netBusy--;}
   render();
@@ -404,7 +405,7 @@ function queuePlan(){
 function setMode(m){
   clearTimeout(planTimer);
   if(m)localStorage.setItem('b3mode',m);else localStorage.removeItem('b3mode');
-  ONLINE=m==='online';S.tab='room';S.me=null;S.teams=[];S.pool=[];S.opp=null;V=null;START_MSG='';
+  ONLINE=m==='online';S.tab='room';S.out=false;S.me=null;S.teams=[];S.pool=[];S.opp=null;V=null;START_MSG='';
   if(m==='online'){SCREEN='loading';render();goOnline('view');}
   else if(m==='practice'){SCREEN='game';if(load())render();else newGame();}
   else{SCREEN='start';render();}
@@ -486,7 +487,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.06-0929';   // stamped by build.py
+const APP_VERSION='2026.11.06-1338';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -679,7 +680,7 @@ function fitGym(){
   if(narrow!==GL.narrow){GL=narrow?{W:480,H:585,narrow}:{W:1160,H:400,narrow};if(S.me)for(const p of S.me.players)p.x=null;}
   GS=Math.max(1,Math.min(3,cw*Math.min(3,window.devicePixelRatio||1)/GL.W));   // sharp on phone screens
   const w=Math.round(GL.W*GS),h=Math.round(GL.H*GS);if(gym.width!==w||gym.height!==h){gym.width=w;gym.height=h;}
-  $('gymHint').classList.toggle('hide',!narrow);
+  $('gymHint').classList.toggle('hide',!narrow||S.phase!=='week');
 }
 function drawGym(t,dt){
   const me=S.me;if(!me)return;fitGym();
@@ -768,9 +769,9 @@ function render(){
   $('tRoom').classList.toggle('on',S.tab==='room');$('tLeague').classList.toggle('on',S.tab==='league');
   if(S.phase==='draft'){renderDraft();return;}
   const pl=placeOf(S.me);
-  $('chipTeam').innerHTML=`${S.me.name} · <b>${ord(pl)}</b>`;
-  $('chipCup').innerHTML=S.phase==='cupend'?`League ${S.cup} is over`:`League ${S.cup} · ${ONLINE?'Match':'Sunday'} <b>${S.sunday}</b> of ${ONLINE?V.league.of:7}${nextOpp()&&S.phase==='week'?' · vs '+nextOpp().name:''}`;
-  const rule=ruleOf(ONLINE&&S.phase==='results'&&S.lastResults?S.lastResults.rule:S.rule);$('ruleLab').textContent=S.phase==='cupend'?'FIRST RULE OF THE NEXT LEAGUE':S.phase==='results'?'THIS MATCH WAS PLAYED UNDER':ONLINE?'RULE OF THE NEXT MATCH':'RULE OF THE WEEK';$('ruleTxt').textContent=rule.txt;$('ruleWhy').textContent=rule.why;
+  $('chipTeam').innerHTML=ONLINE&&S.out?`${S.me.name}`:`${S.me.name} · <b>${ord(pl)}</b>`;
+  $('chipCup').innerHTML=ONLINE&&S.out?`League ${S.cup} · <b>not entered yet</b>`:S.phase==='cupend'?`League ${ONLINE&&S.me.final?S.me.final.league:S.cup} is over`:`League ${S.cup} · ${ONLINE?'Match':'Sunday'} <b>${S.sunday}</b> of ${ONLINE?V.league.of:7}${nextOpp()&&S.phase==='week'?' · vs '+nextOpp().name:''}`;
+  const rule=ruleOf(ONLINE&&S.phase==='results'&&S.lastResults?S.lastResults.rule:S.rule);$('ruleLab').textContent=S.phase==='cupend'?(ONLINE?'RULE OF THE NEXT MATCH':'FIRST RULE OF THE NEXT LEAGUE'):S.phase==='results'?'THIS MATCH WAS PLAYED UNDER':ONLINE?'RULE OF THE NEXT MATCH':'RULE OF THE WEEK';$('ruleTxt').textContent=rule.txt;$('ruleWhy').textContent=rule.why;
   $('weekUI').classList.toggle('hide',S.phase!=='week');
   $('resUI').classList.toggle('hide',S.phase==='week');
   if(S.phase==='week'){renderCard();renderPlan();}
@@ -1000,8 +1001,13 @@ function renderHelp(){
   <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b> at <b>18:00 UTC</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>8</i>The league</h4>
-  <p>One league lasts <b>${LEAGUE_LASTS}</b>${ONLINE&&V&&V.league?' ('+V.league.of+' matches)':''}. The team with the most points wins it. Then every manager may change <b>${SWAP_WORDS}</b> of their seven players for a free agent, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
-  <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, and a league is seven matches.'}</div>
+  <p>One league lasts <b>${LEAGUE_LASTS}</b>${ONLINE&&V&&V.league?' ('+V.league.of+' matches)':''}. The team with the most points wins it.</p>
+  <ul><li><b>Every new league starts with no teams.</b> When a league ends, open the game: you see how it ended, and you press <b>Enter the league</b> to put your team in the next one. A team whose manager does not press the button is not in it.</li>
+  <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name.</li>
+  <li><b>One change.</b> Before you enter you may change <b>${SWAP_WORDS}</b> of your seven players for a free agent.</li>
+  <li><b>Late is allowed.</b> You can enter a league that is already running. You start from zero points.</li>
+  <li><b>The record.</b> The Table tab keeps every league your team finished ("1st once, 4th three times") and a list of <b>leagues won</b> by every team.</li></ul>
+  <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, a league is seven matches, and the next league starts with the same eight teams as soon as you press the button.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
 }
@@ -1017,9 +1023,10 @@ function renderResults(){
   let h=`<div class="card pop" style="margin-top:16px"><h3>${ONLINE?'Match '+V.me.last.match:'Sunday '+S.sunday} · full time</h3>`;
   for(const m of r.list){h+=`<div class="res"><div class="sc ${m.won?'w':'l'}" data-us="${m.us}" data-them="${m.them}">0–0</div><div><div>${m.won?'beat':'lost to'} ${m.opp}<span class="stamp ${m.won?'w':'l'}">${m.won?'WIN':'LOSS'}</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;}
   h+=`<div class="small">${r.moves.length?'Afterwards: '+r.moves.join(', ')+'.':'The mood in the locker room is unchanged.'} You are ${ord(r.place)} of ${r.of||8}.</div></div>`;
-  h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for the rule of the match after the next one':"Vote for next Sunday's rule"}</h3><div class="grid3">`;
+  if(!(ONLINE&&S.out)){h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for the rule of the match after the next one':"Vote for next Sunday's rule"}</h3><div class="grid3">`;
   S.vote.opts.forEach((k,i)=>{h+=`<div class="card vote ${S.myVote===i?'on':''}" data-v="${i}">${ruleOf(k).txt}<small>${ruleOf(k).why}</small></div>`;});
-  h+=`</div><button class="go" id="next">${ONLINE?(S.me.final&&!S.me.final.seen?'The league is over. See how it ended':'Back to the locker room'):S.sunday>=7?'The league is over. See the final table':'On to next week'}</button>`;
+  h+=`</div>`;}
+  h+=`<button class="go" id="next">${ONLINE?(S.out||(S.me.final&&!S.me.final.seen)?'The league is over. See how it ended':'Back to the locker room'):S.sunday>=7?'The league is over. See the final table':'On to next week'}</button>`;
   $('resUI').innerHTML=h;
   $('resUI').querySelectorAll('.vote').forEach(v=>v.onclick=()=>{if(ONLINE){S.myVote=+v.dataset.v;renderResults();api('vote',{i:S.myVote}).catch(e=>toast(e.message));return;}S.myVote=+v.dataset.v;const t=S.vote.tally.slice();t[S.myVote]++;S.vote.winner=S.vote.opts[t.indexOf(Math.max(...t))];save();renderResults();});
   $('next').onclick=()=>{if(ONLINE){localStorage.setItem('b3seen',String(resKey(V.me.last)));applyView(V);render();}else nextWeek();};
@@ -1039,6 +1046,17 @@ function archiveHtml(){
   for(const x of [...hs].reverse())h+=`<tr class="${x.place===1?'me':''}"><td>${x.league}</td><td><b>${ord(x.place)}</b> of ${x.of}</td><td class="n">${x.w}</td><td class="n">${x.l}</td><td class="n">${x.pts}</td><td>${x.champion||''}</td></tr>`;
   return h+`</table></div>`;
 }
+// every team's titles: how many leagues it has won, of how many it finished (the server counts when a league ends)
+function hallHtml(){
+  if(!ONLINE||!V)return '';
+  const hall=(V.league.final&&V.league.final.hall)||[];
+  let h=`<div class="card" style="margin-top:16px"><h3>Leagues won · all teams</h3>`;
+  if(!hall.length)return h+`<div class="small" style="margin:0">No league has finished yet. When one ends, the titles of every team are counted here.</div></div>`;
+  h+=`<table><tr><th>#</th><th>team</th><th class="n">leagues won</th><th class="n">leagues played</th></tr>`;
+  hall.forEach((t,i)=>{h+=`<tr class="${t.id===S.me.id?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n"><b>${t.won}</b></td><td class="n">${t.played}</td></tr>`;});
+  if(!hall.some(t=>t.id===S.me.id)&&(S.played||0)>0)h+=`<tr class="me"><td></td><td>${S.me.name}</td><td class="n"><b>${S.won||0}</b></td><td class="n">${S.played}</td></tr>`;
+  return h+`</table><div class="small">Counted each time a league ends. A team keeps its record from league to league.</div></div>`;
+}
 function renderLeague(){
   let h='';
   if(S.lastResults){
@@ -1046,11 +1064,12 @@ function renderLeague(){
   }
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>League ${S.cup} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
   table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
-  h+=`</table><div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+MATCH_WHEN+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may change ${SWAP_WORDS} of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
+  if(ONLINE&&!table().length)h+=`<tr><td colspan="6" style="text-align:center;padding:14px 6px">No team has entered league ${S.cup} yet.</td></tr>`;
+  h+=`</table>${ONLINE&&S.out?`<div class="note" style="margin-top:10px"><b>${S.me.name} is not in league ${S.cup} yet.</b> Every league starts with no teams. Go to the Locker room tab and press "Enter league ${S.cup}".</div>`:''}<div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+MATCH_WHEN+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may change ${SWAP_WORDS} of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
   if(S.lastSheets){h+=`<table><tr><th>team</th><th>plan</th><th class="n">that day</th></tr>`;for(const t of [...S.lastSheets].sort((a,b)=>b.w-a.w))h+=`<tr class="${t.human?'me':''}"><td>${t.name}</td><td>${sheetWords(t.sheet)}</td><td class="n">${t.w}–${t.l}</td></tr>`;h+=`</table><div class="small">Plans become public after the games. See what worked under that rule. Your rivals read yours too, so do not play the same match twice.</div>`;}
   else h+=`<div class="small">Nothing yet. Plans become public after the first match.</div>`;
-  h+=`</div></div>`+archiveHtml()+`<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
+  h+=`</div></div>`+archiveHtml()+hallHtml()+`<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
     ?`<button id="toPractice" style="font-size:13px">Go to practice mode</button><button id="showKey" style="font-size:13px">Play this team on another device</button>`
     :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+installHtml()+`</div>`;
   $('league').innerHTML=h;
@@ -1073,7 +1092,41 @@ function renderDraft(){
   if($('haveTeam'))$('haveTeam').onclick=useTeamKey;
   $('start').onclick=()=>{const nm=($('tname').value||'').trim();if(ONLINE){S.draftName=nm;goOnline('join',{name:nm,picks:S.pool.filter(p=>p.picked).map(p=>p.id)});}else startLeague(nm);};
 }
+// Online, a league that ends leaves every team outside the next one. This screen shows how the last league ended
+// (if this team played it), offers the one player change, and has the button that enters the running league.
+function renderEnter(){
+  const f=S.me.final,fresh=!!(f&&!f.seen),lf=V.league.final,n=V.league.no,won=fresh&&f.place===1;
+  const same=S.swapOut.length===S.swapIn.length,t=V.league.next_match_at;
+  const when=new Date(t).toLocaleString(undefined,{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+  let h='';
+  if(fresh){
+    h+=`<div class="card pop" style="margin-top:16px;text-align:center"><h3 style="font-size:28px">${won?'YOU WON LEAGUE '+f.league+'!':'League '+f.league+' is over'}</h3><div>${won?'Somebody find a bigger shelf. That is '+(S.won||1)+' of '+(S.played||1)+' leagues won.':'You finished '+ord(f.place)+' of '+f.of+'. '+(f.champion||'Nobody')+' took the title.'}</div>`;
+    if(lf&&lf.no===f.league&&lf.table&&lf.table.length){
+      h+=`<table style="margin-top:12px;text-align:left"><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">Pts</th></tr>`;
+      lf.table.forEach((x,i)=>{h+=`<tr class="${x.name===S.me.name?'me':''}"><td>${i+1}</td><td>${x.name}</td><td class="n">${x.w}</td><td class="n">${x.l}</td><td class="n"><b>${x.pts}</b></td></tr>`;});
+      h+=`</table>`;if(f.of>lf.table.length)h+=`<div class="small">The first ${lf.table.length} of ${f.of}.</div>`;
+    }
+    h+=`</div>`;
+  }
+  const btn=id=>`<button class="go" id="${id}" ${same?'':'disabled'}>${same?'Enter league '+n:'Match the outs and ins'}</button>`;
+  h+=`<div class="card" style="margin-top:16px;text-align:center;background:#d3f5d6"><h3 style="margin:0 0 6px">League ${n} ${V.league.match_no===1?'starts':'is under way'}</h3>
+  <div>Every league starts with no teams. <b>${S.me.name} is not in league ${n} yet.</b> ${V.teams===0?'Nobody has entered so far: be the first.':V.teams+' team'+(V.teams===1?' has':'s have')+' entered so far.'}</div>
+  <div class="small" style="margin-top:6px;color:var(--ink)">${V.league.match_no===1?'The first match is on '+when+'.':'It is at match '+V.league.match_no+' of '+V.league.of+'. You would start from zero points. The next match is on '+when+'.'} Your players and your record stay with you.</div>${btn('newcup')}</div>`;
+  if(fresh&&S.agents.length){
+    h+=`<div class="card" style="margin-top:16px"><h3>Before you enter: change ${SWAP_WORDS} player${MAX_SWAPS===1?'':'s'} · out ${S.swapOut.length}, in ${S.swapIn.length}</h3><div class="small" style="margin:0 0 8px">Tap one of yours to let go, and a free agent to bring in. Or change nobody and keep your seven. The free agents leave once you have entered.</div><div class="pool">${S.me.players.map((p,i)=>candHtml(p,S.swapOut.includes(p.id)?'out':'',i)).join('')}</div>
+    <h3 style="margin-top:16px">Free agents</h3><div class="pool">${S.agents.map((p,i)=>candHtml(p,S.swapIn.includes(p.id)?'in':'',i)).join('')}</div></div>`+btn('newcup2');
+  }
+  $('resUI').innerHTML=h;
+  drawList=[...S.me.players,...S.agents];
+  const pools=$('resUI').querySelectorAll('.pool');
+  if(pools.length===2){
+    pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.me.players[+d.dataset.i].id;if(S.swapOut.includes(id))S.swapOut=S.swapOut.filter(x=>x!==id);else if(S.swapOut.length<MAX_SWAPS)S.swapOut.push(id);else if(MAX_SWAPS===1)S.swapOut=[id];renderEnter();});
+    pools[1].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.agents[+d.dataset.i].id;if(S.swapIn.includes(id))S.swapIn=S.swapIn.filter(x=>x!==id);else if(S.swapIn.length<MAX_SWAPS)S.swapIn.push(id);else if(MAX_SWAPS===1)S.swapIn=[id];renderEnter();});
+  }
+  for(const id of ['newcup','newcup2'])if($(id))$(id).onclick=()=>goOnline('enter',{outs:S.swapOut,ins:S.swapIn});
+}
 function renderCupEnd(){
+  if(ONLINE){renderEnter();return;}
   const won=S.finalPlace===1;
   let h=`<div class="card pop" style="margin-top:16px;text-align:center"><h3 style="font-size:28px">${won?'YOU WON THE LEAGUE!':'League '+(ONLINE?S.me.final.league:S.cup)+' is over'}</h3><div>${won?'Somebody find a bigger shelf. That is '+(S.won||1)+' of '+(S.played||1)+' leagues won.':'You finished '+ord(S.finalPlace)+' of '+(ONLINE?S.me.final.of:8)+'. '+S.champion+' took the title.'}</div></div>`;
   h+=`<div class="card" style="margin-top:16px"><h3>Change ${SWAP_WORDS} player${MAX_SWAPS===1?'':'s'} · out ${S.swapOut.length}, in ${S.swapIn.length}</h3><div class="small" style="margin:0 0 8px">Tap one of yours to let go, and a free agent to bring in. Or change nobody and keep your seven.</div><div class="pool">${S.me.players.map((p,i)=>candHtml(p,S.swapOut.includes(p.id)?'out':'',i)).join('')}</div>
@@ -1084,7 +1137,7 @@ function renderCupEnd(){
   const pools=$('resUI').querySelectorAll('.pool');
   pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.me.players[+d.dataset.i].id;if(S.swapOut.includes(id))S.swapOut=S.swapOut.filter(x=>x!==id);else if(S.swapOut.length<MAX_SWAPS)S.swapOut.push(id);else if(MAX_SWAPS===1)S.swapOut=[id];renderCupEnd();});
   pools[1].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.agents[+d.dataset.i].id;if(S.swapIn.includes(id))S.swapIn=S.swapIn.filter(x=>x!==id);else if(S.swapIn.length<MAX_SWAPS)S.swapIn.push(id);else if(MAX_SWAPS===1)S.swapIn=[id];renderCupEnd();});
-  $('newcup').onclick=()=>{if(ONLINE)goOnline('swap',{outs:S.swapOut,ins:S.swapIn});else newCup();};
+  $('newcup').onclick=()=>newCup();
 }
 function drawCards(t){document.querySelectorAll('canvas[data-pid]').forEach(cv=>{const p=drawList.find(x=>x.id==cv.dataset.pid);if(!p)return;const k=cv.getContext('2d');k.clearRect(0,0,150,170);toon(k,p,75,158,0.85,t,{});});}
 

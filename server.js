@@ -10,6 +10,7 @@ const CFG={
   LEAGUE_MATCHES:8,       // two a week for four weeks: one league is one month (16 would be two months)
   MAX_SWAPS:1,            // players a manager may change between leagues
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
+  HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
@@ -128,16 +129,16 @@ async function runMatchday(store,lg,now){
   const best=Math.max(...tally);const winners=tally.map((v,i)=>v===best?i:-1).filter(i=>i>=0);
   const newRule=lg.vote_opts[pick(winners)];
   // the table as it stands now (teams not in play this time keep their points)
-  const tbl=(await store.tableRows()).map(t=>map.has(t.id)?map.get(t.id):t).sort(standing);
+  const tbl=(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t).sort(standing);
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;
   for(const t of humans)if(t.data.last&&t.data.last.match===lg.match_no&&t.data.last.league===lg.no){t.data.last.place=placeOf(t.id);t.data.last.of=tbl.length;}
   let reset=false;
   if(lg.match_no>=CFG.LEAGUE_MATCHES){
     // the league is over: remember how it ended, hand out free agents, start again from zero
     const champ=tbl[0]?tbl[0].name:'';
-    lg.final={no:lg.no,champion:champ,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts}))};
     // managers who played part of this league and then went away get their place recorded too
-    const away=(await store.allTeams()).filter(t=>!map.has(t.id)&&t.w+t.l>0);
+    const all=(await store.allTeams()).map(t=>map.get(t.id)||t);
+    const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
     for(const t of away){rows.push(t);map.set(t.id,t);}
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
@@ -146,15 +147,24 @@ async function runMatchday(store,lg,now){
       t.data.history=[...(t.data.history||[]),{league:lg.no,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
       t.data.agents=newPlayers(7,t.data.players.map(p=>p.n));
     }
-    for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.league_no=lg.no+1;t.pub={...t.pub,lw:null};}
+    // the all-time list: how many leagues each team has won, of how many it finished
+    const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
+      .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
+    lg.final={no:lg.no,champion:champ,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
+    // Everyone goes back to zero, and nobody is in the next league yet: a team is in it once its manager enters it.
+    // (league_no of a manager's team is the last league it entered; only the house team moves on by itself)
+    for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}
     reset=true;lg.no++;lg.match_no=1;
   }else lg.match_no++;
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
   lg.next_match_at=nextMatchTime(lg.next_match_at);lg.busy_until=null;
   // next pairings, among the managers who are still around
-  const active=humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS);
-  for(const t of humans)if(!active.includes(t))t.next_opp=null;
-  pairUp(active,house);
+  if(reset){for(const t of rows)t.next_opp=null;}   // the new league starts empty
+  else{
+    const active=humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS);
+    for(const t of humans)if(!active.includes(t))t.next_opp=null;
+    pairUp(active,house);
+  }
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});
   await notifyResults(store,rows,playedLeague,playedMatch);
@@ -176,7 +186,7 @@ function checkPlan(data,req,rule){
 
 async function makeView(store,row,lg,now,extra){
   const vapid=await getVapid(store);
-  const tbl=(await store.tableRows()).sort(standing);
+  const tbl=(await store.tableRows(lg.no)).sort(standing);   // only the teams that entered this league
   let opp=null;
   if(row.next_opp){const o=await store.teamById(row.next_opp);
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
@@ -186,7 +196,7 @@ async function makeView(store,row,lg,now,extra){
   const d=row.data;
   return {phase:'week',now,
     league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule,vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
+    me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
       sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
@@ -210,7 +220,7 @@ function resultMessage(row){
   let b=(l.won?'You beat ':'You lost to ')+l.opp+' '+l.us+'–'+l.them+'.';
   if(l.place)b+=' You are '+ord(l.place)+' of '+l.of+'.';
   const f=row.data.final;
-  if(f&&!f.seen&&f.league===l.league)b+=' League '+f.league+' is over: you finished '+ord(f.place)+'.';
+  if(f&&!f.seen&&f.league===l.league)b+=' League '+f.league+' is over: you finished '+ord(f.place)+'. Open the game to enter league '+(f.league+1)+'.';
   else if(l.lines&&l.lines[0])b+=' '+l.lines[0];
   return {t:'3nD Basketball · match '+l.match,b:b.slice(0,220),tag:'b3-'+l.league+'-'+l.match};
 }
@@ -242,7 +252,8 @@ async function handle(store,req,now,hash){
   const a=String(req&&req.a||'');const key=String(req&&req.key||'');
   if(a==='ping'){   // a scheduled job calls this: it keeps the server awake and plays any match that is due
     const lg=await tick(store,now);
-    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,matches:CFG.LEAGUE_MATCHES,swaps:CFG.MAX_SWAPS};
+    let managers=null,sql=null;try{managers=(await store.tableRows(lg.no)).length;sql=await store.config('sql');}catch(e){}
+    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,matches:CFG.LEAGUE_MATCHES,swaps:CFG.MAX_SWAPS,managers,sql};
   }
   if(!/^[a-f0-9]{32,64}$/.test(key))return {error:'bad key'};
   const h=await hash(key);
@@ -280,12 +291,17 @@ async function handle2(store,req,a,h,now){
     }
     return {error:'no team'};
   }
-  // back after a long absence, or the pairing broke: find this manager an opponent
-  let paired=!!row.next_opp;
-  if(paired){const o=await store.teamById(row.next_opp);paired=!!(o&&o.next_opp===row.id);}
-  if(!paired){await store.attach(row.id,now);row=await store.teamByKey(h);}
+  // A league that has ended leaves every team outside the next one until its manager enters it.
+  const out=row.league_no!==lg.no;
+  if(!out){
+    // back after a long absence, or the pairing broke: find this manager an opponent
+    let paired=!!row.next_opp;
+    if(paired){const o=await store.teamById(row.next_opp);paired=!!(o&&o.next_opp===row.id);}
+    if(!paired){await store.attach(row.id,now);row=await store.teamByKey(h);}
+  }
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
+  if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in league '+lg.no+' yet. Enter the league first.'};
   if(a==='talk'){
     const p=d.players.find(x=>x.id===req.pid);
     if(!p||!TONES.includes(req.tone))return {error:'bad talk'};
@@ -304,14 +320,23 @@ async function handle2(store,req,a,h,now){
   }else if(a==='vote'){
     if(![0,1,2].includes(req.i))return {error:'bad vote'};
     d.vote=req.i;dirty=true;
-  }else if(a==='swap'){
-    if(!d.final||d.final.seen)return {error:'No swaps now. They open when a league ends.'};
+  }else if(a==='enter'||a==='swap'){   // enter the league that is running now, changing a player on the way in if the last league just ended ('swap' is what older copies of the game send)
+    const fresh=!!(d.final&&!d.final.seen);   // this team finished a league and has not started another since
+    if(!out&&!fresh)return a==='enter'?makeView(store,row,lg,now,null):{error:'No swaps now. They open when a league ends.'};
     const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
-    if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
-    const agents=d.agents||[];
-    if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
-    d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
-    d.agents=[];d.final.seen=true;enforceRule(d,lg.rule);dirty=true;
+    if(outs.length||ins.length){
+      if(!fresh)return {error:'No player changes now. They open when a league you played in ends.'};
+      if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
+      const agents=d.agents||[];
+      if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
+      d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
+    }
+    d.agents=[];if(d.final)d.final.seen=true;
+    if(out)d.vote=null;
+    enforceRule(d,lg.rule);row.last_seen=now;
+    if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
+    else await store.saveTeam(row);
+    return makeView(store,row,lg,now,{entered:out});
   }else if(a==='push'){            // this device wants result notifications
     const s=req.sub||{},k=s.keys||{};
     if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};

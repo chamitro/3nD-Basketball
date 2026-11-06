@@ -27,13 +27,20 @@ function restStore(base,keys,prefix){
     teamById:id=>one('b3_teams?id=eq.'+id+'&select='+TEAM),
     teamsInPlay:()=>pages('b3_teams?or=(next_opp.not.is.null,is_house.is.true)&select='+TEAM+'&order=id',500),
     allTeams:()=>pages('b3_teams?is_house=is.false&select='+TEAM+'&order=id',500),
-    tableRows:()=>pages('b3_teams?is_house=is.false&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),
+    tableRows:no=>pages('b3_teams?is_house=is.false&league_no=eq.'+(+no)+'&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),   // the teams that entered league `no`
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
     saveTeam:async row=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&select=id',{method:'PATCH',prefer:'return=representation',
         body:{last_seen:row.last_seen,data:row.data,ver:row.ver+1}});   // who meets whom is never written from here
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;
+    },
+    // a team enters league `no`: from zero, together with whatever else changed on the way in
+    enterLeague:async(row,no)=>{
+      const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&is_house=is.false&select=id',{method:'PATCH',prefer:'return=representation',
+        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,last_seen:row.last_seen,data:row.data,ver:row.ver+1}});
+      if(!a||!a.length)throw new Error('conflict');
+      row.ver++;row.league_no=no;
     },
     // small settings kept by the server itself (table b3_config). If the table is missing these simply fail and the caller copes.
     config:async key=>{const row=await one('b3_config?key=eq.'+encodeURIComponent(key)+'&select=value');return row?row.value:null;},

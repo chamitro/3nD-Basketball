@@ -18,10 +18,10 @@ create table if not exists public.b3_teams (
   name text not null,
   name_lc text not null unique,
   is_house boolean not null default false,    -- the one computer team, used only when the number of managers is odd
-  league_no int not null default 1,
+  league_no int not null default 1,           -- the last league this team entered; it is in the running league only if this is that league's number
   w int not null default 0, l int not null default 0,
   pf int not null default 0, pa int not null default 0, pts int not null default 0,
-  next_opp uuid,                              -- next opponent; null = not in play (away for three weeks)
+  next_opp uuid,                              -- next opponent; null = not in play (away for three weeks, or has not entered this league)
   last_seen bigint not null,
   ver int not null default 0,                 -- goes up with every write, so an old copy can never overwrite a new one
   pub jsonb not null default '{}'::jsonb,     -- what everyone may see: the plan and line-up of the last match
@@ -68,9 +68,9 @@ grant all on public.b3_league, public.b3_teams, public.b3_pools, public.b3_match
 create or replace function public.b3_commit(p_league jsonb, p_teams jsonb, p_matches jsonb, p_reset boolean)
 returns void language plpgsql set search_path = public as $$
 begin
-  if p_reset then   -- a league ended: everyone starts the next one from zero
-    update b3_teams set w = 0, l = 0, pf = 0, pa = 0, pts = 0,
-           league_no = (p_league->>'no')::int, pub = pub - 'lw'
+  if p_reset then   -- a league ended: everyone goes back to zero. Nobody is moved into the next league:
+                    -- league_no stays as it was until the manager enters (the server sets it then).
+    update b3_teams set w = 0, l = 0, pf = 0, pa = 0, pts = 0, pub = pub - 'lw'
      where not is_house;
   end if;
   update b3_teams t
@@ -93,7 +93,7 @@ end $$;
 revoke all on function public.b3_commit(jsonb, jsonb, jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.b3_commit(jsonb, jsonb, jsonb, boolean) to service_role;
 
--- Giving a manager an opponent (a new manager, or one back after a long absence), in one step.
+-- Giving a manager an opponent (a new manager, one back after a long absence, or one entering a new league), in one step.
 -- The new manager takes the house team's place if the house team has a match, and otherwise plays the house team.
 -- Only one of these runs at a time, and never while a match day is being played, so two people joining at the
 -- same moment cannot be given the same opponent.
@@ -119,6 +119,10 @@ begin
 end $$;
 revoke all on function public.b3_attach(uuid, bigint) from public, anon, authenticated;
 grant execute on function public.b3_attach(uuid, bigint) to service_role;
+
+-- Which version of this file was run last. The server reports it in its "ping" answer, so it can be checked from outside.
+insert into public.b3_config (key, value) values ('sql', '2'::jsonb)
+on conflict (key) do update set value = excluded.value;
 
 -- Handy to look at (run one at a time, any time):
 -- select no, match_no, to_timestamp(next_match_at/1000) as next_match, rule from public.b3_league;

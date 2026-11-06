@@ -7,6 +7,9 @@ and choose the tactics. The match plays by itself.
   when it is played. One league lasts one month (8 matches), a win is 3 points.
   The length is `LEAGUE_MATCHES` in `server.js` (and the wording `LEAGUE_LASTS` in `index.html`).
   Between leagues each manager may change one player (`MAX_SWAPS` in `server.js` and in `index.html`).
+  Every new league starts with no teams: when a league ends, each manager opens the game and presses
+  **Enter league N**. The team, its players and its record stay the same. The Table tab lists the leagues won
+  by every team.
 - **Practice**: against seven computer teams, at your own pace.
 
 The rules are explained inside the game under **? How to play**.
@@ -38,8 +41,13 @@ The rules are explained inside the game under **? How to play**.
    `sw.js` and `version.json`. It also says whether the server function changed.
 2. Commit and push. Phones that have the game open or installed compare their number with `version.json`
    and show an "Update now" button.
-3. If build.py said the server function changed, paste `supabase/functions/b3/index.ts` into the function `b3`
+3. If `supabase/b3.sql` changed, run it again in the Supabase SQL editor first (it is safe to run again).
+4. If build.py said the server function changed, paste `supabase/functions/b3/index.ts` into the function `b3`
    in the Supabase dashboard and deploy it.
+
+To check a deployment from outside, send `{"a":"ping"}` to the function: the answer has `build` (the number
+build.py printed), `sql` (the version of `b3.sql` that was run last, 2 at the moment) and `managers` (teams in
+the running league).
 
 ## How the online league works
 
@@ -47,5 +55,9 @@ The rules are explained inside the game under **? How to play**.
 - No accounts. A secret team key lives in the browser ("Play this team on another device" in the Table tab moves it).
 - Any number of managers. If the number is odd, one computer team fills the gap; a new manager takes its place.
 - Match day needs no timer: the first request after the hour plays it.
+- A team is in the running league when its `league_no` is that league's number. Ending a league changes nobody's
+  `league_no`, so the next league is empty until managers enter it (action `enter`, which older copies of the
+  page send as `swap`). A brand-new team joins the running league directly. The all-time list of leagues won is
+  worked out when a league ends and kept with the league (`final.hall`).
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.
