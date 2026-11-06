@@ -47,6 +47,15 @@ create table if not exists public.b3_matches (  -- every match ever played, for 
 );
 create index if not exists b3_matches_round on public.b3_matches (league_no, match_no);
 
+create table if not exists public.b3_config (  -- small settings the server keeps for itself, e.g. the key it signs notifications with
+  key text primary key,
+  value jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table public.b3_config  enable row level security;
+revoke all on public.b3_config from anon, authenticated;
+grant all on public.b3_config to service_role;
+
 alter table public.b3_league  enable row level security;
 alter table public.b3_teams   enable row level security;
 alter table public.b3_pools   enable row level security;

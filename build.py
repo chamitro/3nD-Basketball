@@ -8,7 +8,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 rd = lambda p: io.open(os.path.join(here, p), encoding='utf-8').read()
 def wr(p, t): io.open(os.path.join(here, p), 'w', encoding='utf-8').write(t)
 
-parts = ['engine.js', 'server.js', 'store_rest.js', 'serve_deno.js']
+parts = ['engine.js', 'push.js', 'server.js', 'store_rest.js', 'serve_deno.js']
 out = ['// @ts-nocheck', '// 3nD Basketball server function. BUILT FILE: do not edit here, edit the parts and run build.py.', '']
 for p in parts:
     out += ['// ======================= ' + p + ' =======================', rd(p).replace("'use strict';\n", '')]

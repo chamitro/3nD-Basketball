@@ -35,6 +35,9 @@ function restStore(base,keys,prefix){
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;
     },
+    // small settings kept by the server itself (table b3_config). If the table is missing these simply fail and the caller copes.
+    config:async key=>{const row=await one('b3_config?key=eq.'+encodeURIComponent(key)+'&select=value');return row?row.value:null;},
+    setConfig:(key,value)=>q('b3_config?on_conflict=key',{method:'POST',prefer:'resolution=ignore-duplicates,return=minimal',body:{key,value}}),
     attach:async(id,now)=>{
       try{await q('rpc/b3_attach',{method:'POST',body:{p_id:id,p_now:now}});}
       catch(e){if(String(e.message).includes('b3_busy'))throw new Error('conflict');throw e;}

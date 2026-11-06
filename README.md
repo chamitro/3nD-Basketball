@@ -18,9 +18,10 @@ The rules are explained inside the game under **? How to play**.
 | `index.html` | the game: every screen, the drawing, practice mode |
 | `engine.js` | the rules of the game (talks, moods, the match). Used by the page and by the server, so both agree |
 | `server.js` | the online league: joining, talking, plans, votes, match day, who meets whom |
+| `push.js` | result notifications: encrypting and signing a message for one phone (Web Push) |
 | `store_rest.js` | how the server reads and writes the Supabase tables |
 | `serve_deno.js` | the web part of the server function |
-| `build.py` | joins the four files above into `supabase/functions/b3/index.ts` and stamps the version number |
+| `build.py` | joins the five files above into `supabase/functions/b3/index.ts` and stamps the version number |
 | `manifest.json`, `sw.js`, `icons/`, `version.json` | what makes it installable as an app, and the update check |
 | `supabase/b3.sql` | the database tables |
 | `supabase/functions/b3/index.ts` | the built server function (do not edit by hand) |
@@ -46,3 +47,5 @@ The rules are explained inside the game under **? How to play**.
 - No accounts. A secret team key lives in the browser ("Play this team on another device" in the Table tab moves it).
 - Any number of managers. If the number is odd, one computer team fills the gap; a new manager takes its place.
 - Match day needs no timer: the first request after the hour plays it.
+- Managers can ask for a notification with their result after each match. The server signs these with a key it
+  makes once and keeps in the table `b3_config`; without that table notifications are simply off.

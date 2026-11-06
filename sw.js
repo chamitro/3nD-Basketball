@@ -1,6 +1,6 @@
 // 3nD Basketball service worker: network first for the page so updates win, cache as a fallback when offline.
 // Bump CACHE_NAME whenever the shell changes.
-const CACHE_NAME = 'b3-2026.11.05-1647';
+const CACHE_NAME = 'b3-2026.11.06-0929';
 const ASSETS = ['./', 'index.html', 'engine.js', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -29,4 +29,24 @@ self.addEventListener('fetch', (e) => {
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }))
   );
+});
+
+// A result notification from the league server: show it. Tapping it opens the game.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = {}; }
+  e.waitUntil(self.registration.showNotification(d.t || '3nD Basketball', {
+    body: d.b || 'Your match has been played. Open the game to see the result.',
+    icon: 'icons/icon-192.png',
+    tag: d.tag || 'b3-result',
+    data: { url: './' }
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow((e.notification.data && e.notification.data.url) || './');
+  }));
 });

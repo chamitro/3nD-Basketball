@@ -96,7 +96,7 @@ async function runMatchday(store,lg,now){
   const rows=await store.teamsInPlay();          // every team that has an opponent, and the house team
   const map=new Map(rows.map(r=>[r.id,r]));
   const house=rows.find(r=>r.is_house);
-  const rule=lg.rule,matches=[],done=new Set();
+  const rule=lg.rule,matches=[],done=new Set(),playedLeague=lg.no,playedMatch=lg.match_no;
   for(const A of rows){
     if(done.has(A.id)||!A.next_opp)continue;
     const B=map.get(A.next_opp);
@@ -157,6 +157,7 @@ async function runMatchday(store,lg,now){
   pairUp(active,house);
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});
+  await notifyResults(store,rows,playedLeague,playedMatch);
   return lg;
 }
 
@@ -174,6 +175,7 @@ function checkPlan(data,req,rule){
 }
 
 async function makeView(store,row,lg,now,extra){
+  const vapid=await getVapid(store);
   const tbl=(await store.tableRows()).sort(standing);
   let opp=null;
   if(row.next_opp){const o=await store.teamById(row.next_opp);
@@ -185,8 +187,54 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule,vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
-      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[]},
+      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
+    push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+}
+
+// ───────────────────────── result notifications ─────────────────────────
+// The signing key is made once and kept in the database (table b3_config). If that table is not there,
+// notifications are simply off and everything else works as before.
+let VAPID_CACHE=null;
+async function getVapid(store){
+  if(VAPID_CACHE)return VAPID_CACHE;
+  try{
+    let v=await store.config('vapid');
+    if(!v){await store.setConfig('vapid',await newVapid());v=await store.config('vapid');}   // if two requests race, the first one stored wins
+    if(v&&v.jwk&&v.pub)VAPID_CACHE=v;
+    return VAPID_CACHE;
+  }catch(e){return null;}
+}
+function resultMessage(row){
+  const l=row.data.last;if(!l)return null;
+  let b=(l.won?'You beat ':'You lost to ')+l.opp+' '+l.us+'–'+l.them+'.';
+  if(l.place)b+=' You are '+ord(l.place)+' of '+l.of+'.';
+  const f=row.data.final;
+  if(f&&!f.seen&&f.league===l.league)b+=' League '+f.league+' is over: you finished '+ord(f.place)+'.';
+  else if(l.lines&&l.lines[0])b+=' '+l.lines[0];
+  return {t:'3nD Basketball · match '+l.match,b:b.slice(0,220),tag:'b3-'+l.league+'-'+l.match};
+}
+// send one message to every device of one team; returns the addresses that no longer exist
+async function pushToTeam(row,msg,vapid){
+  const subs=(row.data.push||[]).filter(s=>pushHostOk(s.endpoint));const dead=[];let sent=0;
+  for(const s of subs){const st=await sendPush(s,msg,vapid);if(st===404||st===410)dead.push(s.endpoint);else if(st>=200&&st<300)sent++;}
+  return {sent,dead,devices:subs.length};
+}
+// after a match day: tell every manager who asked. Never allowed to disturb the match day itself.
+async function notifyResults(store,rows,league,match){
+  try{
+    const teams=rows.filter(r=>!r.is_house&&r.data.push&&r.data.push.length&&r.data.last&&r.data.last.league===league&&r.data.last.match===match).slice(0,300);   // only teams that played this match
+    if(!teams.length)return;
+    const vapid=await getVapid(store);if(!vapid)return;
+    for(let i=0;i<teams.length;i+=20){
+      await Promise.all(teams.slice(i,i+20).map(async t=>{
+        try{const msg=resultMessage(t);if(!msg)return;
+          const r=await pushToTeam(t,msg,vapid);
+          if(r.dead.length){const fresh=await store.teamById(t.id);if(fresh){fresh.data.push=(fresh.data.push||[]).filter(s=>!r.dead.includes(s.endpoint));await store.saveTeam(fresh);}}
+        }catch(e){}
+      }));
+    }
+  }catch(e){}
 }
 
 // One request from a browser. `req.a` is the action, `req.key` the secret that stands in for an account.
@@ -264,6 +312,22 @@ async function handle2(store,req,a,h,now){
     if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
     d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
     d.agents=[];d.final.seen=true;enforceRule(d,lg.rule);dirty=true;
+  }else if(a==='push'){            // this device wants result notifications
+    const s=req.sub||{},k=s.keys||{};
+    if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};
+    try{if(ub64(k.p256dh).length!==65||ub64(k.auth).length<8)throw 0;}catch(e){return {error:'This browser cannot receive notifications from the game.'};}
+    d.push=[...(d.push||[]).filter(x=>x.endpoint!==s.endpoint),{endpoint:s.endpoint,p256dh:k.p256dh,auth:k.auth,at:now}].slice(-4);   // up to four devices
+    dirty=true;
+  }else if(a==='pushoff'){         // stop on this device, or on all of them
+    d.push=typeof req.endpoint==='string'?(d.push||[]).filter(x=>x.endpoint!==req.endpoint):[];
+    dirty=true;
+  }else if(a==='pushtest'){        // send a test notification to this manager's devices
+    const vapid=await getVapid(store);if(!vapid||!(d.push||[]).length)return {error:'Notifications are not turned on for this team.'};
+    if(now-(d.pushTestAt||0)<20000)return {error:'A test was sent a moment ago.'};
+    d.pushTestAt=now;
+    const r=await pushToTeam(row,{t:'3nD Basketball',b:'Notifications work. You will get one after each match, with your result.',tag:'b3-test'},vapid);
+    if(r.dead.length)d.push=d.push.filter(x=>!r.dead.includes(x.endpoint));
+    extra={pushtest:{sent:r.sent,devices:r.devices}};dirty=true;
   }else if(a!=='view')return {error:'unknown action'};
   if(dirty)await store.saveTeam(row);
   return makeView(store,row,lg,now,extra);

@@ -389,6 +389,7 @@ async function goOnline(a,body){
   catch(e){if(SCREEN==='game')toast(e.message);else{SCREEN='start';START_MSG=e.message;}}
   finally{netBusy--;}
   render();
+  if(ONLINE&&SCREEN==='game'){const was=PUSH_STATE;pushRefresh().then(()=>{if(PUSH_STATE!==was&&S.phase==='week'&&S.tab==='room')renderPlan();});}
 }
 // line-up and dials are sent a moment after the last click
 function queuePlan(){
@@ -408,6 +409,56 @@ function setMode(m){
   else if(m==='practice'){SCREEN='game';if(load())render();else newGame();}
   else{SCREEN='start';render();}
 }
+// ───────────────────────── result notifications ─────────────────────────
+// After each match the server can send this device a notification with the result. The device asks for it here.
+let PUSH_STATE='none';      // none | off | on | blocked | ios
+const pushPossible=()=>window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+const keyBytes=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0));};
+const keyText=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function pushRefresh(){
+  if(!ONLINE||!V||!V.push_key||!V.me){PUSH_STATE='none';return;}
+  if(!pushPossible()){PUSH_STATE=isIOS()&&!standalone()&&!inApp()?'ios':'none';return;}
+  if(Notification.permission==='denied'){PUSH_STATE='blocked';return;}
+  try{
+    const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+    PUSH_STATE=sub&&Notification.permission==='granted'?'on':'off';
+    // the server does not know this device (a new team, or it dropped a device it could not reach): tell it again
+    if(PUSH_STATE==='on'&&V.me.push===0)api('push',{sub:sub.toJSON()}).then(v=>{if(V&&V.me)V.me.push=v.me.push;}).catch(()=>{});
+  }catch(e){PUSH_STATE='none';}
+}
+async function pushOn(){
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){PUSH_STATE=perm==='denied'?'blocked':'off';renderPlan();return;}
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(sub&&sub.options&&sub.options.applicationServerKey&&keyText(sub.options.applicationServerKey)!==V.push_key){await sub.unsubscribe();sub=null;}   // made for an older league key
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(V.push_key)});
+    const v=await api('push',{sub:sub.toJSON()});V.me.push=v.me.push;PUSH_STATE='on';
+    toast('Notifications are on. A test is on its way.');
+    api('pushtest').catch(()=>{});
+  }catch(e){toast('Notifications could not be turned on on this device.');}
+  renderPlan();
+}
+async function pushOff(){
+  try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+    if(sub){await api('pushoff',{endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe();}}catch(e){}
+  PUSH_STATE='off';renderPlan();
+}
+function pushHtml(){
+  const box=x=>`<div style="margin-top:10px;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">${x}</div>`;
+  if(PUSH_STATE==='off')return box('<button id="pOn" style="background:var(--yellow)">🔔 Notify me when my match has been played</button>');
+  if(PUSH_STATE==='on')return box('<span>🔔 You get a notification with your result after each match.</span><button id="pTest" style="font-size:13px;padding:5px 10px">Send a test</button><button id="pOff" style="font-size:13px;padding:5px 10px">Turn off</button>');
+  if(PUSH_STATE==='blocked')return box('<span class="small" style="margin:0">Notifications from this game are blocked in this browser\'s settings.</span>');
+  if(PUSH_STATE==='ios')return box('<span class="small" style="margin:0">Want a notification with your result? On iPhone, first add the game to your Home Screen (Share, then "Add to Home Screen") and open it from there.</span>');
+  return '';
+}
+function wirePush(){
+  if($('pOn'))$('pOn').onclick=pushOn;
+  if($('pOff'))$('pOff').onclick=pushOff;
+  if($('pTest'))$('pTest').onclick=()=>api('pushtest').then(v=>toast(v.pushtest&&v.pushtest.sent?'Test sent. It should arrive in a few seconds.':'The test could not be delivered to this device.')).catch(e=>toast(e.message));
+}
+
 // installing to the home screen
 let installEvt=null;
 const standalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
@@ -435,7 +486,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.05-1647';   // stamped by build.py
+const APP_VERSION='2026.11.06-0929';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -894,7 +945,7 @@ function renderPlan(){
   $('playNote').textContent=ONLINE?'':'Practice mode: you press the button. In the online league the match comes by itself.';
   if(ONLINE){const t=V.league.next_match_at,left=t-(Date.now()+SKEW);
     const d=Math.floor(left/86400000),hh=Math.floor(left%86400000/3600000),mm=Math.floor(left%3600000/60000);
-    $('nextInfo').innerHTML=`<h3 style="margin:0">Next match: ${new Date(t).toLocaleString(undefined,{weekday:'long',hour:'2-digit',minute:'2-digit'})}</h3><div>${left<=0?'It is being played now.':'In '+(d?d+' day'+(d>1?'s ':' '):'')+hh+' h '+mm+' min.'} Your talks and your plan are saved as you make them. You do not need to be here when it is played.</div><div class="small" style="margin-top:6px;color:var(--ink)">Matches are played ${MATCH_WHEN}. That is ${new Date(t).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})} on this device's clock.</div>${n===3?'':'<div style="color:#c92a2a">You have '+n+' of 3 starters. If you leave it like this, your best remaining players fill in.</div>'}`;}
+    $('nextInfo').innerHTML=`<h3 style="margin:0">Next match: ${new Date(t).toLocaleString(undefined,{weekday:'long',hour:'2-digit',minute:'2-digit'})}</h3><div>${left<=0?'It is being played now.':'In '+(d?d+' day'+(d>1?'s ':' '):'')+hh+' h '+mm+' min.'} Your talks and your plan are saved as you make them. You do not need to be here when it is played.</div><div class="small" style="margin-top:6px;color:var(--ink)">Matches are played ${MATCH_WHEN}. That is ${new Date(t).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})} on this device's clock.</div>${pushHtml()}${n===3?'':'<div style="color:#c92a2a">You have '+n+' of 3 starters. If you leave it like this, your best remaining players fill in.</div>'}`;wirePush();}
 }
 $('tones').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.t)talk(b.dataset.t);};
 
@@ -947,7 +998,7 @@ function renderHelp(){
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
   <h4><i>7</i>The match</h4>
   <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b> at <b>18:00 UTC</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
-  <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li></ul>
+  <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>8</i>The league</h4>
   <p>One league lasts <b>${LEAGUE_LASTS}</b>${ONLINE&&V&&V.league?' ('+V.league.of+' matches)':''}. The team with the most points wins it. Then every manager may change <b>${SWAP_WORDS}</b> of their seven players for a free agent, and a new league starts with the same team. Every league you finish is kept in the Table tab: where you ended, your wins and losses, and who took the title. Over a year you can see, for example, "1st once, 4th three times".</p>
   <div class="note">${ONLINE?'<b>Online league:</b> one league lasts '+V.league.of+' matches. If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, and a league is seven matches.'}</div>

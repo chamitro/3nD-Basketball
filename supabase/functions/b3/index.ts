@@ -467,6 +467,62 @@ function aftermath(team,X,won,conceded){
 }
 function sheetWords(s){return [['slow','steady','fast'][s.tempo],['inside','mixed','outside'][s.shots],['share','star ball','set plays'][s.off||0],['man','zone','press'][s.def],['','shadow','double'][s.guard||0],['get back','','crash'][s.boards===undefined?1:s.boards]].filter(Boolean).join(' · ');}
 
+// ======================= push.js =======================
+// 3nD Basketball: result notifications (Web Push). Runs on the server only.
+// Phones accept a notification only if it is encrypted for that one device (RFC 8291) and signed by this
+// server's own key (VAPID, RFC 8292). Both are done here with the built-in crypto, no library.
+const b64u=buf=>{let s='';for(const x of new Uint8Array(buf))s+=String.fromCharCode(x);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
+const ub64=str=>{let s=String(str).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;};
+const cat=(...xs)=>{const o=new Uint8Array(xs.reduce((n,x)=>n+x.length,0));let i=0;for(const x of xs){o.set(x,i);i+=x.length;}return o;};
+const utf8=s=>new TextEncoder().encode(s);
+async function hkdf(salt,ikm,info,len){const k=await crypto.subtle.importKey('raw',ikm,'HKDF',false,['deriveBits']);return new Uint8Array(await crypto.subtle.deriveBits({name:'HKDF',hash:'SHA-256',salt,info},k,len*8));}
+
+// Encrypt one message for one device. `fixed` is only for checking against the published test values.
+async function pushEncrypt(plain,p256dh,auth,fixed){
+  const ua=ub64(p256dh),authSecret=ub64(auth);
+  const uaKey=await crypto.subtle.importKey('raw',ua,{name:'ECDH',namedCurve:'P-256'},false,[]);
+  let asPriv,asPub;
+  if(fixed){asPriv=await crypto.subtle.importKey('jwk',fixed.jwk,{name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);asPub=fixed.pub;}
+  else{const kp=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);asPriv=kp.privateKey;asPub=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));}
+  const ecdh=new Uint8Array(await crypto.subtle.deriveBits({name:'ECDH',public:uaKey},asPriv,256));
+  const ikm=await hkdf(authSecret,ecdh,cat(utf8('WebPush: info\0'),ua,asPub),32);
+  const salt=fixed?fixed.salt:crypto.getRandomValues(new Uint8Array(16));
+  const cek=await hkdf(salt,ikm,utf8('Content-Encoding: aes128gcm\0'),16);
+  const nonce=await hkdf(salt,ikm,utf8('Content-Encoding: nonce\0'),12);
+  const key=await crypto.subtle.importKey('raw',cek,'AES-GCM',false,['encrypt']);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:nonce},key,cat(utf8(plain),new Uint8Array([2]))));
+  return cat(salt,new Uint8Array([0,0,16,0,asPub.length]),asPub,ct);
+}
+// this server's signing key: made once, kept in the database
+async function newVapid(){
+  const kp=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+  const jwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
+  return {jwk:{kty:jwk.kty,crv:jwk.crv,x:jwk.x,y:jwk.y,d:jwk.d},pub:b64u(await crypto.subtle.exportKey('raw',kp.publicKey))};
+}
+async function vapidHeader(endpoint,vapid,nowMs){
+  const head=b64u(utf8(JSON.stringify({typ:'JWT',alg:'ES256'})));
+  const body=b64u(utf8(JSON.stringify({aud:new URL(endpoint).origin,exp:Math.floor((nowMs||Date.now())/1000)+12*3600,sub:'https://chamitro.github.io/3nD-Basketball/'})));
+  const key=await crypto.subtle.importKey('jwk',vapid.jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
+  const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,utf8(head+'.'+body));
+  return 'vapid t='+head+'.'+body+'.'+b64u(sig)+', k='+vapid.pub;
+}
+// Notifications may only be sent to the real notification services of the browser makers, never to an address a visitor made up.
+const PUSH_HOSTS=['fcm.googleapis.com','.push.services.mozilla.com','.notify.windows.com','.push.apple.com'];
+function pushHostOk(endpoint){
+  try{const u=new URL(endpoint);if(u.protocol!=='https:')return false;return PUSH_HOSTS.some(h=>h[0]==='.'?u.hostname.endsWith(h):u.hostname===h);}catch(e){return false;}
+}
+// returns the HTTP status of the notification service (201 = accepted, 404/410 = this device is gone), 0 = no answer
+async function sendPush(sub,payload,vapid){
+  const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),6000);
+  try{
+    const body=await pushEncrypt(JSON.stringify(payload),sub.p256dh,sub.auth);
+    const r=await fetch(sub.endpoint,{method:'POST',signal:ctl.signal,body,
+      headers:{'Content-Encoding':'aes128gcm','Content-Type':'application/octet-stream',TTL:'86400',Urgency:'normal',Authorization:await vapidHeader(sub.endpoint,vapid)}});
+    return r.status;
+  }catch(e){return 0;}
+  finally{clearTimeout(timer);}
+}
+
 // ======================= server.js =======================
 // 3nD Basketball: the online league. Runs on the server only, on top of engine.js.
 // The browser sends choices ("talk to this player: praise", "this is my plan"); everything is decided here.
@@ -483,7 +539,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='a06ac433';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='deb9b1b2';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the next Wednesday or Sunday at the match hour, strictly after the given moment
 function nextMatchTime(afterMs){
@@ -566,7 +622,7 @@ async function runMatchday(store,lg,now){
   const rows=await store.teamsInPlay();          // every team that has an opponent, and the house team
   const map=new Map(rows.map(r=>[r.id,r]));
   const house=rows.find(r=>r.is_house);
-  const rule=lg.rule,matches=[],done=new Set();
+  const rule=lg.rule,matches=[],done=new Set(),playedLeague=lg.no,playedMatch=lg.match_no;
   for(const A of rows){
     if(done.has(A.id)||!A.next_opp)continue;
     const B=map.get(A.next_opp);
@@ -627,6 +683,7 @@ async function runMatchday(store,lg,now){
   pairUp(active,house);
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});
+  await notifyResults(store,rows,playedLeague,playedMatch);
   return lg;
 }
 
@@ -644,6 +701,7 @@ function checkPlan(data,req,rule){
 }
 
 async function makeView(store,row,lg,now,extra){
+  const vapid=await getVapid(store);
   const tbl=(await store.tableRows()).sort(standing);
   let opp=null;
   if(row.next_opp){const o=await store.teamById(row.next_opp);
@@ -655,8 +713,54 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule,vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
-      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[]},
+      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
+    push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+}
+
+// ───────────────────────── result notifications ─────────────────────────
+// The signing key is made once and kept in the database (table b3_config). If that table is not there,
+// notifications are simply off and everything else works as before.
+let VAPID_CACHE=null;
+async function getVapid(store){
+  if(VAPID_CACHE)return VAPID_CACHE;
+  try{
+    let v=await store.config('vapid');
+    if(!v){await store.setConfig('vapid',await newVapid());v=await store.config('vapid');}   // if two requests race, the first one stored wins
+    if(v&&v.jwk&&v.pub)VAPID_CACHE=v;
+    return VAPID_CACHE;
+  }catch(e){return null;}
+}
+function resultMessage(row){
+  const l=row.data.last;if(!l)return null;
+  let b=(l.won?'You beat ':'You lost to ')+l.opp+' '+l.us+'–'+l.them+'.';
+  if(l.place)b+=' You are '+ord(l.place)+' of '+l.of+'.';
+  const f=row.data.final;
+  if(f&&!f.seen&&f.league===l.league)b+=' League '+f.league+' is over: you finished '+ord(f.place)+'.';
+  else if(l.lines&&l.lines[0])b+=' '+l.lines[0];
+  return {t:'3nD Basketball · match '+l.match,b:b.slice(0,220),tag:'b3-'+l.league+'-'+l.match};
+}
+// send one message to every device of one team; returns the addresses that no longer exist
+async function pushToTeam(row,msg,vapid){
+  const subs=(row.data.push||[]).filter(s=>pushHostOk(s.endpoint));const dead=[];let sent=0;
+  for(const s of subs){const st=await sendPush(s,msg,vapid);if(st===404||st===410)dead.push(s.endpoint);else if(st>=200&&st<300)sent++;}
+  return {sent,dead,devices:subs.length};
+}
+// after a match day: tell every manager who asked. Never allowed to disturb the match day itself.
+async function notifyResults(store,rows,league,match){
+  try{
+    const teams=rows.filter(r=>!r.is_house&&r.data.push&&r.data.push.length&&r.data.last&&r.data.last.league===league&&r.data.last.match===match).slice(0,300);   // only teams that played this match
+    if(!teams.length)return;
+    const vapid=await getVapid(store);if(!vapid)return;
+    for(let i=0;i<teams.length;i+=20){
+      await Promise.all(teams.slice(i,i+20).map(async t=>{
+        try{const msg=resultMessage(t);if(!msg)return;
+          const r=await pushToTeam(t,msg,vapid);
+          if(r.dead.length){const fresh=await store.teamById(t.id);if(fresh){fresh.data.push=(fresh.data.push||[]).filter(s=>!r.dead.includes(s.endpoint));await store.saveTeam(fresh);}}
+        }catch(e){}
+      }));
+    }
+  }catch(e){}
 }
 
 // One request from a browser. `req.a` is the action, `req.key` the secret that stands in for an account.
@@ -734,6 +838,22 @@ async function handle2(store,req,a,h,now){
     if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
     d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
     d.agents=[];d.final.seen=true;enforceRule(d,lg.rule);dirty=true;
+  }else if(a==='push'){            // this device wants result notifications
+    const s=req.sub||{},k=s.keys||{};
+    if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};
+    try{if(ub64(k.p256dh).length!==65||ub64(k.auth).length<8)throw 0;}catch(e){return {error:'This browser cannot receive notifications from the game.'};}
+    d.push=[...(d.push||[]).filter(x=>x.endpoint!==s.endpoint),{endpoint:s.endpoint,p256dh:k.p256dh,auth:k.auth,at:now}].slice(-4);   // up to four devices
+    dirty=true;
+  }else if(a==='pushoff'){         // stop on this device, or on all of them
+    d.push=typeof req.endpoint==='string'?(d.push||[]).filter(x=>x.endpoint!==req.endpoint):[];
+    dirty=true;
+  }else if(a==='pushtest'){        // send a test notification to this manager's devices
+    const vapid=await getVapid(store);if(!vapid||!(d.push||[]).length)return {error:'Notifications are not turned on for this team.'};
+    if(now-(d.pushTestAt||0)<20000)return {error:'A test was sent a moment ago.'};
+    d.pushTestAt=now;
+    const r=await pushToTeam(row,{t:'3nD Basketball',b:'Notifications work. You will get one after each match, with your result.',tag:'b3-test'},vapid);
+    if(r.dead.length)d.push=d.push.filter(x=>!r.dead.includes(x.endpoint));
+    extra={pushtest:{sent:r.sent,devices:r.devices}};dirty=true;
   }else if(a!=='view')return {error:'unknown action'};
   if(dirty)await store.saveTeam(row);
   return makeView(store,row,lg,now,extra);
@@ -777,6 +897,9 @@ function restStore(base,keys,prefix){
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;
     },
+    // small settings kept by the server itself (table b3_config). If the table is missing these simply fail and the caller copes.
+    config:async key=>{const row=await one('b3_config?key=eq.'+encodeURIComponent(key)+'&select=value');return row?row.value:null;},
+    setConfig:(key,value)=>q('b3_config?on_conflict=key',{method:'POST',prefer:'resolution=ignore-duplicates,return=minimal',body:{key,value}}),
     attach:async(id,now)=>{
       try{await q('rpc/b3_attach',{method:'POST',body:{p_id:id,p_now:now}});}
       catch(e){if(String(e.message).includes('b3_busy'))throw new Error('conflict');throw e;}
