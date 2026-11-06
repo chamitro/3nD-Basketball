@@ -49,8 +49,9 @@ The rules are explained inside the game under **? How to play**.
    in the Supabase dashboard and deploy it.
 
 To check a deployment from outside, send `{"a":"ping"}` to the function: the answer has `build` (the number
-build.py printed), `sql` (the version of `b3.sql` that was run last, 2 at the moment), `name` and `matches` (the
-running league and its length) and `managers` (teams in it).
+build.py printed), `sql` (the version of `b3.sql` that was run last, 3 at the moment), `name` and `matches` (the
+running league and its length), `managers` (teams in it) and `db_mb` (megabytes the database uses, of the 500 the
+free plan allows; the scheduled job fails loudly from 350 on).
 
 ## How the online league works
 

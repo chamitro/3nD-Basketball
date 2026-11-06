@@ -120,8 +120,17 @@ end $$;
 revoke all on function public.b3_attach(uuid, bigint) from public, anon, authenticated;
 grant execute on function public.b3_attach(uuid, bigint) to service_role;
 
+-- How much room the whole database takes, in bytes. The server reports it in its "ping" answer (as megabytes),
+-- so it can be watched from outside. The free Supabase plan allows 500 MB.
+create or replace function public.b3_size()
+returns bigint language sql stable security definer set search_path = public as $$
+  select pg_database_size(current_database());
+$$;
+revoke all on function public.b3_size() from public, anon, authenticated;
+grant execute on function public.b3_size() to service_role;
+
 -- Which version of this file was run last. The server reports it in its "ping" answer, so it can be checked from outside.
-insert into public.b3_config (key, value) values ('sql', '2'::jsonb)
+insert into public.b3_config (key, value) values ('sql', '3'::jsonb)
 on conflict (key) do update set value = excluded.value;
 
 -- Handy to look at (run one at a time, any time):

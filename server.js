@@ -11,6 +11,7 @@ const CFG={
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
+  DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
 };
@@ -150,7 +151,8 @@ async function runMatchday(store,lg,now){
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
+      // pub.sc: this team's league so far in numbers (one small record, updated after each match)
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
       rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
@@ -226,7 +228,7 @@ async function makeView(store,row,lg,now,extra){
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
       opp={id:o.id,name:o.name,house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
-        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null};}}
+        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null,sc:o.pub.sc&&o.pub.sc.lg===lg.no?o.pub.sc:null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
@@ -303,8 +305,9 @@ async function handle(store,req,now,hash){
   const a=String(req&&req.a||'');const key=String(req&&req.key||'');
   if(a==='ping'){   // a scheduled job calls this: it keeps the server awake and plays any match that is due
     const lg=await tick(store,now);
-    let managers=null,sql=null;try{managers=(await store.tableRows(lg.no)).length;sql=await store.config('sql');}catch(e){}
-    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,name:leagueName(lg.no,lg.next_match_at),matches:leagueLength(lg),swaps:CFG.MAX_SWAPS,managers,sql};
+    let managers=null,sql=null,db_mb=null;
+    try{managers=(await store.tableRows(lg.no)).length;sql=await store.config('sql');const b=store.dbSize?await store.dbSize():null;if(b!==null)db_mb=Math.round(b/1048576*10)/10;}catch(e){}
+    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,name:leagueName(lg.no,lg.next_match_at),matches:leagueLength(lg),swaps:CFG.MAX_SWAPS,managers,sql,db_mb,db_limit_mb:CFG.DB_LIMIT_MB};
   }
   if(!/^[a-f0-9]{32,64}$/.test(key))return {error:'bad key'};
   const h=await hash(key);

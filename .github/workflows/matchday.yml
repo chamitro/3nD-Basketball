@@ -35,7 +35,13 @@ jobs:
               -H "Authorization: Bearer sb_publishable_w6gn-2QkaS6eDAcsryYh-A_xJIFDMBo" \
               -d '{"a":"ping"}' || true)
             echo "try $i: $out"
-            case "$out" in *'"up_to_date":true'*) echo "The league is up to date."; exit 0;; esac
+            case "$out" in *'"up_to_date":true'*)
+              echo "The league is up to date."
+              # the database: warn long before the free plan's 500 MB is reached
+              mb=$(echo "$out" | sed -n 's/.*"db_mb":\([0-9]*\).*/\1/p')
+              if [ -n "$mb" ]; then echo "The database uses $mb MB of 500 MB."; fi
+              if [ -n "$mb" ] && [ "$mb" -ge 350 ]; then echo "::error::The league database uses $mb MB of the 500 MB the free Supabase plan allows. Old match reports should be trimmed, or the plan upgraded."; exit 1; fi
+              exit 0;; esac
             sleep 15
           done
           echo "::error::The league server did not confirm that it is up to date. Open the game; if it says the league cannot be reached, check the Supabase project."

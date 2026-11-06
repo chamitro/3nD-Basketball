@@ -46,6 +46,8 @@ function restStore(base,keys,prefix){
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;row.league_no=no;
     },
+    // how much room the database takes, in bytes (null if the SQL file from before this was added is still in place)
+    dbSize:async()=>{try{const v=await q('rpc/b3_size',{method:'POST',body:{}});return typeof v==='number'?v:null;}catch(e){return null;}},
     // small settings kept by the server itself (table b3_config). If the table is missing these simply fail and the caller copes.
     config:async key=>{const row=await one('b3_config?key=eq.'+encodeURIComponent(key)+'&select=value');return row?row.value:null;},
     setConfig:(key,value)=>q('b3_config?on_conflict=key',{method:'POST',prefer:'resolution=ignore-duplicates,return=minimal',body:{key,value}}),

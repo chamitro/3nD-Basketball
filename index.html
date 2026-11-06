@@ -502,7 +502,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.06-1605';   // stamped by build.py
+const APP_VERSION='2026.11.06-1629';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -767,7 +767,7 @@ const DESC={
   tempo:['Fewer, harder shots, fresher legs. Takes the running out of a quick team. Steadies anxious players.','Nothing special.','More shots and fast breaks if you are quicker. Tires legs. Bad for sulking or anxious players.'],
   shots:['Close shots. Height decides.','A bit of both.','Long shots. Attack dots decide.'],
   off:['Everyone shoots. Nobody for them to double. Bad if a starter is in no state to shoot.','Most balls go to your star. As good as the mood of your star today.','Rehearsed moves. Work only if the starters trust you. Spoiled by a fast tempo or by their press.'],
-  def:['Each guards his man. Defence dots decide.','Guards the hoop, leaves long shots open. Hides weak defenders. Fuming players wander out of it.','Steals the ball, tires you, gives easy shots when beaten. Fuming players love it, sulking ones jog.'],
+  def:['Each guards his man. Defence dots decide.','Guards the hoop, leaves long shots open. Hides weak defenders. Fuming players wander out of it.','Steals the ball, most of all from tall, slow or tired players. Tires you, gives easy shots when beaten. Fuming players love it, sulking ones jog.'],
   guard:['Nobody special on their star.','Your best defender follows their star everywhere. Tiring, and their others get a little more room.','Two on their star. Stops the star, leaves someone else open. Bad against a team that shares.'],
   boards:['Run back after every shot. Stops their fast breaks, gives up second shots.','A bit of both.','Everyone to the hoop for second shots. A quick team runs past you. Tires legs.']};
 const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
@@ -953,6 +953,7 @@ function renderPlan(){
   $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
   const op=nextOpp();if(op){const ov=oppView(op);
     $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`
+      +(ONLINE&&op.sc&&op.sc.n>=2?leagueSoFarHtml(op.sc):'')
       +(ONLINE&&op.rep&&((op.rep.pros||[]).length||(op.rep.cons||[]).length)?`<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their last match:</b> ${op.rep.us>op.rep.them?'beat':'lost to'} ${esc(op.rep.opp)} ${op.rep.us}–${op.rep.them}.${repLines(op.rep)}<div class="small" style="margin-top:4px">All match reports are in the Table tab.</div></div>`:'');}
   const L=planCheck();
   $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant looks at this plan, your players today, and the opponent</div>'+(L.length?L.map(([k,t])=>`<div class="chk ${k>0?'g':k<0?'b':''}"><i>${k>0?'✓':k<0?'✗':'·'}</i><span>${t}</span></div>`).join(''):'<div class="chk"><i>·</i><span>Nothing stands out. A plain plan for a plain day.</span></div>');
@@ -1018,7 +1019,9 @@ function renderHelp(){
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>8</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
-  <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that loses the ball against a press, or runs out of legs, tells you how to play them.</li>
+  <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that keeps losing the ball, shoots badly from long range or gets outrun tells you how to play them.</li>
+  <li><b>Their league so far.</b> From an opponent's second match of the league on, you also see next to their name what they have done in the whole league: the plans they chose most often and their numbers per match (ball losses, fast breaks, second shots, how they shoot and how teams shoot against them).</li>
+  <li><b>The reading is yours.</b> Your assistant does not judge these numbers for you. It knows your own players and what the opponent did last time; what an opponent's history means for your plan is your decision.</li>
   <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
   <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of older match days.</li></ul>
   <p>Match reports are part of the online league.</p>
@@ -1100,6 +1103,14 @@ function roundHtml(){
   }
   if(RD.more)h+=`<div class="small">Only the first ${RD.matches.length} matches of this match day are listed.</div>`;
   return h+`</div>`;
+}
+// a team's league so far in two lines: the plans it chose most often, and its numbers per match
+function leagueSoFarHtml(sc){
+  const most=a=>{const i=a.indexOf(Math.max(...a));return a[i]/sc.n>=0.5?i:-1;},W={t:['slow','steady','fast'],s:['inside','mixed','outside'],o:['share','star ball','set plays'],d:['man','zone','press'],g:['no special guard','shadow','double'],b:['get back','balanced','crash']};
+  const plans=['t','s','o','d','g','b'].map(k=>{const i=most(sc[k]);return i<0?null:W[k][i]+' ('+sc[k][i]+')';}).filter(Boolean);
+  const r1=x=>Math.round(x/sc.n*10)/10,pc=(m,a)=>a?Math.round(100*m/a)+'%':'none taken';
+  return `<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their league so far</b> (${sc.n} matches, ${sc.w} won). Most often: ${plans.length?plans.join(' · '):'something different every match'}.
+    <div class="small" style="margin-top:2px;color:var(--ink)">Per match: loses the ball ${r1(sc.to)} times · ${r1(sc.fb)} fast breaks, outrun on ${r1(sc.ofb)} · second shots ${r1(sc.sec)} for, ${r1(sc.osec)} against. Close shots ${pc(sc.m2,sc.a2)}, long shots ${pc(sc.m3,sc.a3)}; teams against them: close ${pc(sc.om2,sc.oa2)}, long ${pc(sc.om3,sc.oa3)}.</div></div>`;
 }
 // every team's titles: how many leagues it has won, of how many it finished (the server counts when a league ends)
 function hallHtml(){

@@ -171,6 +171,7 @@ function botPrepare(team,opp,rule,oppLast){
 
 // ───────────────────────── the match ─────────────────────────
 function obey(p){return clamp(MOODFX[p.mood][2]+0.08*p.trust,0.2,1);}
+const PRESS_MID={h:0.5,sp:0,tired:0.15};   // an average ball handler: height, speed (as -1..1) and tiredness
 function playMatch(A,B,ruleKey){
   const rule=ruleKey;
   const mk=T=>{
@@ -205,7 +206,11 @@ function playMatch(A,B,ruleKey){
     const fx=MOODFX[shooter.mood],m=shooter.mood;
     const isF=shooter===focus,dbl=ds.guard===2,shadow=ds.guard===1;
     // turnover
-    let pTO=0.10+0.06*(shooter.h-0.5)+fx[1]+(ds.def===2?0.07:0)-(noRun?0:0.02*nrm(shooter.sp)*sMul);
+    // A press works best on those who handle the ball badly anyway: the tall, the slow and the tired. Against quick,
+    // small, fresh players it wins little. `loose` is about -1..1 and close to zero for an average player, so a press
+    // is worth the same as before on average. A team's ball losses in its match reports therefore say how to play it.
+    const loose=1.4*(shooter.h-PRESS_MID.h)-0.5*(nrm(shooter.sp)-PRESS_MID.sp)+0.6*(tiredOf(shooter)-PRESS_MID.tired);
+    let pTO=0.10+0.06*(shooter.h-0.5)+fx[1]+(ds.def===2?clamp(0.07+0.08*loose,0.01,0.17):0)-(noRun?0:0.02*nrm(shooter.sp)*sMul);
     if(ds.def===2)for(const d of D.court)pTO+=d.mood==='angry'?0.025:d.mood==='sad'?-0.025:0; // the furious hound the ball, the sulking jog
     pTO+=0.04*tiredOf(shooter);
     if(os.tempo===2&&m==='nervous')pTO+=0.05;
@@ -426,6 +431,30 @@ function scoutReport(X,Y,rule){
   const cons=C.filter(c=>c[0]<0).sort((a,b)=>a[0]-b[0]).slice(0,3).map(c=>c[1]);
   return {pros,cons};
 }
+// A team's league so far, in numbers, for everybody to read: what it did in all its matches of this league added up.
+// It is one small record per team that is updated after each match, so it does not grow as the league goes on.
+// prev = the record so far (or one from an older league, which is dropped), X = this team's side of the match, Y = the other.
+function seasonCard(prev,leagueNo,X,Y,won){
+  const z=()=>[0,0,0];
+  const c=prev&&prev.lg===leagueNo&&prev.n>0?JSON.parse(JSON.stringify(prev)):
+    {lg:leagueNo,n:0,w:0,to:0,pn:0,pto:0,a2:0,m2:0,a3:0,m3:0,oa2:0,om2:0,oa3:0,om3:0,sec:0,osec:0,fb:0,ofb:0,tired:0,hog:0,dn:0,db:0,dbm:0,opn:0,sn:0,sh:0,shm:0,t:z(),s:z(),d:z(),o:z(),g:z(),b:z()};
+  const S=Z=>Z.T.players.filter(p=>Z.st[p.id]).map(p=>Z.st[p.id]),sum=(a,f)=>a.reduce((s,v)=>s+f(v),0);
+  const xs=S(X),ys=S(Y),sh=X.T.sheet,os=Y.T.sheet;
+  const fga=sum(xs,v=>v.fga),a3=sum(xs,v=>v.a3),m3=sum(xs,v=>v.m3),fgm=sum(xs,v=>v.fgm),to=sum(xs,v=>v.to);
+  const ofga=sum(ys,v=>v.fga),oa3=sum(ys,v=>v.a3),om3=sum(ys,v=>v.m3),ofgm=sum(ys,v=>v.fgm);
+  c.n++;if(won)c.w++;
+  c.to+=to;if(os.def===2){c.pn++;c.pto+=to;}                                   // ball losses, and those against a press
+  c.a2+=fga-a3;c.m2+=fgm-m3;c.a3+=a3;c.m3+=m3;                                 // own shooting, close and long
+  c.oa2+=ofga-oa3;c.om2+=ofgm-om3;c.oa3+=oa3;c.om3+=om3;                       // what opponents shot against them
+  c.sec+=X.oreb;c.osec+=Y.oreb;c.fb+=X.fast;c.ofb+=Y.fast;                     // second shots and fast breaks, for and against
+  if(X.court.reduce((s,p)=>s+X.st[p.id].f,0)/X.court.length>=0.3)c.tired++;    // matches finished on tired legs
+  if(fga>0)c.hog=Math.round((c.hog+Math.max(...xs.map(v=>v.fga))/fga)*1000)/1000;   // how much of the shooting one player does
+  const star=X.T.players.find(p=>p.id===X.T.ball&&X.st[p.id])||[...X.court].sort((p,q)=>q.sh-p.sh)[0],ss=X.st[star.id];
+  if(os.guard===2){c.dn++;c.db+=ss.dbl;c.dbm+=ss.dblM;c.opn+=X.openM;}         // when their star was double-teamed
+  if(os.guard===1){c.sn++;c.sh+=ss.shad;c.shm+=ss.shadM;}                      // when their star was shadowed
+  c.t[sh.tempo]++;c.s[sh.shots]++;c.d[sh.def]++;c.o[sh.off||0]++;c.g[sh.guard||0]++;c.b[sh.boards===undefined?1:sh.boards]++;   // the plans they chose
+  return c;
+}
 function roundPairs(n,k){const a=[...Array(n).keys()];const rest=a.slice(1);for(let i=0;i<k;i++)rest.unshift(rest.pop());const arr=[0,...rest];const out=[];for(let i=0;i<n/2;i++)out.push([arr[i],arr[n-1-i]]);return out;}
 
 // ───────────────────────── talking ─────────────────────────
@@ -618,11 +647,12 @@ const CFG={
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
+  DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='f7c1ed5f';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='b8683d97';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the next Wednesday or Sunday at the match hour, strictly after the given moment
 function nextMatchTime(afterMs){
@@ -757,7 +787,8 @@ async function runMatchday(store,lg,now){
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
+      // pub.sc: this team's league so far in numbers (one small record, updated after each match)
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
       rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
@@ -833,7 +864,7 @@ async function makeView(store,row,lg,now,extra){
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
       opp={id:o.id,name:o.name,house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
-        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null};}}
+        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null,sc:o.pub.sc&&o.pub.sc.lg===lg.no?o.pub.sc:null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
@@ -910,8 +941,9 @@ async function handle(store,req,now,hash){
   const a=String(req&&req.a||'');const key=String(req&&req.key||'');
   if(a==='ping'){   // a scheduled job calls this: it keeps the server awake and plays any match that is due
     const lg=await tick(store,now);
-    let managers=null,sql=null;try{managers=(await store.tableRows(lg.no)).length;sql=await store.config('sql');}catch(e){}
-    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,name:leagueName(lg.no,lg.next_match_at),matches:leagueLength(lg),swaps:CFG.MAX_SWAPS,managers,sql};
+    let managers=null,sql=null,db_mb=null;
+    try{managers=(await store.tableRows(lg.no)).length;sql=await store.config('sql');const b=store.dbSize?await store.dbSize():null;if(b!==null)db_mb=Math.round(b/1048576*10)/10;}catch(e){}
+    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,name:leagueName(lg.no,lg.next_match_at),matches:leagueLength(lg),swaps:CFG.MAX_SWAPS,managers,sql,db_mb,db_limit_mb:CFG.DB_LIMIT_MB};
   }
   if(!/^[a-f0-9]{32,64}$/.test(key))return {error:'bad key'};
   const h=await hash(key);
@@ -1067,6 +1099,8 @@ function restStore(base,keys,prefix){
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;row.league_no=no;
     },
+    // how much room the database takes, in bytes (null if the SQL file from before this was added is still in place)
+    dbSize:async()=>{try{const v=await q('rpc/b3_size',{method:'POST',body:{}});return typeof v==='number'?v:null;}catch(e){return null;}},
     // small settings kept by the server itself (table b3_config). If the table is missing these simply fail and the caller copes.
     config:async key=>{const row=await one('b3_config?key=eq.'+encodeURIComponent(key)+'&select=value');return row?row.value:null;},
     setConfig:(key,value)=>q('b3_config?on_conflict=key',{method:'POST',prefer:'resolution=ignore-duplicates,return=minimal',body:{key,value}}),
