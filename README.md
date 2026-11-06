@@ -4,8 +4,11 @@ A cartoon basketball manager. You are the coach: you pick seven players, learn h
 and choose the tactics. The match plays by itself.
 
 - **Online league**: a match against another manager every Wednesday and Sunday. You do not need to be online
-  when it is played. One league lasts one month (8 matches), a win is 3 points.
-  The length is `LEAGUE_MATCHES` in `server.js` (and the wording `LEAGUE_LASTS` in `index.html`).
+  when it is played. A win is 3 points.
+  There are four leagues a year, one per season: the Winter League (December to February), Spring (March to May),
+  Summer (June to August) and Autumn (September to November), about 26 matches each. A league ends on the last
+  match day of its season. The very first league (November 2026) is a one-month trial of 8 matches:
+  `LEAGUE_MATCHES` and `SEASONS_FROM` in `server.js`.
   Between leagues each manager may change one player (`MAX_SWAPS` in `server.js` and in `index.html`).
   Every new league starts with no teams: when a league ends, each manager opens the game and presses
   **Enter league N**. The team, its players and its record stay the same. The Table tab lists the leagues won
@@ -46,8 +49,8 @@ The rules are explained inside the game under **? How to play**.
    in the Supabase dashboard and deploy it.
 
 To check a deployment from outside, send `{"a":"ping"}` to the function: the answer has `build` (the number
-build.py printed), `sql` (the version of `b3.sql` that was run last, 2 at the moment) and `managers` (teams in
-the running league).
+build.py printed), `sql` (the version of `b3.sql` that was run last, 2 at the moment), `name` and `matches` (the
+running league and its length) and `managers` (teams in it).
 
 ## How the online league works
 

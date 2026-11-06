@@ -533,14 +533,15 @@ async function sendPush(sub,payload,vapid){
 const CFG={
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
   MATCH_DAYS:[0,3],       // Sunday and Wednesday
-  LEAGUE_MATCHES:8,       // two a week for four weeks: one league is one month (16 would be two months)
+  LEAGUE_MATCHES:8,       // length of the leagues before SEASONS_FROM: the first league is a one-month test (two matches a week for four weeks)
+  SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='9dd8ab20';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='95faa2da';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the next Wednesday or Sunday at the match hour, strictly after the given moment
 function nextMatchTime(afterMs){
@@ -548,6 +549,35 @@ function nextMatchTime(afterMs){
   for(let i=0;i<9;i++){const c=t+i*DAY_MS;if(c>afterMs&&CFG.MATCH_DAYS.includes(new Date(c).getUTCDay()))return c;}
   return t+7*DAY_MS;
 }
+// ── seasons. A league from SEASONS_FROM on belongs to the season its matches are played in, and ends with it.
+const SEASON_NAMES=['Winter','Spring','Summer','Autumn'];
+function seasonOf(ms){   // {i: 0..3, y: the year the season starts in}; December belongs to the winter that starts that year
+  const d=new Date(ms),m=d.getUTCMonth(),y=d.getUTCFullYear();
+  const i=Math.floor(((m+1)%12)/3);
+  return {i,y:i===0&&m<11?y-1:y};
+}
+const seasonKey=ms=>{const s=seasonOf(ms);return s.y*4+s.i;};
+const isSeasonal=no=>no>=CFG.SEASONS_FROM;
+// is the match played at `at` the last one of league `no`, where it is match number `matchNo`?
+function isLastMatch(no,matchNo,at){
+  if(!isSeasonal(no))return matchNo>=CFG.LEAGUE_MATCHES;
+  return seasonKey(nextMatchTime(at))!==seasonKey(at);
+}
+// how many matches the running league has in all
+function leagueLength(lg){
+  if(!isSeasonal(lg.no))return CFG.LEAGUE_MATCHES;
+  let n=lg.match_no,t=lg.next_match_at;
+  for(let k=0;k<80&&!isLastMatch(lg.no,n,t);k++){t=nextMatchTime(t);n++;}
+  return n;
+}
+// the name of league `no`, one of whose matches is played at `at`: "Winter League 2026/27", "Spring League 2027"; before the seasons "League 1"
+function leagueName(no,at,short){
+  if(!isSeasonal(no))return 'League '+no;
+  const s=seasonOf(at),nm=SEASON_NAMES[s.i]+' League';
+  return short?nm:nm+' '+(s.i===0?s.y+'/'+String((s.y+1)%100).padStart(2,'0'):s.y);
+}
+// what the browser is told about the running league
+function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at),short:leagueName(lg.no,lg.next_match_at,true),match_no:lg.match_no,of:leagueLength(lg),next_match_at:lg.next_match_at,rule:lg.rule};}
 function newPlayers(n,avoid){
   usedNames.clear();for(const x of avoid||[])usedNames.add(x);
   const out=[],ids=new Set();
@@ -659,7 +689,8 @@ async function runMatchday(store,lg,now){
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;
   for(const t of humans)if(t.data.last&&t.data.last.match===lg.match_no&&t.data.last.league===lg.no){t.data.last.place=placeOf(t.id);t.data.last.of=tbl.length;}
   let reset=false;
-  if(lg.match_no>=CFG.LEAGUE_MATCHES){
+  if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
+    const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at));
     // the league is over: remember how it ended, hand out free agents, start again from zero
     const champ=tbl[0]?tbl[0].name:'';
     // managers who played part of this league and then went away get their place recorded too
@@ -668,15 +699,15 @@ async function runMatchday(store,lg,now){
     for(const t of away){rows.push(t);map.set(t.id,t);}
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
-      t.data.final={league:lg.no,place,of:tbl.length,champion:champ,seen:false};
+      t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,seen:false};
       t.data.played=(t.data.played||0)+1;if(place===1)t.data.won=(t.data.won||0)+1;
-      t.data.history=[...(t.data.history||[]),{league:lg.no,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
+      t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
       t.data.agents=newPlayers(7,t.data.players.map(p=>p.n));
     }
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
-    lg.final={no:lg.no,champion:champ,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
+    lg.final={no:lg.no,name:endedName,champion:champ,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
     // Everyone goes back to zero, and nobody is in the next league yet: a team is in it once its manager enters it.
     // (league_no of a manager's team is the last league it entered; only the house team moves on by itself)
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}
@@ -721,7 +752,7 @@ async function makeView(store,row,lg,now,extra){
         starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null};}}
   const d=row.data;
   return {phase:'week',now,
-    league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule,vote_opts:lg.vote_opts,final:lg.final},
+    league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
       sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
@@ -746,7 +777,7 @@ function resultMessage(row){
   let b=(l.won?'You beat ':'You lost to ')+l.opp+' '+l.us+'–'+l.them+'.';
   if(l.place)b+=' You are '+ord(l.place)+' of '+l.of+'.';
   const f=row.data.final;
-  if(f&&!f.seen&&f.league===l.league)b+=' League '+f.league+' is over: you finished '+ord(f.place)+'. Open the game to enter league '+(f.league+1)+'.';
+  if(f&&!f.seen&&f.league===l.league)b+=' '+(f.name||'League '+f.league)+' is over: you finished '+ord(f.place)+'. Open the game to enter '+(f.next?(/^League \d/.test(f.next)?'':'the ')+f.next:'the next league')+'.';
   else if(l.lines&&l.lines[0])b+=' '+l.lines[0];
   return {t:'3nD Basketball · match '+l.match,b:b.slice(0,220),tag:'b3-'+l.league+'-'+l.match};
 }
@@ -779,7 +810,7 @@ async function handle(store,req,now,hash){
   if(a==='ping'){   // a scheduled job calls this: it keeps the server awake and plays any match that is due
     const lg=await tick(store,now);
     let managers=null,sql=null;try{managers=(await store.tableRows(lg.no)).length;sql=await store.config('sql');}catch(e){}
-    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,matches:CFG.LEAGUE_MATCHES,swaps:CFG.MAX_SWAPS,managers,sql};
+    return {ok:true,league:lg.no,match_no:lg.match_no,next_match_at:lg.next_match_at,up_to_date:now<lg.next_match_at,build:SERVER_BUILD,name:leagueName(lg.no,lg.next_match_at),matches:leagueLength(lg),swaps:CFG.MAX_SWAPS,managers,sql};
   }
   if(!/^[a-f0-9]{32,64}$/.test(key))return {error:'bad key'};
   const h=await hash(key);
@@ -796,7 +827,7 @@ async function handle2(store,req,a,h,now){
       // fourteen players are offered once; the manager picks seven of those and cannot ask for others
       let pool=await store.pool(h);
       if(!pool){pool={players:newPlayers(14),rerolls:0};await store.savePool(h,pool);}
-      return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:{no:lg.no,match_no:lg.match_no,of:CFG.LEAGUE_MATCHES,next_match_at:lg.next_match_at,rule:lg.rule}};
+      return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:leagueInfo(lg)};
     }
     if(a==='join'){
       const pool=await store.pool(h);if(!pool)return {error:'no players to pick from'};
@@ -827,7 +858,7 @@ async function handle2(store,req,a,h,now){
   }
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
-  if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in league '+lg.no+' yet. Enter the league first.'};
+  if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in '+(isSeasonal(lg.no)?'the ':'')+leagueName(lg.no,lg.next_match_at,true)+' yet. Enter the league first.'};
   if(a==='talk'){
     const p=d.players.find(x=>x.id===req.pid);
     if(!p||!TONES.includes(req.tone))return {error:'bad talk'};

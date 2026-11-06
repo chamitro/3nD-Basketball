@@ -4,7 +4,7 @@
 create table if not exists public.b3_league (
   id int primary key check (id = 1),          -- there is one league at a time
   no int not null,                            -- league number
-  match_no int not null,                      -- the match that is played next (1..16)
+  match_no int not null,                      -- the match that is played next (1, 2, ... up to the length of the league)
   next_match_at bigint not null,              -- when, in milliseconds since 1970 (UTC)
   rule text not null,                         -- the rule of that match
   vote_opts jsonb not null,                   -- the three rules managers vote on for the match after it
