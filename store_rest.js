@@ -28,6 +28,10 @@ function restStore(base,keys,prefix){
     teamsInPlay:()=>pages('b3_teams?or=(next_opp.not.is.null,is_house.is.true)&select='+TEAM+'&order=id',500),
     allTeams:()=>pages('b3_teams?is_house=is.false&select='+TEAM+'&order=id',500),
     tableRows:no=>pages('b3_teams?is_house=is.false&league_no=eq.'+(+no)+'&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),   // the teams that entered league `no`
+    // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
+    roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
+    roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')
+      +'&order=league_no.'+(dir<0?'desc':'asc')+',match_no.'+(dir<0?'desc':'asc')+'&limit=1'),
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
     saveTeam:async row=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&select=id',{method:'PATCH',prefer:'return=representation',

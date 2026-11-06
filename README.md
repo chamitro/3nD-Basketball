@@ -62,5 +62,10 @@ running league and its length) and `managers` (teams in it).
   `league_no`, so the next league is empty until managers enter it (action `enter`, which older copies of the
   page send as `swap`). A brand-new team joins the running league directly. The all-time list of leagues won is
   worked out when a league ends and kept with the league (`final.hall`).
+- Match reports: after every match the server works out three strong and three weak points for each side
+  (`scoutReport` in `engine.js`, from what happened on the court only) and stores them with the match
+  (`b3_matches.detail`). Action `round` returns one match day for everybody to read; each team's last report is
+  also kept in its public data (`pub.rep`) and shown to its next opponent. What a manager is told in private
+  about their own match (`lines`) is never sent to anyone else.
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.

@@ -345,6 +345,87 @@ function reportLines(X,Y,won,rule){
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   return L;
 }
+// ───────────────────────── the match report everybody can read ─────────────────────────
+// Three strong points and three weak points of one side in one match. X = that side, Y = the other.
+// It is public, so it says only what a spectator could see on the court: no moods, no trust, no secrets.
+// Every candidate gets a score (above zero: strong point, below zero: weak point), scaled so that 1 is
+// "clearly better than a usual match" (the usual numbers were measured over thousands of matches).
+function scoutReport(X,Y,rule){
+  const ps=X.T.players.filter(p=>X.st[p.id]),st=p=>X.st[p.id];
+  const sum=f=>ps.reduce((s,p)=>s+f(st(p)),0),osum=f=>Y.T.players.filter(p=>Y.st[p.id]).reduce((s,p)=>s+f(Y.st[p.id]),0);
+  const C=[],add=(score,text)=>{if(isFinite(score)&&score!==0)C.push([score,text]);};
+  const xs=X.T.sheet,ys=Y.T.sheet,them=Y.T.name,times=n=>n===1?'once':n===2?'twice':n+' times';
+  const fga=sum(z=>z.fga),fgm=sum(z=>z.fgm),a3=sum(z=>z.a3),m3=sum(z=>z.m3),a2=fga-a3,m2=fgm-m3,to=sum(z=>z.to);
+  const ofga=osum(z=>z.fga),ofgm=osum(z=>z.fgm),o3=osum(z=>z.m3);
+  // shooting
+  if(a2>=3){const v=(m2/a2-0.51)/0.185*(a2>=5?1:0.5);add(v,v>0?`Close to the hoop: made ${m2} of ${a2}.`:`Close to the hoop: only ${m2} of ${a2}.`);}
+  if(a3>=3){const v=(m3/a3-0.36)/0.18*(a3>=5?1:0.5);add(v,v>0?`From long range: made ${m3} of ${a3}.`:`From long range: only ${m3} of ${a3}.`);}
+  // looking after the ball
+  if(to<=1)add(0.9,to?'Lost the ball only once.':'Never lost the ball.');
+  else if(to>=5)add(-(to-3.3)/2.2,`Lost the ball ${to} times${ys.def===2?' against the press':''}.`);
+  else if(to===2)add(0.3,'Lost the ball only twice.');
+  else if(to===4)add(-0.25,`Lost the ball 4 times${ys.def===2?' against the press':''}.`);
+  // rebounds
+  {const d=X.oreb-Y.oreb;if(d>=2)add(d/2.26,`Won the rebounds: ${X.oreb} second shots to ${Y.oreb}.`);if(d<=-2)add(d/2.26,`Lost the rebounds: ${X.oreb} second shot${X.oreb===1?'':'s'} to ${Y.oreb}.`);
+    if(d===1)add(0.25,`Just ahead on the rebounds: ${X.oreb} second shot${X.oreb===1?'':'s'} to ${Y.oreb}.`);if(d===-1)add(-0.25,`Just behind on the rebounds: ${X.oreb} second shot${X.oreb===1?'':'s'} to ${Y.oreb}.`);}
+  // running
+  if(X.fast>=3)add(0.5+0.25*X.fast,`Ran ${X.fast} fast breaks.`);
+  if(Y.fast>=3)add(-(0.5+0.25*Y.fast),`Was outrun on ${Y.fast} fast breaks${xs.boards===2?' after sending everyone to the hoop':''}.`);
+  if(Y.fast===0&&ys.tempo===2&&rule!=='no_dribble'&&rule!=='tiny_court')add(0.7,`Got back in time: ${them} played fast and never got a fast break.`);
+  // who scored
+  const top=[...ps].sort((p,q)=>st(q).pts-st(p).pts)[0];
+  if(top&&st(top).pts>=7)add((st(top).pts-6)/4,`${top.n} scored ${st(top).pts} (${st(top).fgm} of ${st(top).fga} shots).`);
+  else if(top&&st(top).pts>=4)add(0.15,`${top.n} led the scoring with ${st(top).pts}.`);
+  const cold=[...ps].filter(p=>st(p).fga>=5&&st(p).fgm/st(p).fga<0.3).sort((p,q)=>st(q).fga-st(p).fga)[0];
+  if(cold)add(-(0.4+0.18*(st(cold).fga-st(cold).fgm)),`${cold.n} missed ${st(cold).fga-st(cold).fgm} of ${st(cold).fga} shots.`);
+  if(!cold){const off=[...ps].filter(p=>st(p).fga>=3&&st(p).fgm/st(p).fga<=0.34).sort((p,q)=>st(p).fgm/st(p).fga-st(q).fgm/st(q).fga||st(q).fga-st(p).fga)[0];
+    if(off)add(-0.2,`${off.n} made ${st(off).fgm} of ${st(off).fga} shots.`);}
+  const scorers=ps.filter(p=>st(p).pts>=5).length;
+  if(scorers>=3)add(0.5+0.35*(scorers-3),`${scorers===3?'Three':scorers===4?'Four':'Five'} players scored 5 or more.`);
+  const hungry=[...ps].sort((p,q)=>st(q).fga-st(p).fga)[0];
+  if(hungry&&fga>=12&&st(hungry).fga/fga>=0.5&&scorers<3)add(-(0.45+2*(st(hungry).fga/fga-0.5)),`${hungry.n} took ${st(hungry).fga} of the team's ${fga} shots.`);
+  // the substitutes
+  const cameOn=ps.filter(p=>st(p).bench&&st(p).min>0),benchPts=cameOn.reduce((s,p)=>s+st(p).pts,0);
+  if(cameOn.length&&benchPts>=7)add((benchPts-4)/5,`The substitutes scored ${benchPts}.`);
+  else if(cameOn.length&&benchPts>=4)add(0.2,`The substitutes scored ${benchPts}.`);
+  else if(cameOn.length&&benchPts>0)add(-0.15,`The substitutes scored only ${benchPts}.`);
+  if(cameOn.length&&benchPts===0)add(-0.55,'The substitutes scored nothing.');
+  // legs
+  const tired=X.court.reduce((s,p)=>s+st(p).f,0)/X.court.length;
+  if(tired>=0.3)add(-(0.3+(tired-0.18)/0.1*0.45),`Tired at the end${xs.def===2?' from pressing':xs.tempo===2?' from the fast tempo':!cameOn.length?', with no substitute used':''}.`);
+  // defence
+  if(ofga>=8){const v=-(ofgm/ofga-0.454)/0.153;add(v,v>0?`Defence held ${them} to ${ofgm} of ${ofga} shots.`:`Defence let ${them} make ${ofgm} of ${ofga} shots.`);}
+  if(xs.def===2){if(X.steals>=4)add(0.4+0.2*X.steals,`The press won the ball ${X.steals} times.`);else if(X.steals<=1)add(-0.6,`The press won the ball ${X.steals?'only once':'not even once'}.`);}
+  if(xs.def===1&&o3>=4)add(-(0.3+0.2*o3),`The zone left shooters open: ${o3} long shots went in.`);
+  // the star and the special guard on a star
+  const foc=Z=>Z.T.players.find(p=>p.id===Z.T.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id],stopper=[...X.court].sort((p,q)=>q.df-p.df)[0];
+  if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)add(-(0.6+0.12*ms.dbl),`${mf.n} was double-teamed and made ${ms.dblM} of ${ms.dbl}.`);
+  if(ys.guard===2&&X.openM>=4)add(0.4+0.15*X.openM,`Beat the double team on ${mf.n}: ${X.openM} open baskets for the others.`);
+  if(ys.guard===1&&ms.shad>=4&&ms.shadM/ms.shad<0.3)add(-(0.6+0.1*ms.shad),`${mf.n} was shadowed out of the game: ${ms.shadM} of ${ms.shad}.`);
+  if(ys.guard===1&&ms.shad>=4&&ms.shadM/ms.shad>=0.6)add(0.6+0.1*ms.shad,`${mf.n} scored over the shadow: ${ms.shadM} of ${ms.shad}.`);
+  if(xs.guard===2&&yst.dbl>=4&&yst.dblM/yst.dbl<0.34)add(0.6+0.12*yst.dbl,`The double team held ${yf.n} to ${yst.dblM} of ${yst.dbl}.`);
+  if(xs.guard===2&&Y.openM>=4)add(-(0.4+0.15*Y.openM),`The double team on ${yf.n} left ${Y.openM} open baskets.`);
+  if(xs.guard===1&&yst.shad>=4&&yst.shadM/yst.shad<0.3)add(0.6+0.1*yst.shad,`${stopper.n} shadowed ${yf.n}: ${yst.shadM} of ${yst.shad}.`);
+  if(xs.guard===1&&yst.shad>=4&&yst.shadM/yst.shad>=0.6)add(-(0.6+0.1*yst.shad),`${yf.n} scored over ${stopper.n}'s shadow: ${yst.shadM} of ${yst.shad}.`);
+  // sticking to the plan
+  const solo=[...ps].filter(p=>st(p).free>=3).sort((p,q)=>st(q).free-st(p).free)[0];
+  if(solo)add(-(0.5+0.15*st(solo).free),`${solo.n} ignored the plan and went alone ${times(st(solo).free)}.`);
+  if(xs.off===2&&X.playN>=6){const pq=X.playQ/X.playN;if(pq>=0.035)add(1,'The set plays worked.');if(pq<=-0.035)add(-1.1,xs.tempo===2?'Set plays at a fast tempo: they broke down.':'The set plays broke down.');}
+  // the rule of the match
+  {const d=X.rb-Y.rb;if(d>=3)add(0.5+d/5,`Got ${X.rb} points out of the rule, ${them} ${Y.rb}.`);if(d<=-3)add(-(0.5-d/5),`Got ${X.rb} point${X.rb===1?'':'s'} out of the rule, ${them} ${Y.rb}.`);}
+  // size and speed of the players who were on the floor
+  {const av=(Z,f)=>Z.court.reduce((s,p)=>s+f(p),0)/Z.court.length,dh=av(X,p=>p.h)-av(Y,p=>p.h),ds=av(X,p=>p.sp)-av(Y,p=>p.sp);
+    if(Math.abs(dh)>=0.07)add(dh/0.23*0.6,dh>0?`The taller team on the floor.`:`The smaller team on the floor.`);
+    if(Math.abs(ds)>=0.3)add(ds/0.88*0.6,ds>0?`The quicker team on the floor.`:`The slower team on the floor.`);}
+  // the score itself, when little else stands out
+  {const v=(X.score-19)/8;if(rule!=='first11'&&Math.abs(v)>=0.5)add(v*0.3,v>0?`Scored ${X.score} points.`:`Scored only ${X.score} points.`);}
+  {const d=fga-ofga;if(d>=2)add(0.1,`Got more shots away than ${them}: ${fga} to ${ofga}.`);if(d<=-2)add(-0.1,`Got fewer shots away than ${them}: ${fga} to ${ofga}.`);
+    const oto=osum(z=>z.to);if(to<oto&&to>1)add(0.08,`Lost the ball less often than ${them}: ${to} to ${oto}.`);if(to>oto&&to<5&&to!==4)add(-0.08,`Lost the ball more often than ${them}: ${to} to ${oto}.`);}
+  const pros=C.filter(c=>c[0]>0).sort((a,b)=>b[0]-a[0]).slice(0,3).map(c=>c[1]);
+  const cons=C.filter(c=>c[0]<0).sort((a,b)=>a[0]-b[0]).slice(0,3).map(c=>c[1]);
+  return {pros,cons};
+}
 function roundPairs(n,k){const a=[...Array(n).keys()];const rest=a.slice(1);for(let i=0;i<k;i++)rest.unshift(rest.pop());const arr=[0,...rest];const out=[];for(let i=0;i<n/2;i++)out.push([arr[i],arr[n-1-i]]);return out;}
 
 // ───────────────────────── talking ─────────────────────────
@@ -541,7 +622,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='95faa2da';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='f7c1ed5f';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the next Wednesday or Sunday at the match hour, strictly after the given moment
 function nextMatchTime(afterMs){
@@ -663,8 +744,10 @@ async function runMatchday(store,lg,now){
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
     const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet}},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet}}};
     const r=playMatch(A.data,B.data,rule);
+    // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
+    const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
     const sides=[[A,r.a,r.b,B,before.a,before.b],[B,r.b,r.a,A,before.b,before.a]];
-    const rec={league_no:lg.no,match_no:lg.match_no,a:A.id,b:B.id,a_name:A.name,b_name:B.name,score_a:r.a.score,score_b:r.b.score,rule,detail:{}};
+    const rec={league_no:lg.no,match_no:lg.match_no,a:A.id,b:B.id,a_name:A.name,b_name:B.name,score_a:r.a.score,score_b:r.b.score,rule,detail:{at:lg.next_match_at,lname:leagueName(lg.no,lg.next_match_at)}};
     for(const [X,xs,ys,Y,mine,theirs] of sides){
       const won=xs.score>ys.score;
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
@@ -672,9 +755,10 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule};}
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines};
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
+      // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
+      rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
   }
@@ -749,7 +833,7 @@ async function makeView(store,row,lg,now,extra){
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
       opp={id:o.id,name:o.name,house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
-        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null};}}
+        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
@@ -757,6 +841,23 @@ async function makeView(store,row,lg,now,extra){
       sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+}
+
+// ───────────────────────── match reports ─────────────────────────
+// One match day as everybody may read it: every score, each side's plan, three strong and three weak points.
+// What a manager was told in private about their own match (the "lines") is never part of it.
+const ROUND_MAX=60;   // matches sent for one match day
+async function roundView(store,req){
+  let L=Number.isInteger(req.league)&&req.league>0?req.league:null,M=Number.isInteger(req.match)&&req.match>0?req.match:null;
+  if(L===null||M===null){const last=await store.roundNear(null,null,-1);if(!last)return {none:true};L=last.league_no;M=last.match_no;}
+  const rows=await store.roundMatches(L,M,ROUND_MAX+1);
+  if(!rows.length)return {none:true,league:L,match:M};
+  const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
+  const side=d=>({sheet:(d&&d.sheet)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
+  const d0=rows[0].detail||{};
+  return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
+    prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
+    matches:rows.slice(0,ROUND_MAX).map(m=>({a:m.a,b:m.b,an:m.a_name,bn:m.b_name,sa:m.score_a,sb:m.score_b,ra:side((m.detail||{}).a),rb:side((m.detail||{}).b)}))};
 }
 
 // ───────────────────────── result notifications ─────────────────────────
@@ -894,6 +995,8 @@ async function handle2(store,req,a,h,now){
     if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
     else await store.saveTeam(row);
     return makeView(store,row,lg,now,{entered:out});
+  }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
+    extra={round:await roundView(store,req)};
   }else if(a==='push'){            // this device wants result notifications
     const s=req.sub||{},k=s.keys||{};
     if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};
@@ -946,6 +1049,10 @@ function restStore(base,keys,prefix){
     teamsInPlay:()=>pages('b3_teams?or=(next_opp.not.is.null,is_house.is.true)&select='+TEAM+'&order=id',500),
     allTeams:()=>pages('b3_teams?is_house=is.false&select='+TEAM+'&order=id',500),
     tableRows:no=>pages('b3_teams?is_house=is.false&league_no=eq.'+(+no)+'&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),   // the teams that entered league `no`
+    // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
+    roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
+    roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')
+      +'&order=league_no.'+(dir<0?'desc':'asc')+',match_no.'+(dir<0?'desc':'asc')+'&limit=1'),
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
     saveTeam:async row=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&select=id',{method:'PATCH',prefer:'return=representation',

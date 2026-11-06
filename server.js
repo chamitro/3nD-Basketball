@@ -137,8 +137,10 @@ async function runMatchday(store,lg,now){
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
     const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet}},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet}}};
     const r=playMatch(A.data,B.data,rule);
+    // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
+    const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
     const sides=[[A,r.a,r.b,B,before.a,before.b],[B,r.b,r.a,A,before.b,before.a]];
-    const rec={league_no:lg.no,match_no:lg.match_no,a:A.id,b:B.id,a_name:A.name,b_name:B.name,score_a:r.a.score,score_b:r.b.score,rule,detail:{}};
+    const rec={league_no:lg.no,match_no:lg.match_no,a:A.id,b:B.id,a_name:A.name,b_name:B.name,score_a:r.a.score,score_b:r.b.score,rule,detail:{at:lg.next_match_at,lname:leagueName(lg.no,lg.next_match_at)}};
     for(const [X,xs,ys,Y,mine,theirs] of sides){
       const won=xs.score>ys.score;
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
@@ -146,9 +148,10 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule};}
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines};
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
+      // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
+      rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
   }
@@ -223,7 +226,7 @@ async function makeView(store,row,lg,now,extra){
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
       opp={id:o.id,name:o.name,house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
-        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null};}}
+        starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
@@ -231,6 +234,23 @@ async function makeView(store,row,lg,now,extra){
       sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+}
+
+// ───────────────────────── match reports ─────────────────────────
+// One match day as everybody may read it: every score, each side's plan, three strong and three weak points.
+// What a manager was told in private about their own match (the "lines") is never part of it.
+const ROUND_MAX=60;   // matches sent for one match day
+async function roundView(store,req){
+  let L=Number.isInteger(req.league)&&req.league>0?req.league:null,M=Number.isInteger(req.match)&&req.match>0?req.match:null;
+  if(L===null||M===null){const last=await store.roundNear(null,null,-1);if(!last)return {none:true};L=last.league_no;M=last.match_no;}
+  const rows=await store.roundMatches(L,M,ROUND_MAX+1);
+  if(!rows.length)return {none:true,league:L,match:M};
+  const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
+  const side=d=>({sheet:(d&&d.sheet)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
+  const d0=rows[0].detail||{};
+  return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
+    prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
+    matches:rows.slice(0,ROUND_MAX).map(m=>({a:m.a,b:m.b,an:m.a_name,bn:m.b_name,sa:m.score_a,sb:m.score_b,ra:side((m.detail||{}).a),rb:side((m.detail||{}).b)}))};
 }
 
 // ───────────────────────── result notifications ─────────────────────────
@@ -368,6 +388,8 @@ async function handle2(store,req,a,h,now){
     if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
     else await store.saveTeam(row);
     return makeView(store,row,lg,now,{entered:out});
+  }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
+    extra={round:await roundView(store,req)};
   }else if(a==='push'){            // this device wants result notifications
     const s=req.sub||{},k=s.keys||{};
     if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};

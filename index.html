@@ -130,6 +130,16 @@
   .mode h3{font-size:28px;margin:0 0 6px}
   .mode p{font-weight:600;color:var(--soft);margin:6px 0 0}
   @media(max-width:700px){.modes{grid-template-columns:1fr}}
+  .rd{border-top:3px dashed #e8dcc0;padding:8px 0}
+  .rd summary{cursor:pointer;font-size:17px;font-weight:800;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rd summary::-webkit-details-marker{display:none}
+  .rd summary::before{content:'▸';font-size:14px}.rd[open] summary::before{content:'▾'}
+  .rd .scb{border:3px solid var(--ink);border-radius:10px;padding:0 8px;background:#eee;white-space:nowrap}
+  .rdg{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px;margin-top:8px}
+  .rdt{min-width:0}.rdt .chk{font-size:13px;padding:2px 0}.rdt .chk i{flex:0 0 18px;height:18px;border-width:2px;font-size:12px}
+  .tagx{font-size:11px;font-weight:800;border:2px solid var(--ink);border-radius:999px;padding:0 7px;background:#fff1a8;white-space:nowrap}
+  .rdnav{display:flex;gap:8px;justify-content:space-between;margin:6px 0 2px}.rdnav button{font-size:13px;padding:5px 12px}
+  @media(max-width:700px){.rdg{grid-template-columns:1fr;gap:10px}}
   /* phones */
   @media(max-width:700px){
     body{font-size:15px}
@@ -380,7 +390,7 @@ function applyView(v){
   if(v.opp&&v.opp.house&&v.opp.ls)S.lastSheets.push({name:v.opp.name,sheet:v.opp.ls,w:0,l:0,human:false});
   if(!S.lastSheets.length)S.lastSheets=null;
   S.vote={opts:v.league.vote_opts,tally:[0,0,0]};S.myVote=me.vote;S.won=me.won;S.played=me.played;S.history=me.history||[];
-  const last=me.last,res=last?{list:[{opp:last.opp,us:last.us,them:last.them,won:last.won,lines:last.lines,oppSheet:last.oppSheet}],moves:last.moves||[],place:last.place,of:last.of}:null;
+  const last=me.last,res=last?{list:[{opp:last.opp,us:last.us,them:last.them,won:last.won,lines:last.lines,oppSheet:last.oppSheet,pros:last.pros,cons:last.cons}],moves:last.moves||[],place:last.place,of:last.of}:null;
   S.lastResults=last?{list:res.list,rule:last.rule}:null;
   const seen=+(localStorage.getItem('b3seen')||0);
   if(last&&resKey(last)>seen){S.phase='results';S.results=res;}
@@ -410,7 +420,7 @@ function queuePlan(){
 function setMode(m){
   clearTimeout(planTimer);
   if(m)localStorage.setItem('b3mode',m);else localStorage.removeItem('b3mode');
-  ONLINE=m==='online';S.tab='room';S.out=false;S.me=null;S.teams=[];S.pool=[];S.opp=null;V=null;START_MSG='';
+  ONLINE=m==='online';S.tab='room';S.out=false;RD=null;RD_KEY='';S.me=null;S.teams=[];S.pool=[];S.opp=null;V=null;START_MSG='';
   if(m==='online'){SCREEN='loading';render();goOnline('view');}
   else if(m==='practice'){SCREEN='game';if(load())render();else newGame();}
   else{SCREEN='start';render();}
@@ -492,7 +502,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.06-1358';   // stamped by build.py
+const APP_VERSION='2026.11.06-1605';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -942,7 +952,8 @@ function renderPlan(){
   const idle=S.me.players.filter(q=>!S.me.starters.includes(q.id)&&!S.me.subs.includes(q.id)).map(q=>q.n);
   $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
   const op=nextOpp();if(op){const ov=oppView(op);
-    $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`;}
+    $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`
+      +(ONLINE&&op.rep&&((op.rep.pros||[]).length||(op.rep.cons||[]).length)?`<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their last match:</b> ${op.rep.us>op.rep.them?'beat':'lost to'} ${esc(op.rep.opp)} ${op.rep.us}–${op.rep.them}.${repLines(op.rep)}<div class="small" style="margin-top:4px">All match reports are in the Table tab.</div></div>`:'');}
   const L=planCheck();
   $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant looks at this plan, your players today, and the opponent</div>'+(L.length?L.map(([k,t])=>`<div class="chk ${k>0?'g':k<0?'b':''}"><i>${k>0?'✓':k<0?'✗':'·'}</i><span>${t}</span></div>`).join(''):'<div class="chk"><i>·</i><span>Nothing stands out. A plain plan for a plain day.</span></div>');
   $('planH').textContent='Game plan for '+DAY();
@@ -1005,7 +1016,13 @@ function renderHelp(){
   <h4><i>7</i>The match</h4>
   <p>You play against another manager every <b>Wednesday</b> and every <b>Sunday</b> at <b>18:00 UTC</b>. You do not need to be online. The next time you open the game you see the score and the reasons for it.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
-  <h4><i>8</i>The league</h4>
+  <h4><i>8</i>Match reports: scout the others</h4>
+  <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
+  <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that loses the ball against a press, or runs out of legs, tells you how to play them.</li>
+  <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
+  <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of older match days.</li></ul>
+  <p>Match reports are part of the online league.</p>
+  <h4><i>9</i>The league</h4>
   <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 26 matches. The team with the most points wins the league.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
@@ -1028,7 +1045,8 @@ $('tLeague').onclick=()=>{S.tab='league';render();};
 function renderResults(){
   const r=S.results;
   let h=`<div class="card pop" style="margin-top:16px"><h3>${ONLINE?'Match '+V.me.last.match:'Sunday '+S.sunday} · full time</h3>`;
-  for(const m of r.list){h+=`<div class="res"><div class="sc ${m.won?'w':'l'}" data-us="${m.us}" data-them="${m.them}">0–0</div><div><div>${m.won?'beat':'lost to'} ${m.opp}<span class="stamp ${m.won?'w':'l'}">${m.won?'WIN':'LOSS'}</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;}
+  for(const m of r.list){h+=`<div class="res"><div class="sc ${m.won?'w':'l'}" data-us="${m.us}" data-them="${m.them}">0–0</div><div><div>${m.won?'beat':'lost to'} ${m.opp}<span class="stamp ${m.won?'w':'l'}">${m.won?'WIN':'LOSS'}</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;
+    if(ONLINE&&((m.pros||[]).length||(m.cons||[]).length))h+=`<div class="rdt" style="margin-top:6px"><div class="small" style="margin:0 0 2px">What every manager can read about your team in this match (the Table tab has the reports of all teams):</div>${repLines(m)}</div>`;}
   h+=`<div class="small">${r.moves.length?'Afterwards: '+r.moves.join(', ')+'.':'The mood in the locker room is unchanged.'} You are ${ord(r.place)} of ${r.of||8}.</div></div>`;
   if(!(ONLINE&&S.out)){h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for the rule of the match after the next one':"Vote for next Sunday's rule"}</h3><div class="grid3">`;
   S.vote.opts.forEach((k,i)=>{h+=`<div class="card vote ${S.myVote===i?'on':''}" data-v="${i}">${ruleOf(k).txt}<small>${ruleOf(k).why}</small></div>`;});
@@ -1053,6 +1071,36 @@ function archiveHtml(){
   for(const x of [...hs].reverse())h+=`<tr class="${x.place===1?'me':''}"><td>${(x.name||'League '+x.league).replace(' League','')}</td><td><b>${ord(x.place)}</b> of ${x.of}</td><td class="n">${x.w}</td><td class="n">${x.l}</td><td class="n">${x.pts}</td><td>${x.champion||''}</td></tr>`;
   return h+`</table></div>`;
 }
+// ── match reports: one match day as everybody may read it (every score, and three strong and three weak points per team)
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let RD=null,RD_KEY='',RD_BUSY=false;
+const rdKey=()=>V?V.league.no+'/'+V.league.match_no:'';
+function repLines(r){return (r.pros||[]).map(x=>`<div class="chk g"><i>+</i><span>${esc(x)}</span></div>`).join('')+(r.cons||[]).map(x=>`<div class="chk b"><i>−</i><span>${esc(x)}</span></div>`).join('');}
+async function loadRound(pos){
+  if(RD_BUSY||!ONLINE||!V)return;RD_BUSY=true;const key=rdKey();
+  try{const v=await api('round',pos||{});RD=v.round||{error:true};}catch(e){RD={error:true};}
+  RD_KEY=key;RD_BUSY=false;
+  if(ONLINE&&SCREEN==='game'&&S.phase!=='draft'&&S.tab==='league')renderLeague();
+}
+function roundHtml(){
+  if(!ONLINE||!V)return '';
+  let h=`<div class="card" style="margin-bottom:16px"><h3>Match reports${RD&&RD.matches?' · '+esc(RD.name)+' · match '+RD.match:''}</h3>`;
+  if(!RD)return h+`<div class="small" style="margin:0">Loading the match reports…</div></div>`;
+  if(RD.error)return h+`<div class="small" style="margin:0">The match reports could not be loaded just now.</div></div>`;
+  if(!RD.matches)return h+`<div class="small" style="margin:0">No match has been played yet. After each match day you find here every score, and for each team three strong points and three weak points from that match.</div></div>`;
+  h+=`<div class="small" style="margin:0">Every score of the match day. For each team: the plan it played, three strong points (+) and three weak points (−) from that match. Played under: <b>${ruleOf(RD.rule).txt}</b></div>`;
+  h+=`<div class="rdnav"><button id="rdPrev" ${RD.prev?'':'disabled'}>‹ Earlier</button><button id="rdNext" ${RD.next?'':'disabled'}>Later ›</button></div>`;
+  const mine=S.me?S.me.id:null,next=S.opp?S.opp.id:null;
+  const tag=id=>id===mine?' <span class="tagx">your team</span>':id===next?' <span class="tagx">your next opponent</span>':'';
+  const team=(id,name,won,r)=>`<div class="rdt"><div><b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}</div>${repLines(r)||'<div class="small">No report for this match.</div>'}</div>`;
+  for(const m of RD.matches){
+    const open=RD.matches.length<=3||[m.a,m.b].includes(mine)||[m.a,m.b].includes(next);
+    h+=`<details class="rd" ${open?'open':''}><summary><span>${esc(m.an)}</span><span class="scb">${m.sa}–${m.sb}</span><span>${esc(m.bn)}</span>${[m.a,m.b].includes(mine)?'<span class="tagx">your match</span>':[m.a,m.b].includes(next)?'<span class="tagx">your next opponent</span>':''}</summary>
+    <div class="rdg">${team(m.a,m.an,m.sa>m.sb,m.ra)}${team(m.b,m.bn,m.sb>m.sa,m.rb)}</div></details>`;
+  }
+  if(RD.more)h+=`<div class="small">Only the first ${RD.matches.length} matches of this match day are listed.</div>`;
+  return h+`</div>`;
+}
 // every team's titles: how many leagues it has won, of how many it finished (the server counts when a league ends)
 function hallHtml(){
   if(!ONLINE||!V)return '';
@@ -1069,6 +1117,7 @@ function renderLeague(){
   if(S.lastResults){
     {h+=`<div class="card" style="margin-bottom:16px"><h3>${ONLINE?'Last match':'Last Sunday'} · ${ruleOf(S.lastResults.rule).txt}</h3>`;for(const m of S.lastResults.list)h+=`<div class="res"><div class="sc ${m.won?'w':'l'}">${m.us}–${m.them}</div><div><div>${m.won?'beat':'lost to'} ${m.opp} <span class="small">(${sheetWords(m.oppSheet)})</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;h+=`</div>`;}
   }
+  h+=roundHtml();
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
   table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
   if(ONLINE&&!table().length)h+=`<tr><td colspan="6" style="text-align:center;padding:14px 6px">No team has entered ${theName(LGS())} yet.</td></tr>`;
@@ -1085,6 +1134,9 @@ function renderLeague(){
   if($('toOnline'))$('toOnline').onclick=()=>setMode('online');
   if($('showKey'))$('showKey').onclick=teamKeyDialog;
   wireInstall();
+  if($('rdPrev'))$('rdPrev').onclick=()=>{if(RD&&RD.prev)loadRound(RD.prev);};
+  if($('rdNext'))$('rdNext').onclick=()=>{if(RD&&RD.next)loadRound(RD.next);};
+  if(ONLINE&&RD_KEY!==rdKey()&&!RD_BUSY)loadRound();   // first visit, or a new match day has been played since
 }
 function candHtml(p,cls,i){return `<div class="cand ${cls}" data-i="${i}"><canvas width="150" height="170" data-pid="${p.id}"></canvas><div class="nm">${p.n}</div>${chip(p)}<div class="h">${CHAR[p.temp][2]}</div><div class="pips">${pips(p.sh,'attack')}${pips(p.df,'defend')}${pips(p.sp,'speed')}</div></div>`;}
 let drawList=[];
