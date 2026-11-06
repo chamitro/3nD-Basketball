@@ -63,9 +63,6 @@ free plan allows; the scheduled job fails loudly from 350 on).
   `league_no`, so the next league is empty until managers enter it (action `enter`, which older copies of the
   page send as `swap`). A brand-new team joins the running league directly. The all-time list of leagues won is
   worked out when a league ends and kept with the league (`final.hall`).
-- The assistant under the game plan (`planCheck` in `index.html`) only reports the state of the manager's own
-  players: tired, worn out, moods, low trust, who has not been talked to. On purpose it does not judge the plan and
-  says nothing about the opponent, so that the tactics are the manager's own decision.
 - Match reports: after every match the server works out three strong and three weak points for each side
   (`scoutReport` in `engine.js`, from what happened on the court only) and stores them with the match
   (`b3_matches.detail`). Action `round` returns one match day for everybody to read; each team's last report is
