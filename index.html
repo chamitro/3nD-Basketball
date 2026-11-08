@@ -508,7 +508,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.08-2301';   // stamped by build.py
+const APP_VERSION='2026.11.08-2308';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -766,7 +766,10 @@ gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRe
 const hasEnergy=p=>!ONLINE||p.en!==undefined;
 const energyPips=p=>{const n=Math.round(energyOf(p)),c=n<=1?'#ef476f':n===2?'#ff9f1c':'#6bcb77';return `<div class="pip">Energy ${[1,2,3,4].map(k=>`<i style="${k<=n?'background:'+c:''}"></i>`).join('')}</div>`;};
 const energyNote=p=>{const e=energyOf(p);return e<=1.5?'Worn out: plays far below the dots and turns sour. Needs a match off.':e<=2.5?'Tired: a little slower and less sharp. A match off restores energy.':'';};
-const pips=(n,label,tr)=>{n=Math.round(n);const ar=tr>0.04?'<b style="color:#2f9e44">▲</b>':tr<-0.04?'<b style="color:#e03131">▼</b>':'';return `<div class="pip">${label} ${[1,2,3,4].map(k=>`<i class="${k<=n?'f':''}"></i>`).join('')}${ar}</div>`;};
+// the stat dots: whole dots for the whole part, the next dot filled as far as the fraction (attack 3.2 = three dots and a fifth
+// of the fourth), so every talk and every match that moves a stat is seen. The arrow is this week's change.
+const pips=(n,label,tr)=>{const full=Math.floor(n+0.025),frac=Math.round((n-full)*20)*5;const ar=tr>0.04?'<b style="color:#2f9e44">▲</b>':tr<-0.04?'<b style="color:#e03131">▼</b>':'';
+  return `<div class="pip">${label} ${[1,2,3,4].map(k=>k<=full?'<i class="f"></i>':k===full+1&&frac>0?`<i style="background:linear-gradient(90deg,var(--orange) ${frac}%,#fff ${frac}%)"></i>`:'<i></i>').join('')}${ar}</div>`;};
 const TRUSTW=['does not trust you','is wary of you','is unsure about you','trusts you','would run through a wall for you'];
 const MOODTIP={happy:'Buzzing: shoots better and loves a fast game. A good day to be the star.',cool:'Locked in: defends better, follows set plays, holds a zone, can shadow their star.',ok:'Fine: plays to the dots, nothing more, nothing less.',nervous:'Anxious: rushes shots and fumbles in a fast game. A slow tempo steadies them. Never the star today.',sad:'Sulking: slow and half-hearted. Poor in a fast game or a press, and does not get back on defence.',angry:'Fuming: ignores the plan and wanders out of a zone, but hounds the ball in a press and fights for rebounds.'};
 const DESC={
@@ -986,7 +989,7 @@ function renderHelp(){
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
   <h4><i>1</i>Pick your team</h4>
   <p>Choose <b>7 players</b> out of 14 and give your team a name. Look at their stats and at their character.</p>
-  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is. Every player also has four <b>Energy</b> dots, and starts with all four.</li>
+  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is. A partly filled dot is a stat between two numbers: talks and matches move the stats in small steps, and every step stays until something moves it again. An arrow next to the dots marks a change made this week. Every player also has four <b>Energy</b> dots, and starts with all four.</li>
   <li><b>Character</b>: tells you roughly how the player takes being talked to.</li></ul>
   <div class="two">${chars}</div>
   <h4><i>2</i>Talk to your players</h4>
