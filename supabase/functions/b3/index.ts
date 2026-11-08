@@ -652,7 +652,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='b8683d97';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='ee96f55b';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the next Wednesday or Sunday at the match hour, strictly after the given moment
 function nextMatchTime(afterMs){
@@ -716,21 +716,52 @@ function newHouseRow(leagueNo,now){
 }
 const standing=(a,b)=>b.pts-a.pts||(b.pf-b.pa)-(a.pf-a.pa)||(a.name<b.name?-1:1);
 
-// Who meets whom next. Teams on similar points meet; nobody meets the same team twice running if it can be avoided.
-// With an odd number, one team meets the house team: the lowest one that did not just play it.
-function pairUp(list,house){
+// Who meets whom next. Everyone should meet everyone: a team is paired first with teams it has not met yet in
+// this league, then with those it has met least often; among those, teams on similar points meet, and nobody
+// meets the same team twice running if it can be avoided. `met` counts, for every pair of ids, how often they
+// have met in this league (key: the two ids sorted and joined with '|').
+// With an odd number, one team meets the house team: of the teams that have met it least, the lowest one.
+const pairKey=(x,y)=>x<y?x+'|'+y:y+'|'+x;
+function pairUp(list,house,met){
+  met=met||new Map();const timesMet=(x,y)=>met.get(pairKey(x,y))||0;
   for(const t of list){t._prev=t.next_opp;t.next_opp=null;}
-  house.next_opp=null;
+  house._prev=house.next_opp;house.next_opp=null;
   const order=[...list].sort((a,b)=>standing(a,b));
-  if(order.length%2===1){
-    let k=order.length-1;while(k>0&&order[k]._prev===house.id)k--;
-    const t=order.splice(k,1)[0];t.next_opp=house.id;house.next_opp=t.id;
+  if(order.length%2===1)order.push(house);               // the house team takes part only when the number is odd, at the bottom of the table
+  if(!order.length){delete house._prev;return;}
+  const rank=new Map(order.map((t,i)=>[t.id,i]));
+  const cost=(a,b)=>timesMet(a.id,b.id)*10+(a._prev===b.id?5:0)+Math.abs(rank.get(a.id)-rank.get(b.id))*0.01;
+  const total=pairs=>pairs.reduce((s,[a,b])=>s+cost(a,b),0);
+  // a greedy matching in some order, then partners swapped between pairs while that lowers the total cost
+  const build=seq=>{
+    const pairs=[],left=[...seq];
+    while(left.length){const a=left.shift();let j=0;for(let i=1;i<left.length;i++)if(cost(a,left[i])<cost(a,left[j]))j=i;pairs.push([a,left.splice(j,1)[0]]);}
+    if(pairs.length<=300)for(let pass=0;pass<6;pass++){let better=false;
+      for(let i=0;i<pairs.length;i++)for(let j=i+1;j<pairs.length;j++){
+        const [a,b]=pairs[i],[c,d]=pairs[j],now=cost(a,b)+cost(c,d);
+        if(cost(a,c)+cost(b,d)<now-1e-9){pairs[i]=[a,c];pairs[j]=[b,d];better=true;}
+        else if(cost(a,d)+cost(b,c)<now-1e-9){pairs[i]=[a,d];pairs[j]=[b,c];better=true;}
+      }
+      if(!better)break;}
+    return pairs;
+  };
+  // several starting orders (top down, bottom up, shuffled); the cheapest matching wins
+  let best=build(order),bestC=total(best);
+  const tries=order.length<=40?24:order.length<=200?8:2;
+  for(let k=0;k<tries;k++){
+    const seq=k===0?[...order].reverse():[...order].sort(()=>R()-0.5);
+    const p=build(seq),c=total(p);if(c<bestC-1e-9){best=p;bestC=c;}
   }
-  while(order.length){
-    const a=order.shift();let j=order.findIndex(b=>b.id!==a._prev);if(j<0)j=0;
-    const b=order.splice(j,1)[0];a.next_opp=b.id;b.next_opp=a.id;
-  }
-  for(const t of list)delete t._prev;
+  for(const [a,b] of best){a.next_opp=b.id;b.next_opp=a.id;}
+  for(const t of list)delete t._prev;delete house._prev;
+}
+// how often every pair of teams has met in league `no`, including the matches of the match day being played now
+async function meetings(store,no,today){
+  const met=new Map();
+  const add=(x,y)=>{if(!x||!y)return;const k=pairKey(x,y);met.set(k,(met.get(k)||0)+1);};
+  for(const m of await store.leaguePairs(no))add(m.a,m.b);
+  for(const m of today)add(m.a,m.b);
+  return met;
 }
 // A manager who has no opponent (new, or back after a long absence) takes the house team's place if the house
 // team has a match, and otherwise plays the house team. So there is never more than one computer team in play.
@@ -835,7 +866,7 @@ async function runMatchday(store,lg,now){
   else{
     const active=humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS);
     for(const t of humans)if(!active.includes(t))t.next_opp=null;
-    pairUp(active,house);
+    pairUp(active,house,await meetings(store,lg.no,matches));
   }
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});
@@ -1082,6 +1113,7 @@ function restStore(base,keys,prefix){
     allTeams:()=>pages('b3_teams?is_house=is.false&select='+TEAM+'&order=id',500),
     tableRows:no=>pages('b3_teams?is_house=is.false&league_no=eq.'+(+no)+'&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),   // the teams that entered league `no`
     // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
+    leaguePairs:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=a,b&order=id',1000),   // who met whom in one league
     roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
     roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')
       +'&order=league_no.'+(dir<0?'desc':'asc')+',match_no.'+(dir<0?'desc':'asc')+'&limit=1'),
