@@ -174,11 +174,14 @@ function playMatch(A,B,ruleKey){
   const mk=T=>{
     let avail=T.players;if(rule==='tall_out'){const t=tallestId(T);avail=avail.filter(p=>p.id!==t);}
     const court=T.starters.map(id=>avail.find(p=>p.id===id)).filter(Boolean);
-    const rest=avail.filter(p=>!court.includes(p)).sort((a,b)=>rating(b)-rating(a));
+    // a manager who named nobody is punished: the three weakest players start (a line-up cut short by the rule of the
+    // week is still filled with the best of the rest)
+    const noLineup=!(T.starters||[]).length;
+    const rest=avail.filter(p=>!court.includes(p)).sort((a,b)=>noLineup?rating(a)-rating(b):rating(b)-rating(a));
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
-    const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!T.starters.includes(p.id),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
-    return {T,court,bench,st,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
+    const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
+    return {T,court,bench,st,noLineup,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
   };
   const a=mk(A),b=mk(B);
   const P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
@@ -345,6 +348,7 @@ function reportLines(X,Y,won,rule){
   if(won){if(good[0])L.push(good[0][1]);if(good[1])L.push(good[1][1]);else if(bad[0])L.push('Even so: '+bad[0][1]);}
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
+  if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
   return L;
 }
 // ───────────────────────── the match report everybody can read ─────────────────────────
@@ -424,6 +428,7 @@ function scoutReport(X,Y,rule){
   {const v=(X.score-19)/8;if(rule!=='first11'&&Math.abs(v)>=0.5)add(v*0.3,v>0?`Scored ${X.score} points.`:`Scored only ${X.score} points.`);}
   {const d=fga-ofga;if(d>=2)add(0.1,`Got more shots away than ${them}: ${fga} to ${ofga}.`);if(d<=-2)add(-0.1,`Got fewer shots away than ${them}: ${fga} to ${ofga}.`);
     const oto=osum(z=>z.to);if(to<oto&&to>1)add(0.08,`Lost the ball less often than ${them}: ${to} to ${oto}.`);if(to>oto&&to<5&&to!==4)add(-0.08,`Lost the ball more often than ${them}: ${to} to ${oto}.`);}
+  if(X.noLineup)add(-9,'Nobody set the line-up: the three weakest players started.');
   const pros=C.filter(c=>c[0]>0).sort((a,b)=>b[0]-a[0]).slice(0,3).map(c=>c[1]);
   const cons=C.filter(c=>c[0]<0).sort((a,b)=>a[0]-b[0]).slice(0,3).map(c=>c[1]);
   return {pros,cons};

@@ -6,8 +6,9 @@
 
 const CFG={
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
-  MATCH_DAYS:[0,3],       // Sunday and Wednesday
-  LEAGUE_MATCHES:8,       // length of the leagues before SEASONS_FROM: the first league is a one-month test (two matches a week for four weeks)
+  MATCH_DAYS:[0,3],       // the seasonal leagues: Sunday and Wednesday
+  TEST_DAYS:[0,3,5],      // the leagues before SEASONS_FROM: Sunday, Wednesday and Friday
+  LEAGUE_MATCHES:13,      // length of the leagues before SEASONS_FROM: 13 match days, so that 13 or 14 teams all meet each other once (League 1: Sun 8 Nov - Sun 6 Dec 2026)
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
@@ -18,10 +19,13 @@ const CFG={
 const DAY_MS=86400000;
 const SERVER_BUILD='dev';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
-// the next Wednesday or Sunday at the match hour, strictly after the given moment
-function nextMatchTime(afterMs){
+// the match days of league `no` (days of the week, 0 = Sunday)
+const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
+// the next match day of league `no` at the match hour, strictly after the given moment
+function nextMatchTime(afterMs,no){
+  const days=matchDays(no);
   const d=new Date(afterMs);const t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),CFG.MATCH_HOUR_UTC);
-  for(let i=0;i<9;i++){const c=t+i*DAY_MS;if(c>afterMs&&CFG.MATCH_DAYS.includes(new Date(c).getUTCDay()))return c;}
+  for(let i=0;i<9;i++){const c=t+i*DAY_MS;if(c>afterMs&&days.includes(new Date(c).getUTCDay()))return c;}
   return t+7*DAY_MS;
 }
 // ── seasons. A league from SEASONS_FROM on belongs to the season its matches are played in, and ends with it.
@@ -36,13 +40,13 @@ const isSeasonal=no=>no>=CFG.SEASONS_FROM;
 // is the match played at `at` the last one of league `no`, where it is match number `matchNo`?
 function isLastMatch(no,matchNo,at){
   if(!isSeasonal(no))return matchNo>=CFG.LEAGUE_MATCHES;
-  return seasonKey(nextMatchTime(at))!==seasonKey(at);
+  return seasonKey(nextMatchTime(at,no))!==seasonKey(at);
 }
 // how many matches the running league has in all
 function leagueLength(lg){
   if(!isSeasonal(lg.no))return CFG.LEAGUE_MATCHES;
   let n=lg.match_no,t=lg.next_match_at;
-  for(let k=0;k<80&&!isLastMatch(lg.no,n,t);k++){t=nextMatchTime(t);n++;}
+  for(let k=0;k<80&&!isLastMatch(lg.no,n,t);k++){t=nextMatchTime(t,lg.no);n++;}
   return n;
 }
 // the name of league `no`, one of whose matches is played at `at`: "Winter League 2026/27", "Spring League 2027"; before the seasons "League 1"
@@ -52,7 +56,7 @@ function leagueName(no,at,short){
   return short?nm:nm+' '+(s.i===0?s.y+'/'+String((s.y+1)%100).padStart(2,'0'):s.y);
 }
 // what the browser is told about the running league
-function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at),short:leagueName(lg.no,lg.next_match_at,true),match_no:lg.match_no,of:leagueLength(lg),next_match_at:lg.next_match_at,rule:lg.rule};}
+function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at),short:leagueName(lg.no,lg.next_match_at,true),match_no:lg.match_no,of:leagueLength(lg),next_match_at:lg.next_match_at,rule:lg.rule,days:matchDays(lg.no),hour:CFG.MATCH_HOUR_UTC};}
 function newPlayers(n,avoid){
   usedNames.clear();for(const x of avoid||[])usedNames.add(x);
   const out=[],ids=new Set();
@@ -86,8 +90,32 @@ const standing=(a,b)=>b.pts-a.pts||(b.pf-b.pa)-(a.pf-a.pa)||(a.name<b.name?-1:1)
 // have met in this league (key: the two ids sorted and joined with '|').
 // With an odd number, one team meets the house team: of the teams that have met it least, the lowest one.
 const pairKey=(x,y)=>x<y?x+'|'+y:y+'|'+x;
-function pairUp(list,house,met){
-  met=met||new Map();const timesMet=(x,y)=>met.get(pairKey(x,y))||0;
+// Up to 16 participants: an exact schedule. Among the pairs that have met least often, a round is only chosen if the
+// rounds left can still let everyone meet everyone (a complete schedule is searched for, depth first), so a league of
+// 13 rounds for 14 teams really is everyone against everyone once. Returns null when that is not possible or not needed.
+function roundRobinPairs(order,met,roundsLeft,cost){
+  const n=order.length;if(n<2||n>16||n%2)return null;
+  const tm=(i,j)=>met.get(pairKey(order[i].id,order[j].id))||0;
+  let level=Infinity;for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)level=Math.min(level,tm(i,j));
+  const adj=order.map(()=>[]);
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)if(tm(i,j)===level){adj[i].push(j);adj[j].push(i);}
+  const deg=adj[0].length;if(deg<1||deg>roundsLeft||!adj.every(a=>a.length===deg))return null;
+  for(let i=0;i<n;i++)adj[i].sort((a,b)=>cost(order[i],order[a])-cost(order[i],order[b]));   // cheapest partners first: the first round found is the one played
+  const used=new Set(),ek=(i,j)=>i<j?i*16+j:j*16+i;
+  let budget=200000,first=null;
+  const matching=(free,pairs,k)=>{
+    if(--budget<0)throw 0;
+    if(!free){for(const [i,j] of pairs)used.add(ek(i,j));const ok=rounds(k+1,pairs);if(!ok)for(const [i,j] of pairs)used.delete(ek(i,j));return ok;}
+    let i=0;while(!(free&(1<<i)))i++;
+    for(const j of adj[i]){if(!(free&(1<<j))||used.has(ek(i,j)))continue;pairs.push([i,j]);if(matching(free&~(1<<i)&~(1<<j),pairs,k))return true;pairs.pop();}
+    return false;
+  };
+  const rounds=(k,pairs)=>{if(k===1)first=pairs.map(x=>[...x]);if(k===deg)return true;return matching((1<<n)-1,[],k);};
+  try{if(!rounds(0,[]))return null;}catch(e){return null;}
+  return first.map(([i,j])=>[order[i],order[j]]);
+}
+function pairUp(list,house,met,roundsLeft){
+  met=met||new Map();const timesMet=(x,y)=>met.get(pairKey(x,y))||0;roundsLeft=roundsLeft||0;
   for(const t of list){t._prev=t.next_opp;t.next_opp=null;}
   house._prev=house.next_opp;house.next_opp=null;
   const order=[...list].sort((a,b)=>standing(a,b));
@@ -96,6 +124,8 @@ function pairUp(list,house,met){
   const rank=new Map(order.map((t,i)=>[t.id,i]));
   const cost=(a,b)=>timesMet(a.id,b.id)*10+(a._prev===b.id?5:0)+Math.abs(rank.get(a.id)-rank.get(b.id))*0.01;
   const total=pairs=>pairs.reduce((s,[a,b])=>s+cost(a,b),0);
+  const rr=roundRobinPairs(order,met,roundsLeft,cost);
+  if(rr){for(const [a,b] of rr){a.next_opp=b.id;b.next_opp=a.id;}for(const t of list)delete t._prev;delete house._prev;return;}
   // a greedy matching in some order, then partners swapped between pairs while that lowers the total cost
   const build=seq=>{
     const pairs=[],left=[...seq];
@@ -136,7 +166,7 @@ async function ensureLeague(store,now){
   let lg=await store.league();
   if(!lg){
     const rule=pick(RULES).k;
-    lg={id:1,no:1,match_no:1,next_match_at:nextMatchTime(now),rule,vote_opts:threeRules(rule),busy_until:null,final:null};
+    lg={id:1,no:1,match_no:1,next_match_at:nextMatchTime(now,1),rule,vote_opts:threeRules(rule),busy_until:null,final:null};
     await store.saveLeague(lg);
   }
   // if several first visitors arrive together, only one of them gets to create the house team
@@ -200,7 +230,7 @@ async function runMatchday(store,lg,now){
   for(const t of humans)if(t.data.last&&t.data.last.match===lg.match_no&&t.data.last.league===lg.no){t.data.last.place=placeOf(t.id);t.data.last.of=tbl.length;}
   let reset=false;
   if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
-    const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at));
+    const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at,lg.no+1));
     // the league is over: remember how it ended, hand out free agents, start again from zero
     const champ=tbl[0]?tbl[0].name:'';
     // managers who played part of this league and then went away get their place recorded too
@@ -224,13 +254,13 @@ async function runMatchday(store,lg,now){
     reset=true;lg.no++;lg.match_no=1;
   }else lg.match_no++;
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
-  lg.next_match_at=nextMatchTime(lg.next_match_at);lg.busy_until=null;
+  lg.next_match_at=nextMatchTime(lg.next_match_at,lg.no);lg.busy_until=null;   // lg.no is already the next league's number if one just ended
   // next pairings, among the managers who are still around
   if(reset){for(const t of rows)t.next_opp=null;}   // the new league starts empty
   else{
     const active=humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS);
     for(const t of humans)if(!active.includes(t))t.next_opp=null;
-    pairUp(active,house,await meetings(store,lg.no,matches));
+    pairUp(active,house,await meetings(store,lg.no,matches),leagueLength(lg)-lg.match_no+1);
   }
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});

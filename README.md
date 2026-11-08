@@ -3,11 +3,11 @@
 A cartoon basketball manager. You are the coach: you pick seven players, learn how to talk to each of them,
 and choose the tactics. The match plays by itself.
 
-- **Online league**: a match against another manager every Wednesday and Sunday. You do not need to be online
+- **Online league**: a match against another manager on fixed evenings (League 1: Sunday, Wednesday and Friday; the seasonal leagues: Sunday and Wednesday). You do not need to be online
   when it is played. A win is 3 points.
   There are four leagues a year, one per season: the Winter League (December to February), Spring (March to May),
   Summer (June to August) and Autumn (September to November), about 26 matches each. A league ends on the last
-  match day of its season. The very first league (November 2026) is a one-month trial of 8 matches:
+  match day of its season. The very first league (8 November to 6 December 2026) is a trial of 13 match days, three a week, so that 13 or 14 teams all meet each other once:
   `LEAGUE_MATCHES` and `SEASONS_FROM` in `server.js`.
   Between leagues each manager may change one player (`MAX_SWAPS` in `server.js` and in `index.html`).
   Every new league starts with no teams: when a league ends, each manager opens the game and presses

@@ -14,10 +14,10 @@
 name: match day and keep-alive
 on:
   schedule:
-    - cron: '4 18 * * 0,3'    # just after the match hour (18:00 UTC), Sunday and Wednesday
-    - cron: '37 18 * * 0,3'   # again, in case the first run was late or failed
-    - cron: '30 19 * * 0,3'
-    - cron: '0 21 * * 0,3'
+    - cron: '4 18 * * 0,3,5'  # just after the match hour (18:00 UTC), Sunday, Wednesday and Friday
+    - cron: '37 18 * * 0,3,5' # again, in case the first run was late or failed
+    - cron: '30 19 * * 0,3,5'
+    - cron: '0 21 * * 0,3,5'
     - cron: '41 5 * * *'      # once a day, so the project never pauses for inactivity
   workflow_dispatch:
 jobs:
