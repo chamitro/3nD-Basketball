@@ -363,6 +363,8 @@ function matchWhen(){
 }
 let ONLINE=false,V=null,SCREEN='start',START_MSG='',netBusy=0,planTimer=null,viewAt=0,SKEW=0;   // SKEW: server clock minus this device's clock
 const DAY=()=>ONLINE&&V&&V.league?new Date(V.league.next_match_at).toLocaleDateString('en',{weekday:'long'}):'Sunday';
+// the match day after the next one (the votes cast now decide its rule)
+const DAY2=()=>{if(!(ONLINE&&V&&V.league&&V.league.days))return 'the match after the next one';let t=V.league.next_match_at;for(let i=1;i<=8;i++){const c=t+i*86400000;if(V.league.days.includes(new Date(c).getUTCDay()))return new Date(c).toLocaleDateString('en',{weekday:'long'});}return 'the match after the next one';};
 const resKey=l=>l?l.league*1000+l.match:0;
 function myKey(){let k=localStorage.getItem('b3key');if(!/^[a-f0-9]{32}$/.test(k||'')){const b=new Uint8Array(16);crypto.getRandomValues(b);k=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('b3key',k);}return k;}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -508,7 +510,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.08-2308';   // stamped by build.py
+const APP_VERSION='2026.11.08-2331';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1060,7 +1062,7 @@ function renderResults(){
   for(const m of r.list){h+=`<div class="res"><div class="sc ${m.won?'w':'l'}" data-us="${m.us}" data-them="${m.them}">0–0</div><div><div>${m.won?'beat':'lost to'} ${m.opp}<span class="stamp ${m.won?'w':'l'}">${m.won?'WIN':'LOSS'}</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;
     if(ONLINE&&((m.pros||[]).length||(m.cons||[]).length))h+=`<div class="rdt" style="margin-top:6px"><div class="small" style="margin:0 0 2px">What every manager can read about your team in this match (the Table tab has the reports of all teams):</div>${repLines(m)}</div>`;}
   h+=`<div class="small">${r.moves.length?'Afterwards: '+r.moves.join(', ')+'.':'The mood in the locker room is unchanged.'} You are ${ord(r.place)} of ${r.of||8}.</div></div>`;
-  if(!(ONLINE&&S.out)){h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for the rule of the match after the next one':"Vote for next Sunday's rule"}</h3><div class="grid3">`;
+  if(!(ONLINE&&S.out)){h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for '+DAY2()+"'s rule":"Vote for next Sunday's rule"}</h3>${ONLINE?'<div class="small" style="margin:-4px 4px 8px">'+DAY()+"'s rule is already set: <b>"+ruleOf(S.rule).txt+'</b> The votes cast now decide the rule of the match after it.</div>':''}<div class="grid3">`;
   S.vote.opts.forEach((k,i)=>{h+=`<div class="card vote ${S.myVote===i?'on':''}" data-v="${i}">${ruleOf(k).txt}<small>${ruleOf(k).why}</small></div>`;});
   h+=`</div>`;}
   h+=`<button class="go" id="next">${ONLINE?(S.out||(S.me.final&&!S.me.final.seen)?'The league is over. See how it ended':'Back to the locker room'):S.sunday>=7?'The league is over. See the final table':'On to next week'}</button>`;

@@ -1,6 +1,6 @@
 // 3nD Basketball service worker: network first for the page so updates win, cache as a fallback when offline.
 // Bump CACHE_NAME whenever the shell changes.
-const CACHE_NAME = 'b3-2026.11.08-2308';
+const CACHE_NAME = 'b3-2026.11.08-2331';
 const ASSETS = ['./', 'index.html', 'engine.js', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
