@@ -98,7 +98,8 @@ const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close a
 // as a 304-game study of half-time speeches found, but shouting overshoots: it lifts less and makes the wrong players fume.
 const TALK_SHARP={honest:1,challenge:1,demand:1,shout:2};
 const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'challenged them',demand:'demanded more',shout:'shouted at them',joke:'cracked a joke',honest:'gave it to them straight',calm:'calmed them down',space:'left them alone'};
-const TALK_LIFT=[0,0.03,0.012];   // shot quality for the rest of the match, by sharpness
+const TALK_REACH=0.45;   // chance that a player is moved by the half-time talk (a short moment in a locker room; 0.6 made "be honest" worth +5 points when close)
+const TALK_LIFT=[0,0.02,0.008];   // shot quality for the rest of the match, by sharpness (0.03 made "be honest" worth +5 points of win chance when close: too much of a default)
 const ORDER_KEYS=['behind','close','ahead'];
 const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
 const orderOf=k=>ORDERS.find(o=>o.k===k);
@@ -326,7 +327,7 @@ function playMatch(A,B,ruleKey){
       X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null,talk:null,up:[],down:[]};
       const o=X.T.orders&&X.T.orders[cond];if(!o)continue;
       if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
-        for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<0.6&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
+        for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<TALK_REACH&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
           const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
       if(!orderOf(o.k))continue;
