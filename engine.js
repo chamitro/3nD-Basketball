@@ -20,11 +20,11 @@ const TONE_SAY={praise:'You were brilliant out there.',comfort:'It is all right.
 // reply: [line, mood after, trust change]. The same words land differently on each character.
 const TEMPS={
   showoff:{r:{
-    praise:['Say it again. Slower.','happy',1],comfort:['I do not need a hug. I need the BALL.','ok',0],challenge:['Watch me. No really, WATCH me.','happy',1],demand:['Fine. But the ball comes to ME.','ok',0],shout:['Then find another superstar!','angry',-2],joke:['Are you laughing at ME?','angry',-1],honest:['I was NOT bad. The others were bad.','sad',-1],calm:['I am calm. I am ALWAYS calm.','ok',0],space:['You are... ignoring me?','sad',-1]}},
+    praise:['Say it again. Slower.','happy',1],comfort:['I do not need a hug. I need the BALL.','ok',0],challenge:['Watch me. No really, WATCH me.','happy',1],demand:['Fine. But the ball comes to ME.','ok',0],shout:['Then find another superstar!','angry',-2],joke:['Are you laughing at ME?','angry',-1],honest:['I was NOT bad. The others were bad.','angry',-1],calm:['I am calm. I am ALWAYS calm.','ok',0],space:['You are... ignoring me?','sad',-1]}},
   worrier:{r:{
-    praise:['Now I have to live up to that...','nervous',0],comfort:['Thanks. I needed that.','happy',1],challenge:['What if I cannot?','nervous',-1],demand:['Okay. Okay. Okay. I can do that.','ok',0],shout:['...','sad',-1],joke:['Are you... making fun of me?','nervous',-1],honest:['I would rather know. Thank you.','cool',1],calm:['In... out... okay. Okay.','cool',1],space:['Did I do something wrong?','nervous',0]}},
+    praise:['Now I have to live up to that...','nervous',0],comfort:['Thanks. I needed that.','happy',1],challenge:['What if I cannot?','nervous',-1],demand:['Okay. Okay. Okay. I can do that.','nervous',0],shout:['...','sad',-1],joke:['Are you... making fun of me?','nervous',-1],honest:['I would rather know. Thank you.','cool',1],calm:['In... out... okay. Okay.','cool',1],space:['Did I do something wrong?','nervous',0]}},
   veteran:{r:{
-    praise:['Do not butter me up.','angry',-1],comfort:['I am not a child.','sad',-1],challenge:['Hm. All right. One more time.','cool',1],demand:['Fair.','cool',1],shout:['I have been shouted at by better.','ok',0],joke:['Heh. Not bad.','ok',0],honest:['Good. That I can work with.','happy',2],calm:['I was calm before you were born.','ok',0],space:['Finally. Peace.','ok',1]}},
+    praise:['Do not butter me up.','ok',-1],comfort:['I am not a child.','ok',-1],challenge:['Hm. All right. One more time.','cool',1],demand:['Fair.','cool',1],shout:['I have been shouted at by better.','ok',0],joke:['Heh. Not bad.','ok',0],honest:['Good. That I can work with.','happy',2],calm:['I was calm before you were born.','ok',0],space:['Finally. Peace.','ok',1]}},
   hothead:{r:{
     praise:['Damn right.','ok',0],comfort:['...Fine. FINE. Thanks.','cool',1],challenge:['You think I CANNOT?!','angry',-1],demand:['Do NOT tell me what to do!','angry',-1],shout:['Say that again and I WALK!','angry',-2],joke:['HA! All right, all right.','happy',1],honest:['So I am the problem?!','angry',-1],calm:['...Breathing. I am breathing.','cool',1],space:['Good. I need to punch a pillow.','cool',0]}},
   joker:{r:{
@@ -36,11 +36,11 @@ const TEMPS={
   fighter:{r:{
     praise:['Do not go soft on me.','sad',-1],comfort:['Do I look like I need a blanket?','sad',-1],challenge:['OH, IS THAT SO?! WATCH ME!','angry',1],demand:['Now we are talking.','cool',1],shout:['FINALLY, some passion!','angry',1],joke:['Funny. Real funny.','ok',0],honest:['Good. Straight at me. I like it.','happy',1],calm:['You are putting my fire out.','sad',-1],space:['Suit yourself.','ok',0]}},
   easygoing:{r:{
-    praise:['Cheers, coach.','ok',0],comfort:['I am good, honestly.','ok',0],challenge:['Sure, why not.','ok',0],demand:['Whoa. Bit intense, coach.','nervous',0],shout:['Deep breath, coach. It is only a game.','ok',0],joke:['Ha! Nice one.','happy',1],honest:['Fair enough.','cool',1],calm:['Already there.','ok',0],space:['Cool. See you Sunday.','ok',0]}},
+    praise:['Cheers, coach.','ok',0],comfort:['I am good, honestly.','ok',0],challenge:['Sure, why not.','ok',0],demand:['Whoa. Bit intense, coach.','ok',0],shout:['Deep breath, coach. It is only a game.','ok',0],joke:['Ha! Nice one.','happy',1],honest:['Fair enough.','cool',1],calm:['Already there.','ok',0],space:['Cool. See you Sunday.','ok',0]}},
 };
 // what the manager is told about each character: a name, a colour, one line
 const CHAR={
-  showoff:['Proud','#ffd43b','Lives for praise and a stage. Cannot take a joke.'],
+  showoff:['Proud','#ffd43b','Lives for praise and a stage, rises to the big moment. Cannot take a joke or criticism.'],
   worrier:['Worrier','#a5d8ff','Easily rattled. Even praise can weigh on them.'],
   veteran:['Old hand','#d0bfff','Seen it all. Flattery annoys them.'],
   hothead:['Hot-tempered','#ffa8a8','Blows up when pushed. A laugh cools them down.'],
@@ -284,7 +284,7 @@ function playMatch(A,B,ruleKey){
       if(dbl){if(isF){pm-=0.14;tag=2;sst.dbl++;}else{pm+=[0.17,0.06,0.11][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not
     }
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.11;
-    if(late){if(shooter.mood==='happy'||shooter.mood==='cool')pm+=0.04;if(shooter.mood==='nervous')pm-=0.08;}
+    if(late){if(shooter.mood==='happy'||shooter.mood==='cool')pm+=0.04;if(shooter.mood==='nervous')pm-=0.08;if(shooter.temp==='showoff')pm+=0.04;}   // a proud player rises to the big moment (narcissism and performance under pressure)
     sst.fga++;if(three)sst.a3++;
     if(R()<clamp(pm,0.05,0.9)){
       let pts=three?(rule==='three5'?5:rule==='paint'?2:3):(rule==='paint'?3:2);
