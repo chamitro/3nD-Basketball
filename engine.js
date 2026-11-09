@@ -90,7 +90,7 @@ const ORDERS=[
   {k:'fast',txt:'Speed the game up',why:'More possessions for both teams and fast breaks if you are quicker. Tires the legs.'},
   {k:'outside',txt:'Shoot from outside',why:'Long shots for three. Attack dots decide, a zone leaves them open.'},
   {k:'fresh',txt:'Fresh legs',why:'Both substitutes come on for the two most tired players on the court.'},
-  {k:'star',txt:'Everything through one player',why:'Star ball for the second half, to the player you name. From the bench they come on.'},
+  {k:'star',txt:'Everything through one player',why:'Star ball for the second half, to the player you name; from the bench they come on. Pays for a player who is buzzing or locked in, sinks a cold, anxious or sulking one.'},
 ];
 const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close at half-time',ahead:'If we are ahead at half-time'};
 const ORDER_KEYS=['behind','close','ahead'];
