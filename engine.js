@@ -58,7 +58,7 @@ function quirks(p){const t=[...TONES].sort(()=>R()-0.5);p.love=t[0];p.hate=t[1];
 const TEMPKEYS=Object.keys(TEMPS);
 const WORD={happy:'buzzing',ok:'fine',angry:'fuming',sad:'sulking',nervous:'anxious',cool:'locked in'};
 // mood -> [shooting, turnover, obey, defence]
-const MOODFX={happy:[0.06,0,1,0],cool:[0.02,-0.03,1,0.03],ok:[0,0,0.95,0],nervous:[-0.04,0.05,0.9,0],sad:[-0.08,0,0.8,-0.04],angry:[-0.03,0.03,0.55,0.05]};
+const MOODFX={happy:[0.042,0,1,0],cool:[0.014,-0.03,1,0.03],ok:[0,0,0.95,0],nervous:[-0.028,0.05,0.9,0],sad:[-0.056,0,0.8,-0.04],angry:[-0.021,0.03,0.55,0.05]};   // shooting effects were 0.06/0.02/-0.04/-0.08/-0.03 until 9 Nov 2026 (30% less now, so that the dots count for more)
 
 // ───────────────────────── rules of the week ─────────────────────────
 const RULES=[
@@ -155,7 +155,7 @@ function makePlayer0(){
   const temp=pick(TEMPKEYS);const h=R();
   let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
-    sh,df,sp,mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
+    sh,df,sp,base:{sh,df,sp},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
@@ -165,7 +165,11 @@ const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5};   // a whole match played; a who
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
 const nrm=v=>(v-2.5)/1.5; // a stat of 1..4 as -1..1
 // nudge a stat; returns +1/-1 when a whole dot is gained or lost
-function bump(p,k,d){const before=Math.round(p[k]);p[k]=clamp(p[k]+d,1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
+// A stat moves with talks and matches and stays where it was put, but within STAT_BAND of the player's natural level
+// (`base`, the dots they were drafted with): form, not endless growth. Players from before 9 Nov 2026 get their base
+// the first time a stat moves.
+const STAT_BAND=0.5;
+function bump(p,k,d){p.base=p.base||{};if(p.base[k]===undefined)p.base[k]=p[k];const before=Math.round(p[k]);p[k]=clamp(clamp(p[k]+d,p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
 function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 function tallestId(team){return team.players.reduce((a,b)=>a.h>b.h?a:b).id;}
@@ -235,6 +239,9 @@ function botPrepare(team,opp,rule,oppLast){
 
 // ───────────────────────── the match ─────────────────────────
 function obey(p){return clamp(MOODFX[p.mood][2]+0.08*p.trust,0.2,1);}
+// how much the dots weigh in a shot, against moods, energy and tactics: attack on long shots, attack on close shots, height, defence.
+// All 1 in the first release: the squad then explained ~2% of a season and the manager ~65% (season simulator, 9 Nov 2026).
+const DOT={sh3:1.6,sh2:3,h:2.5,df:2.5};
 const PRESS_MID={h:0.5,sp:0,tired:0.15};   // an average ball handler: height, speed (as -1..1) and tiredness
 function playMatch(A,B,ruleKey){
   const rule=ruleKey;
@@ -310,10 +317,10 @@ function playMatch(A,B,ruleKey){
     let def;if(stp){if(isF)def=stp;else{const o=D.court.filter(d=>d!==stp);def=o.length?pick(o):stp;}}else def=pick(D.court);
     const dfx=MOODFX[def.mood];
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
-    const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.16:-0.14):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.14 balances the second shots it gives up, measured 9 Nov 2026)
+    const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
-    if(three){pm=0.33+0.085*nrm(shooter.sh)*aMul-0.04*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
-    else{pm=0.52+0.03*nrm(shooter.sh)*aMul+0.13*(shooter.h-def.h)*hMul-0.05*nrm(def.df)*dMul*dW+zoneIn;}
+    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
+    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn;}
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less

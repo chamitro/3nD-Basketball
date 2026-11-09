@@ -83,6 +83,14 @@ free plan allows; the scheduled job fails loudly from 350 on).
   it as to a team talk, moods only (`replyTo` in `engine.js`, no trust or form change); a sharp talk (honest,
   challenge, demand) adds `TALK_LIFT` to the side's shot quality for the rest of the match, shouting adds less
   (`TALK_SHARP`). The half-time record carries `talk`, the manager's lines say who was lifted or put off.
+- Balance of squad and manager (9 Nov 2026, from the season simulator in the test scripts): the dots weigh more in
+  a shot than at first release (`DOT` in `engine.js`: attack on long shots 1.6x, on close shots 3x, height 2.5x,
+  defence 2.5x), moods move shooting 30% less (`MOODFX`), and a stat moved by talks or matches stays within
+  `STAT_BAND` (0.5) of the player's drafted level (`base`; older players get it the first time a stat moves). Measured
+  over 150 simulated seasons: the squad now explains ~5% of a season's results overall and ~20% within one manager
+  style (was ~2% and ~3%); a typical gap between two squads is worth ~5 points of win rate (was ~1); the gap between
+  the best and the worst manager style fell from 45 to ~40 points. Talking well remains the biggest lever (+19),
+  energy rotation ~+7, half-time orders ~+6, a smart plan ~+2, trash talk used well ~+3.
 - Trash talk: action `trash {i}` stores one line of `TRASH` (engine.js) for the next opponent (`data.trash`, `i:null`
   takes it back). On match day it is the last word before tip-off: `trashTeam` moves the opposing players' moods by
   character (`TRASH_FX`: rattled or fired up; a line aimed at the star reaches the star for sure; a team that has
