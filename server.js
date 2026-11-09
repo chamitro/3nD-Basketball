@@ -199,6 +199,14 @@ async function runMatchday(store,lg,now){
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
     const ordersOf=T=>{const o=T.data.orders||{};return ORDER_KEYS.some(w=>o[w])?{behind:o.behind||null,close:o.close||null,ahead:o.ahead||null}:null;};
     const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet},orders:ordersOf(A)},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet},orders:ordersOf(B)}};
+    // trash talk: the last word before tip-off. Each side's line (if any) lands on the other team's players; the sender is banned next match.
+    const wasBanned={a:(A.data.ban||0)>0,b:(B.data.ban||0)>0};
+    const trash={a:null,b:null};
+    for(const [X,Y,k] of [[A,B,'a'],[B,A,'b']]){const t=X.data.trash;X.data.trash=null;
+      if(!t||t.league!==lg.no||t.match!==lg.match_no||t.opp!==Y.id||!TRASH[t.i]||X.is_house)continue;
+      const heard=(Y.data.heard||{})[X.id]||0;const fx=trashTeam(Y.data,t.i,Y.data.ball,heard);
+      Y.data.heard={...(Y.data.heard||{}),[X.id]:heard+1};
+      trash[k]={i:t.i,line:TRASH[t.i].txt,by:X.name,to:Y.name,rattled:fx.rattled,fired:fx.fired};}
     const r=playMatch(A.data,B.data,rule);
     // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
     const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
@@ -208,6 +216,11 @@ async function runMatchday(store,lg,now){
       const won=xs.score>ys.score;
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
       const lines=reportLines(xs,ys,won,rule);
+      // trash talk, as the manager hears of it (the sender's ban starts now, a ban served this match ends)
+      const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
+      if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
+      if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match.`);
+      if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}
       // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
       const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
       const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,talk:xs.half.talk||null,
@@ -218,8 +231,8 @@ async function runMatchday(store,lg,now){
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half}};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half,trash:sent?sent.line:null}};
+      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
   }
@@ -311,7 +324,7 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
-      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
+      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
@@ -326,7 +339,7 @@ async function roundView(store,req){
   const rows=await store.roundMatches(L,M,ROUND_MAX+1);
   if(!rows.length)return {none:true,league:L,match:M};
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
-  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
+  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
   const d0=rows[0].detail||{};
   return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
@@ -434,7 +447,14 @@ async function handle2(store,req,a,h,now){
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
   if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in '+(isSeasonal(lg.no)?'the ':'')+leagueName(lg.no,lg.next_match_at,true)+' yet. Enter the league first.'};
-  if(a==='talk'){
+  const bannedMsg=()=>'You are banned for this match'+(d.banFor?' for trash-talking '+d.banFor:'')+': no talks with your players, no half-time talk, no trash talk.';
+  if((d.ban||0)>0&&['talk','teamtalk','trash'].includes(a))return {error:bannedMsg()};
+  if(a==='trash'){   // the last word before tip-off, sent to the next opponent; i=null takes it back
+    if(out)return {error:'Your team is not in the league yet.'};
+    if(req.i===null||req.i===undefined){d.trash=null;dirty=true;}
+    else{if(!Number.isInteger(req.i)||!TRASH[req.i])return {error:'bad line'};if(!row.next_opp)return {error:'No opponent yet.'};
+      d.trash={league:lg.no,match:lg.match_no,opp:row.next_opp,i:req.i};dirty=true;}
+  }else if(a==='talk'){
     const p=d.players.find(x=>x.id===req.pid);
     if(!p||!TONES.includes(req.tone))return {error:'bad talk'};
     if(p.talked)return {error:'You already talked to '+p.n+' before this match.'};

@@ -98,6 +98,37 @@ const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close a
 // as a 304-game study of half-time speeches found, but shouting overshoots: it lifts less and makes the wrong players fume.
 const TALK_SHARP={honest:1,challenge:1,demand:1,shout:2};
 const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'challenged them',demand:'demanded more',shout:'shouted at them',joke:'cracked a joke',honest:'gave it to them straight',calm:'calmed them down',space:'left them alone'};
+// ───────────────────────── trash talk ─────────────────────────
+// Before a match a manager may send one line from this menu to the other dugout. It is the last word before tip-off:
+// each opposing player takes it by character, moods only. Research (Yip, Schweitzer & Nurmohamed 2018): trash talk
+// mostly fires the target up and sometimes rattles them, so fighters, old hands and jokers get sharper while worriers,
+// pleasers, the proud and the hot-tempered lose their heads. A line aimed at their star reaches the star for sure and
+// the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
+// match: no talks with their own players, no half-time talk.
+const TRASH=[
+  {txt:'We have watched your matches. We laughed.',at:'team'},
+  {txt:'Our substitutes would beat you.',at:'team'},
+  {txt:'Enjoy the bottom of the table. It suits you.',at:'team'},
+  {txt:'Bring tissues on match day.',at:'team'},
+  {txt:'Your star could not hit the sea from the beach.',at:'star'},
+  {txt:'Everybody knows your star folds when it matters.',at:'star'},
+];
+const TRASH_REACH={rattle:0.9,fire:0.35};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 9 Nov 2026: about +3 points of win chance against a court that rattles, -3 against one that fires up.
+// what a character does with an insult from the other dugout: [mood, fired up?]
+const TRASH_FX={showoff:['angry',false],worrier:['nervous',false],pleaser:['nervous',false],hothead:['angry',false],
+  fighter:['angry',true],veteran:['cool',true],joker:['happy',true],loner:['ok',false],easygoing:['ok',false]};
+// apply one trash line to a team; `heard` = how often this team has heard that manager before. Returns who was rattled and who was fired up.
+function trashTeam(team,line,starId,heard){
+  const rattled=[],fired=[];const l=TRASH[line];if(!l)return {rattled,fired};
+  for(const p of team.players){
+    const isStar=p.id===starId;const [mood,up]=TRASH_FX[p.temp]||['ok',false];if(mood==='ok')continue;
+    const reach=l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle);
+    const chance=up?reach:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
+    if(R()>=chance||p.mood===mood)continue;
+    p.mood=mood;(up?fired:rattled).push(p.n);
+  }
+  return {rattled,fired};
+}
 const TALK_REACH=0.45;   // chance that a player is moved by the half-time talk (a short moment in a locker room; 0.6 made "be honest" worth +5 points when close)
 const TALK_LIFT=[0,0.02,0.008];   // shot quality for the rest of the match, by sharpness (0.03 made "be honest" worth +5 points of win chance when close: too much of a default)
 const ORDER_KEYS=['behind','close','ahead'];
@@ -324,9 +355,10 @@ function playMatch(A,B,ruleKey){
     const m=a.score-b.score;
     for(const [X,d] of [[a,m],[b,-m]]){
       const cond=d>=ORDER_MARGIN?'ahead':d<=-ORDER_MARGIN?'behind':'close';
-      X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null,talk:null,up:[],down:[]};
+      X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null,talk:null,gagged:false,up:[],down:[]};
       const o=X.T.orders&&X.T.orders[cond];if(!o)continue;
-      if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
+      if(TONES.includes(o.talk)&&(X.T.ban||0)>0)X.half.gagged=true;
+      else if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
         for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<TALK_REACH&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
           const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
@@ -412,8 +444,8 @@ function reportLines(X,Y,won,rule){
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
-  if(X.half&&(X.half.order||X.half.failed||X.half.talk)){const h=X.half,o=h.order&&orderOf(h.order);
-    const talk=h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
+  if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half,o=h.order&&orderOf(h.order);
+    const talk=h.gagged?' Banned, you were not in the locker room: no half-time talk.':h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
     const order=o?` Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}.`:h.failed?` Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`:'';
     L.unshift(`Half-time ${h.us}-${h.them}.${talk}${order} Second half ${X.score-h.us}-${Y.score-h.them}.`);L.length=Math.min(L.length,2);}
   return L;
