@@ -94,7 +94,7 @@ const ORDERS=[
 ];
 const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close at half-time',ahead:'If we are ahead at half-time'};
 const ORDER_KEYS=['behind','close','ahead'];
-const ORDER_MARGIN=3;   // behind or ahead from this many points on; anything closer is "close"
+const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
 const orderOf=k=>ORDERS.find(o=>o.k===k);
 // orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
 function cleanOrders(team,rule){
@@ -482,7 +482,6 @@ function scoutReport(X,Y,rule){
   {const d=fga-ofga;if(d>=2)add(0.1,`Got more shots away than ${them}: ${fga} to ${ofga}.`);if(d<=-2)add(-0.1,`Got fewer shots away than ${them}: ${fga} to ${ofga}.`);
     const oto=osum(z=>z.to);if(to<oto&&to>1)add(0.08,`Lost the ball less often than ${them}: ${to} to ${oto}.`);if(to>oto&&to<5&&to!==4)add(-0.08,`Lost the ball more often than ${them}: ${to} to ${oto}.`);}
   if(X.noLineup)add(-9,'Nobody set the line-up: the three weakest players started.');
-  if(X.half&&X.half.order){const h=X.half,d=(X.score-h.us)-(Y.score-h.them);add(d===0?0.01:d/4,`Half-time ${h.us}-${h.them}, then "${orderOf(h.order).txt}"${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}: second half ${X.score-h.us}-${Y.score-h.them}.`);}
   const pros=C.filter(c=>c[0]>0).sort((a,b)=>b[0]-a[0]).slice(0,3).map(c=>c[1]);
   const cons=C.filter(c=>c[0]<0).sort((a,b)=>a[0]-b[0]).slice(0,3).map(c=>c[1]);
   return {pros,cons};

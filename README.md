@@ -74,7 +74,7 @@ free plan allows; the scheduled job fails loudly from 350 on).
   about their own match (`lines`) is never sent to anyone else.
 - Half-time orders: the plan carries `orders = {behind, close, ahead}`, one order per way the first half can end
   (`ORDERS` in `engine.js`: press, zone, slow, fast, outside, fresh legs, everything through a named player; the
-  margin for behind/ahead is `ORDER_MARGIN`, 3 points). `playMatch` works on a copy of the plan, reads the score at
+  margin for behind/ahead is `ORDER_MARGIN`: 5 points or more down is behind, 5 or more up is ahead, less than 5 apart is close). `playMatch` works on a copy of the plan, reads the score at
   the halfway possession and changes the copy; the second half is as long as the new tempos say. Each side's
   result carries `half = {us, them, cond, order, who, left}`, kept in `b3_matches.detail`, in `pub.rep` and in the
   manager's `data.last`. `checkPlan` validates the orders; a plan without them (older pages) keeps the stored ones.
