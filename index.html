@@ -963,15 +963,18 @@ function planCheck(){
 // the half-time orders: one row per case, a list of orders, a player for "everything through one player"
 function ordersHtml(){
   const me=S.me,O=me.orders||(me.orders={behind:null,close:null,ahead:null});
-  const rows=ORDER_KEYS.map(w=>{const o=O[w];const sel=`<select data-w="${w}"><option value="">Keep the plan</option>${ORDERS.map(x=>`<option value="${x.k}" ${o&&o.k===x.k?'selected':''}>${x.txt}</option>`).join('')}</select>`;
-    const who=o&&o.k==='star'?`<select data-wp="${w}">${me.players.map(p=>`<option value="${p.id}" ${o.pid===p.id?'selected':''}>${esc(p.n)}${me.starters.includes(p.id)?'':me.subs.includes(p.id)?' (substitute)':' (not playing)'}</option>`).join('')}</select>`:'';
-    return `<div class="orow"><span class="olab">${ORDER_WHEN[w].replace(' at half-time','')}</span>${sel}${who}${o?`<div class="owhy">${orderOf(o.k).why}</div>`:''}</div>`;}).join('');
-  return `<div class="lab">Half-time orders</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score and follows the order for that case. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close. Leave a row on "Keep the plan" to change nothing.</div>${rows}`;
+  const rows=ORDER_KEYS.map(w=>{const o=O[w],k=o&&o.k,talk=o&&o.talk;const sel=`<select data-w="${w}"><option value="">Keep the plan</option>${ORDERS.map(x=>`<option value="${x.k}" ${k===x.k?'selected':''}>${x.txt}</option>`).join('')}</select>`;
+    const who=k==='star'?`<select data-wp="${w}">${me.players.map(p=>`<option value="${p.id}" ${o.pid===p.id?'selected':''}>${esc(p.n)}${me.starters.includes(p.id)?'':me.subs.includes(p.id)?' (substitute)':' (not playing)'}</option>`).join('')}</select>`:'';
+    const say=`<select data-wt="${w}"><option value="">Say nothing</option>${TONES.map(t=>`<option value="${t}" ${talk===t?'selected':''}>${TONE_LABEL[t]}</option>`).join('')}</select>`;
+    return `<div class="orow"><span class="olab">${ORDER_WHEN[w].replace(' at half-time','')}</span>${sel}${who}<span class="small" style="font-weight:700">and</span>${say}${k?`<div class="owhy">${orderOf(k).why}</div>`:''}${talk?`<div class="owhy">You say: "${TONE_SAY[talk]}" Each player reacts to it as they always do, moods only. ${TALK_SHARP[talk]===1?'A sharp talk lifts the whole second half a little.':TALK_SHARP[talk]===2?'Shouting lifts the second half less than a sharp word, and makes the wrong players fume.':'A soft talk lifts nobody by itself: it works through the players it reaches.'}</div>`:''}</div>`;}).join('');
+  return `<div class="lab">Half-time orders and talk</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score, hears your talk for that case and follows the order for that case. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close. "Keep the plan" and "Say nothing" change nothing.</div>${rows}`;
 }
 $('orders').addEventListener('change',e=>{
   const t=e.target;if(S.phase!=='week'||!t.dataset)return;const O=S.me.orders||(S.me.orders={behind:null,close:null,ahead:null});
-  if(t.dataset.w){const k=t.value;O[t.dataset.w]=!k?null:k==='star'?{k,pid:(byId(S.me,S.me.ball)||byId(S.me,S.me.starters[0])||S.me.players[0]).id}:{k};}
+  const keep=(w,n)=>{const o=O[w];const talk=o&&o.talk?o.talk:null;const row={...n,talk};O[w]=row.k||row.talk?row:null;};
+  if(t.dataset.w){const k=t.value;keep(t.dataset.w,!k?{k:null}:k==='star'?{k,pid:(byId(S.me,S.me.ball)||byId(S.me,S.me.starters[0])||S.me.players[0]).id}:{k});}
   else if(t.dataset.wp){const o=O[t.dataset.wp];if(o&&o.k==='star')o.pid=+t.value;}
+  else if(t.dataset.wt){const w=t.dataset.wt,o=O[w]||{k:null};const row={...o,talk:t.value||null};O[w]=row.k||row.talk?row:null;}
   save();renderPlan();
 });
 function renderPlan(){
@@ -1049,7 +1052,8 @@ function renderHelp(){
   <ul><li><b>Press them</b> and <b>Drop into a zone</b> change the defence. <b>Slow the game down</b> and <b>Speed the game up</b> change the tempo, and the second half gets shorter or longer with it. <b>Shoot from outside</b> goes for three-pointers.</li>
   <li><b>Fresh legs</b>: both substitutes come on for the two most tired players on the court. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan.</li>
   <li>An order costs what it costs in the normal plan: a press and a fast game tire the legs, fresh legs are weaker legs, slowing down also shortens your own comeback. Players in a bad mood ignore an order the way they ignore the plan.</li>
-  <li>Your result says when an order kicked in and what the second half did. The match reports show everybody's half-time score and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
+  <li><b>The half-time talk.</b> Next to each order you can choose what you say to the whole team in the locker room, in one of your nine tones. Every player reacts to it the way they react to that tone in the week, moods only: no trust and no form change at half-time. A sharp talk (be honest, challenge, demand more) also lifts the whole second half a little, as real half-time speeches do; shouting lifts it less and makes hot-tempered and proud players fume; a soft talk works only through the players it reaches.</li>
+  <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
   <li>No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week.</li></ul>
   <h4><i>7</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
@@ -1125,7 +1129,7 @@ async function loadRound(pos){
   if(ONLINE&&SCREEN==='game'&&S.phase!=='draft'&&S.tab==='league')renderLeague();
 }
 // "Half-time 8–12, then Press them." as a sentence for the match-day list and the opponent's note
-function halfWords(h){if(!h)return '';return ` Half-time ${h.us}–${h.them}${h.order?', then <b>'+esc(orderOf(h.order).txt.toLowerCase())+(h.who?' ('+esc(h.who)+')':'')+'</b>':h.left?', no order for that case':''}.`;}
+function halfWords(h){if(!h)return '';return ` Half-time ${h.us}–${h.them}${h.talk?', the coach '+TALK_WORD[h.talk]:''}${h.order?', then <b>'+esc(orderOf(h.order).txt.toLowerCase())+(h.who?' ('+esc(h.who)+')':'')+'</b>':h.left&&!h.talk?', no order for that case':''}.`;}
 function roundHtml(){
   if(!ONLINE||!V)return '';
   let h=`<div class="card" style="margin-bottom:16px"><h3>Match reports${RD&&RD.matches?' · '+esc(RD.name)+' · match '+RD.match:''}</h3>`;
@@ -1259,7 +1263,7 @@ function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;T+=dt;
   requestAnimationFrame(loop);}
 boot();
 requestAnimationFrame(loop);
-Object.assign(window,{setMode,applyView,api,ORDERS,ORDER_WHEN,ORDER_KEYS,orderOf,cleanOrders,orderWords,ordersHtml,halfWords,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
+Object.assign(window,{setMode,applyView,api,ORDERS,ORDER_WHEN,ORDER_KEYS,orderOf,cleanOrders,orderWords,ordersHtml,halfWords,TALK_WORD,TALK_SHARP,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
 </script>
 </body>
 </html>

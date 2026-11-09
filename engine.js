@@ -93,18 +93,25 @@ const ORDERS=[
   {k:'star',txt:'Everything through one player',why:'Star ball for the second half, to the player you name; from the bench they come on. Pays for a player who is buzzing or locked in, sinks a cold, anxious or sulking one.'},
 ];
 const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close at half-time',ahead:'If we are ahead at half-time'};
+// The half-time talk: one tone, said to the whole team in the locker room. Each character reacts as it always does
+// (moods only: no trust and no form change at half-time). A sharp talk also lifts the whole second half a little,
+// as a 304-game study of half-time speeches found, but shouting overshoots: it lifts less and makes the wrong players fume.
+const TALK_SHARP={honest:1,challenge:1,demand:1,shout:2};
+const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'challenged them',demand:'demanded more',shout:'shouted at them',joke:'cracked a joke',honest:'gave it to them straight',calm:'calmed them down',space:'left them alone'};
+const TALK_LIFT=[0,0.03,0.012];   // shot quality for the rest of the match, by sharpness
 const ORDER_KEYS=['behind','close','ahead'];
 const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
 const orderOf=k=>ORDERS.find(o=>o.k===k);
 // orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
 function cleanOrders(team,rule){
   const o=team.orders&&typeof team.orders==='object'?team.orders:{};const out={};
-  for(const w of ORDER_KEYS){const x=o[w];if(!x||!orderOf(x.k)){out[w]=null;continue;}
-    if(x.k==='star'){const p=byId(team,x.pid);if(!p||(rule==='tall_out'&&tallestId(team)===p.id)){out[w]=null;continue;}out[w]={k:'star',pid:p.id};}
-    else out[w]={k:x.k};}
+  for(const w of ORDER_KEYS){const x=o[w];const talk=x&&TONES.includes(x.talk)?x.talk:null;
+    if(!x||!orderOf(x.k)){out[w]=talk?{k:null,talk}:null;continue;}
+    if(x.k==='star'){const p=byId(team,x.pid);if(!p||(rule==='tall_out'&&tallestId(team)===p.id)){out[w]=talk?{k:null,talk}:null;continue;}out[w]={k:'star',pid:p.id,talk};}
+    else out[w]={k:x.k,talk};}
   team.orders=out;return out;
 }
-const orderWords=(o,team)=>!o?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
+const orderWords=(o,team)=>!o||!o.k?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
 
 // ───────────────────────── players & teams ─────────────────────────
 const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7'];
@@ -149,7 +156,7 @@ function botPrepare(team,opp,rule,oppLast){
   }
   const sheet={...team.style};
   const r=rule,wise=()=>R()<0.5+0.5*sk;
-  team.orders={behind:wise()?{k:pick(['press','fast','outside'])}:null,close:null,ahead:wise()&&R()<0.6?{k:'slow'}:null};
+  team.orders={behind:wise()?{k:pick(['press','fast','outside']),talk:wise()?pick(['honest','challenge','demand']):null}:null,close:wise()&&R()<0.4?{k:null,talk:'honest'}:null,ahead:wise()&&R()<0.6?{k:'slow',talk:null}:null};
   if(r==='attack'){if(wise())sheet.tempo=2;if(wise()&&sheet.shots===0)sheet.shots=1;}
   if(r==='defence'&&wise())sheet.def=2;
   if(r==='speed'&&wise())sheet.tempo=2;
@@ -209,7 +216,7 @@ function playMatch(A,B,ruleKey){
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
-    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
+    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
   };
   const a=mk(A),b=mk(B);
   let P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
@@ -247,7 +254,7 @@ function playMatch(A,B,ruleKey){
     if(dbl&&isF)pTO+=0.03;
     if(rule==='slippery')pTO*=2;if(rule==='no_dribble')pTO*=1.4;
     if(R()<pTO){sst.to++;if(ds.def===2||rule==='defence')D.steals++;if(rule==='defence'){D.score++;D.rb++;}return;}
-    let q=0;if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
+    let q=O.lift||0;if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
     if(os.tempo===0)q+=m==='nervous'?0.04:-0.015; // a slow attack meets a set defence
     if(os.tempo===2)q+=m==='happy'?0.03:m==='sad'?-0.06:0;
     // how the attack is run
@@ -316,8 +323,13 @@ function playMatch(A,B,ruleKey){
     const m=a.score-b.score;
     for(const [X,d] of [[a,m],[b,-m]]){
       const cond=d>=ORDER_MARGIN?'ahead':d<=-ORDER_MARGIN?'behind':'close';
-      X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null};
-      const o=X.T.orders&&X.T.orders[cond];if(!o||!orderOf(o.k))continue;
+      X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null,talk:null,up:[],down:[]};
+      const o=X.T.orders&&X.T.orders[cond];if(!o)continue;
+      if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
+        for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<0.6&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
+          const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
+          if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
+      if(!orderOf(o.k))continue;
       if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
       else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);}
       else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
@@ -399,9 +411,10 @@ function reportLines(X,Y,won,rule){
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
-  if(X.half&&(X.half.order||X.half.failed)){const h=X.half,o=h.order&&orderOf(h.order);
-    L.unshift(o?`Half-time ${h.us}-${h.them}. Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}. Second half ${X.score-h.us}-${Y.score-h.them}.`
-      :`Half-time ${h.us}-${h.them}. Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`);L.length=Math.min(L.length,2);}
+  if(X.half&&(X.half.order||X.half.failed||X.half.talk)){const h=X.half,o=h.order&&orderOf(h.order);
+    const talk=h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
+    const order=o?` Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}.`:h.failed?` Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`:'';
+    L.unshift(`Half-time ${h.us}-${h.them}.${talk}${order} Second half ${X.score-h.us}-${Y.score-h.them}.`);L.length=Math.min(L.length,2);}
   return L;
 }
 // ───────────────────────── the match report everybody can read ─────────────────────────
@@ -513,13 +526,17 @@ function seasonCard(prev,leagueNo,X,Y,won){
 function roundPairs(n,k){const a=[...Array(n).keys()];const rest=a.slice(1);for(let i=0;i<k;i++)rest.unshift(rest.pop());const arr=[0,...rest];const out=[];for(let i=0;i<n/2;i++)out.push([arr[i],arr[n-1-i]]);return out;}
 
 // ───────────────────────── talking ─────────────────────────
-function react(p,tone,strength){
+function replyTo(p,tone){
   let r=TEMPS[p.temp].r[tone];
   if(tone===p.love)r=[pick(LOVE_LINES),'happy',1];
   else if(tone===p.hate)r=[pick(HATE_LINES),(p.temp==='hothead'||p.temp==='showoff')?'angry':'sad',-1];
   else if(tone==='calm'&&p.temp==='hothead'&&p.mood!=='angry')r=['I AM CALM!!','angry',-1];
   if(tone!==p.love&&tone!==p.hate&&tone==='praise'&&p.cold&&['veteran','loner','hothead','fighter'].includes(p.temp))r=['After THAT game? Do not.','ok',-1];
   if(tone==='shout'&&p.mood==='sad'&&p.temp!=='fighter')r=[r[0],r[1]==='angry'?'angry':'sad',Math.min(r[2],-2)];
+  return r;
+}
+function react(p,tone,strength){
+  let r=replyTo(p,tone);
   if(strength>=1){if(p.lastTone===tone)r=[pick(['You said that last time, coach.','Yes, yes. Heard it.','Is this the same speech?']),'ok',0];p.lastTone=tone;}
   const before=p.mood;
   if(strength>=1||R()<0.6){p.mood=r[1];}

@@ -79,5 +79,9 @@ free plan allows; the scheduled job fails loudly from 350 on).
   result carries `half = {us, them, cond, order, who, left}`, kept in `b3_matches.detail`, in `pub.rep` and in the
   manager's `data.last`. `checkPlan` validates the orders; a plan without them (older pages) keeps the stored ones.
   The computer team leaves orders too (`botPrepare`). Not under "First to eleven" (no half-time).
+- Half-time talk: each order row may also carry `talk` (one of the nine tones). At half-time every player reacts to
+  it as to a team talk, moods only (`replyTo` in `engine.js`, no trust or form change); a sharp talk (honest,
+  challenge, demand) adds `TALK_LIFT` to the side's shot quality for the rest of the match, shouting adds less
+  (`TALK_SHARP`). The half-time record carries `talk`, the manager's lines say who was lifted or put off.
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.

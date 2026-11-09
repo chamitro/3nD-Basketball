@@ -209,8 +209,9 @@ async function runMatchday(store,lg,now){
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
       const lines=reportLines(xs,ys,won,rule);
       // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
-      const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,
-        left:mine.orders?Object.fromEntries(ORDER_KEYS.map(w=>[w,mine.orders[w]?orderWords(mine.orders[w],X.data):null])):null}:null;
+      const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
+      const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,talk:xs.half.talk||null,
+        left:mine.orders?Object.fromEntries(ORDER_KEYS.map(w=>[w,leftWords(mine.orders[w])])):null}:null;
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
@@ -287,8 +288,11 @@ function checkPlan(data,req,rule){
     if(req.orders===null)orders={behind:null,close:null,ahead:null};
     else{if(typeof req.orders!=='object')return 'bad orders';orders={};
       for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
-        if(typeof o!=='object'||!orderOf(o.k))return 'bad orders';
-        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid};}else orders[w]={k:o.k};}}
+        if(typeof o!=='object')return 'bad orders';
+        const talk=o.talk==null?null:o.talk;if(talk!==null&&!TONES.includes(talk))return 'bad orders';
+        if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
+        if(!orderOf(o.k))return 'bad orders';
+        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
   }
   data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;
   return null;
