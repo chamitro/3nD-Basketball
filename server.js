@@ -197,7 +197,8 @@ async function runMatchday(store,lg,now){
     done.add(A.id);done.add(B.id);
     if(A.is_house)botPrepare(A.data,B.data,rule,B.pub.ls||null);
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
-    const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet}},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet}}};
+    const ordersOf=T=>{const o=T.data.orders||{};return ORDER_KEYS.some(w=>o[w])?{behind:o.behind||null,close:o.close||null,ahead:o.ahead||null}:null;};
+    const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet},orders:ordersOf(A)},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet},orders:ordersOf(B)}};
     const r=playMatch(A.data,B.data,rule);
     // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
     const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
@@ -207,14 +208,17 @@ async function runMatchday(store,lg,now){
       const won=xs.score>ys.score;
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
       const lines=reportLines(xs,ys,won,rule);
+      // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
+      const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,
+        left:mine.orders?Object.fromEntries(ORDER_KEYS.map(w=>[w,mine.orders[w]?orderWords(mine.orders[w],X.data):null])):null}:null;
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half}};
+      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
   }
@@ -277,7 +281,16 @@ function checkPlan(data,req,rule){
   if(sb.some(id=>st.includes(id)))return 'bad lineup';
   const ball=req.ball==null?null:req.ball;if(ball!==null&&!st.includes(ball))return 'bad star';
   const sh={};for(const k of Object.keys(DEF_SHEET)){const v=req.sheet&&req.sheet[k];if(![0,1,2].includes(v))return 'bad plan';sh[k]=v;}
-  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;
+  // half-time orders: one per case, each an order key, "star" with one of the manager's own players
+  let orders=data.orders||null;
+  if(req.orders!==undefined){
+    if(req.orders===null)orders={behind:null,close:null,ahead:null};
+    else{if(typeof req.orders!=='object')return 'bad orders';orders={};
+      for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
+        if(typeof o!=='object'||!orderOf(o.k))return 'bad orders';
+        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid};}else orders[w]={k:o.k};}}
+  }
+  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;
   return null;
 }
 
@@ -294,7 +307,7 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
-      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
+      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
@@ -309,7 +322,7 @@ async function roundView(store,req){
   const rows=await store.roundMatches(L,M,ROUND_MAX+1);
   if(!rows.length)return {none:true,league:L,match:M};
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
-  const side=d=>({sheet:(d&&d.sheet)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
+  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
   const d0=rows[0].detail||{};
   return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),

@@ -79,6 +79,32 @@ const RULES=[
   {k:'no_dribble',txt:'No dribbling. Passes only!',why:'Speed is useless. Players who ignore the plan ruin everything, so trust matters.'},
 ];
 const ruleOf=k=>RULES.find(r=>r.k===k);
+// ───────────────────────── half-time orders ─────────────────────────
+// The manager leaves one order for each way the first half can end. At half-time the engine looks at the score and
+// the second half is played with the changed plan. Every order has its cost from the ordinary rules (a press tires,
+// fresh legs are weaker legs...). "First to eleven" has no half-time, so no orders there.
+const ORDERS=[
+  {k:'press',txt:'Press them',why:'The defence becomes a press: steals the ball from tall, slow or tired players, tires your own legs.'},
+  {k:'zone',txt:'Drop into a zone',why:'Guards the hoop and hides weak defenders, leaves long shots open.'},
+  {k:'slow',txt:'Slow the game down',why:'Fewer possessions for both teams and legs are saved. Protects a lead, kills your own comeback.'},
+  {k:'fast',txt:'Speed the game up',why:'More possessions for both teams and fast breaks if you are quicker. Tires the legs.'},
+  {k:'outside',txt:'Shoot from outside',why:'Long shots for three. Attack dots decide, a zone leaves them open.'},
+  {k:'fresh',txt:'Fresh legs',why:'Both substitutes come on for the two most tired players on the court.'},
+  {k:'star',txt:'Everything through one player',why:'Star ball for the second half, to the player you name. From the bench they come on.'},
+];
+const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close at half-time',ahead:'If we are ahead at half-time'};
+const ORDER_KEYS=['behind','close','ahead'];
+const ORDER_MARGIN=3;   // behind or ahead from this many points on; anything closer is "close"
+const orderOf=k=>ORDERS.find(o=>o.k===k);
+// orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
+function cleanOrders(team,rule){
+  const o=team.orders&&typeof team.orders==='object'?team.orders:{};const out={};
+  for(const w of ORDER_KEYS){const x=o[w];if(!x||!orderOf(x.k)){out[w]=null;continue;}
+    if(x.k==='star'){const p=byId(team,x.pid);if(!p||(rule==='tall_out'&&tallestId(team)===p.id)){out[w]=null;continue;}out[w]={k:'star',pid:p.id};}
+    else out[w]={k:x.k};}
+  team.orders=out;return out;
+}
+const orderWords=(o,team)=>!o?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
 
 // ───────────────────────── players & teams ─────────────────────────
 const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7'];
@@ -108,6 +134,7 @@ function enforceRule(team,rule){
   if(rule==='tall_out'){const t=tallestId(team);team.starters=team.starters.filter(id=>id!==t);team.subs=team.subs.filter(id=>id!==t);if(team.ball===t)team.ball=null;}
   team.starters=team.starters.filter(id=>byId(team,id));
   team.subs=team.subs.filter(id=>byId(team,id)&&!team.starters.includes(id)).slice(0,2);
+  cleanOrders(team,rule);
   if(team.ball&&!team.starters.includes(team.ball))team.ball=null;
 }
 function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
@@ -122,6 +149,7 @@ function botPrepare(team,opp,rule,oppLast){
   }
   const sheet={...team.style};
   const r=rule,wise=()=>R()<0.5+0.5*sk;
+  team.orders={behind:wise()?{k:pick(['press','fast','outside'])}:null,close:null,ahead:wise()&&R()<0.6?{k:'slow'}:null};
   if(r==='attack'){if(wise())sheet.tempo=2;if(wise()&&sheet.shots===0)sheet.shots=1;}
   if(r==='defence'&&wise())sheet.def=2;
   if(r==='speed'&&wise())sheet.tempo=2;
@@ -181,10 +209,11 @@ function playMatch(A,B,ruleKey){
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
-    return {T,court,bench,st,noLineup,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
+    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
   };
   const a=mk(A),b=mk(B);
-  const P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
+  let P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
+  const half=rule==='first11'?-1:Math.floor(P/2);
   const noRun=rule==='no_dribble'||rule==='tiny_court';
   const hMul=rule==='tiny_court'?3.5:rule==='paint'?1.8:1;
   const aMul=rule==='attack'?2:1,dMul=rule==='attack'?0.5:rule==='defence'?2:1,sMul=rule==='speed'?2:1;
@@ -192,8 +221,8 @@ function playMatch(A,B,ruleKey){
   const rawObey=p=>MOODFX[p.mood][2]+0.08*p.trust;
   const stopperOf=X=>[...X.court].sort((p,q)=>q.df-p.df)[0];
   function possession(O,D,late,second){
-    const os=O.T.sheet,ds=D.T.sheet;
-    const star=O.court.find(p=>p.id===O.T.ball)||null;
+    const os=O.sheet,ds=D.sheet;
+    const star=O.court.find(p=>p.id===O.ball)||null;
     const focus=star||[...O.court].sort((p,q)=>q.sh-p.sh)[0]; // the one the defence worries about
     // who shoots
     let shooter=null,hog=false;
@@ -272,14 +301,35 @@ function playMatch(A,B,ruleKey){
       if(R()<clamp(pr,0.03,0.6)){O.oreb++;possession(O,D,late,true);}
     }
   }
-  function tire(X){const sh=X.T.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.T.ball?0.008:0)+(p===stp?0.008:0));}}
+  function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
   function subs(X){for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.25);
     if(!X.bench.length)return;
     const tired=[...X.court].sort((p,q)=>X.st[q.id].f-X.st[p.id].f)[0];
     const fresh=[...X.bench].sort((p,q)=>(X.st[p.id].min-X.st[q.id].min)||(X.st[p.id].f-X.st[q.id].f))[0];
     if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
+  // half-time: each side reads the score and follows the order left for that case
+  const bringOn=(X,p)=>{   // a bench player comes on for the most tired player on the court
+    if(!X.bench.includes(p))return false;const tired=[...X.court].sort((u,v)=>X.st[v.id].f-X.st[u.id].f)[0];
+    X.court[X.court.indexOf(tired)]=p;X.bench[X.bench.indexOf(p)]=tired;return true;};
+  const halfTime=()=>{
+    const m=a.score-b.score;
+    for(const [X,d] of [[a,m],[b,-m]]){
+      const cond=d>=ORDER_MARGIN?'ahead':d<=-ORDER_MARGIN?'behind':'close';
+      X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null};
+      const o=X.T.orders&&X.T.orders[cond];if(!o||!orderOf(o.k))continue;
+      if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
+      else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);}
+      else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
+        if(!p){X.half.failed='that player is not available';continue;}
+        if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);}
+        X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;}
+      X.half.order=o.k;
+    }
+    P=half+Math.round(([15,19,23][a.sheet.tempo]+[15,19,23][b.sheet.tempo])/4);   // the second half is as long as the new tempos say
+  };
   for(let i=0;i<P;i++){
+    if(i===half)halfTime();
     const late=i>=P*0.8&&Math.abs(a.score-b.score)<=5;
     possession(a,b,late);tire(a);
     if(rule==='first11'&&a.score>=11)break;
@@ -308,8 +358,8 @@ function reportLines(X,Y,won,rule){
   const good=[],bad=[];
   if(top&&st(top).pts>=7)good.push([st(top).pts,`${top.n}${top.mood==='happy'?', buzzing,':top.mood==='cool'?', locked in,':top.mood==='angry'&&top.temp==='fighter'?', furious and loving it,':''} scored ${st(top).pts}.`]);
   if(benchHero&&benchHero!==top)good.push([st(benchHero).pts+2,`${benchHero.n} came off the bench with ${st(benchHero).pts}.`]);
-  if(X.T.sheet.def===2&&X.steals>=4)good.push([X.steals+2,`Your press stole the ball ${X.steals} times.`]);
-  if(Y.T.sheet.def===1&&my3>=4)good.push([my3+1,`Their zone left your shooters open outside.`]);
+  if(X.sheet.def===2&&X.steals>=4)good.push([X.steals+2,`Your press stole the ball ${X.steals} times.`]);
+  if(Y.sheet.def===1&&my3>=4)good.push([my3+1,`Their zone left your shooters open outside.`]);
   if(X.oreb-Y.oreb>=3)good.push([X.oreb-Y.oreb+2,`You grabbed ${X.oreb} second chances under the hoop.`]);
   if(X.fast>=3)good.push([X.fast+1,`Your fast breaks outran them ${X.fast} times.`]);
   if(X.rb-Y.rb>=3)good.push([X.rb-Y.rb+5,`The rule was worth ${X.rb} points to you and ${Y.rb} to them.`]);
@@ -319,8 +369,8 @@ function reportLines(X,Y,won,rule){
     if(d>=1.2)good.push([d*3+4,`You started the better ${LU[1]} in a week when ${LU[2]}.`]);
     if(d<=-1.2)bad.push([-d*3+4,`They started the better ${LU[1]} in a week when ${LU[2]}.`]);}
   // the newer dials
-  const xs=X.T.sheet,ys=Y.T.sheet;
-  const foc=Z=>Z.T.players.find(p=>p.id===Z.T.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const xs=X.sheet,ys=Y.sheet;
+  const foc=Z=>Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
   const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id];
   if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)bad.push([ms.dbl+5,`They double-teamed ${mf.n}: ${ms.dblM} of ${ms.dbl}.${xs.off===1?' Star ball walked straight into it.':''}`]);
   if(ys.guard===2&&X.openM>=4)good.push([X.openM+3,`Their double team on ${mf.n} left your others open for ${X.openM} easy ones.`]);
@@ -339,16 +389,19 @@ function reportLines(X,Y,won,rule){
   if(xs.boards===0&&ys.tempo===2&&Y.fast<=1)good.push([5,'You got back early and their fast game had nowhere to run.']);
   if(cold)bad.push([st(cold).fga+3,`${cold.n}, ${moodWhy(cold)}, missed ${st(cold).fga-st(cold).fgm} of ${st(cold).fga}.`]);
   if(hog)bad.push([st(hog).free+4,`${hog.n} ignored the plan and kept shooting.`]);
-  if(Y.T.sheet.def===2&&Y.steals>=4)bad.push([Y.steals+2,`Their press took the ball off you ${Y.steals} times.`]);
-  if(X.T.sheet.def===1&&their3>=4)bad.push([their3+2,`Your zone left their shooters open: ${their3} long ones went in.`]);
-  if(tiredAvg>0.62)bad.push([6,`${X.T.sheet.def===2?'The press':X.T.sheet.tempo===2?'Fast tempo':'A long game'} wore your players out by the end.`]);
+  if(Y.sheet.def===2&&Y.steals>=4)bad.push([Y.steals+2,`Their press took the ball off you ${Y.steals} times.`]);
+  if(X.sheet.def===1&&their3>=4)bad.push([their3+2,`Your zone left their shooters open: ${their3} long ones went in.`]);
+  if(tiredAvg>0.62)bad.push([6,`${X.sheet.def===2?'The press':X.sheet.tempo===2?'Fast tempo':'A long game'} wore your players out by the end.`]);
   if(Y.oreb-X.oreb>=3)bad.push([Y.oreb-X.oreb+2,xs.boards===0?`You got back early and left them the rebounds: ${Y.oreb} second shots.`:`They owned the rebounds: ${Y.oreb} second shots.`]);
-  const tos=ps.reduce((s,p)=>s+st(p).to,0);if(tos>=6&&!(Y.T.sheet.def===2&&Y.steals>=4))bad.push([tos,`You fumbled the ball away ${tos} times.`]);
+  const tos=ps.reduce((s,p)=>s+st(p).to,0);if(tos>=6&&!(Y.sheet.def===2&&Y.steals>=4))bad.push([tos,`You fumbled the ball away ${tos} times.`]);
   good.sort((x,y)=>y[0]-x[0]);bad.sort((x,y)=>y[0]-x[0]);
   if(won){if(good[0])L.push(good[0][1]);if(good[1])L.push(good[1][1]);else if(bad[0])L.push('Even so: '+bad[0][1]);}
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
+  if(X.half&&(X.half.order||X.half.failed)){const h=X.half,o=h.order&&orderOf(h.order);
+    L.unshift(o?`Half-time ${h.us}-${h.them}. Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}. Second half ${X.score-h.us}-${Y.score-h.them}.`
+      :`Half-time ${h.us}-${h.them}. Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`);L.length=Math.min(L.length,2);}
   return L;
 }
 // ───────────────────────── the match report everybody can read ─────────────────────────
@@ -360,7 +413,7 @@ function scoutReport(X,Y,rule){
   const ps=X.T.players.filter(p=>X.st[p.id]),st=p=>X.st[p.id];
   const sum=f=>ps.reduce((s,p)=>s+f(st(p)),0),osum=f=>Y.T.players.filter(p=>Y.st[p.id]).reduce((s,p)=>s+f(Y.st[p.id]),0);
   const C=[],add=(score,text)=>{if(isFinite(score)&&score!==0)C.push([score,text]);};
-  const xs=X.T.sheet,ys=Y.T.sheet,them=Y.T.name,times=n=>n===1?'once':n===2?'twice':n+' times';
+  const xs=X.sheet,ys=Y.sheet,them=Y.T.name,times=n=>n===1?'once':n===2?'twice':n+' times';
   const fga=sum(z=>z.fga),fgm=sum(z=>z.fgm),a3=sum(z=>z.a3),m3=sum(z=>z.m3),a2=fga-a3,m2=fgm-m3,to=sum(z=>z.to);
   const ofga=osum(z=>z.fga),ofgm=osum(z=>z.fgm),o3=osum(z=>z.m3);
   // shooting
@@ -404,7 +457,7 @@ function scoutReport(X,Y,rule){
   if(xs.def===2){if(X.steals>=4)add(0.4+0.2*X.steals,`The press won the ball ${X.steals} times.`);else if(X.steals<=1)add(-0.6,`The press won the ball ${X.steals?'only once':'not even once'}.`);}
   if(xs.def===1&&o3>=4)add(-(0.3+0.2*o3),`The zone left shooters open: ${o3} long shots went in.`);
   // the star and the special guard on a star
-  const foc=Z=>Z.T.players.find(p=>p.id===Z.T.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const foc=Z=>Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
   const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id],stopper=[...X.court].sort((p,q)=>q.df-p.df)[0];
   if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)add(-(0.6+0.12*ms.dbl),`${mf.n} was double-teamed and made ${ms.dblM} of ${ms.dbl}.`);
   if(ys.guard===2&&X.openM>=4)add(0.4+0.15*X.openM,`Beat the double team on ${mf.n}: ${X.openM} open baskets for the others.`);
@@ -429,6 +482,7 @@ function scoutReport(X,Y,rule){
   {const d=fga-ofga;if(d>=2)add(0.1,`Got more shots away than ${them}: ${fga} to ${ofga}.`);if(d<=-2)add(-0.1,`Got fewer shots away than ${them}: ${fga} to ${ofga}.`);
     const oto=osum(z=>z.to);if(to<oto&&to>1)add(0.08,`Lost the ball less often than ${them}: ${to} to ${oto}.`);if(to>oto&&to<5&&to!==4)add(-0.08,`Lost the ball more often than ${them}: ${to} to ${oto}.`);}
   if(X.noLineup)add(-9,'Nobody set the line-up: the three weakest players started.');
+  if(X.half&&X.half.order){const h=X.half,d=(X.score-h.us)-(Y.score-h.them);add(d===0?0.01:d/4,`Half-time ${h.us}-${h.them}, then "${orderOf(h.order).txt}"${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}: second half ${X.score-h.us}-${Y.score-h.them}.`);}
   const pros=C.filter(c=>c[0]>0).sort((a,b)=>b[0]-a[0]).slice(0,3).map(c=>c[1]);
   const cons=C.filter(c=>c[0]<0).sort((a,b)=>a[0]-b[0]).slice(0,3).map(c=>c[1]);
   return {pros,cons};

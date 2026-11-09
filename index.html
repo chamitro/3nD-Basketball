@@ -47,6 +47,11 @@
   .card{background:var(--card);border:4px solid var(--ink);border-radius:22px;padding:14px 16px;box-shadow:0 6px 0 var(--ink)}
   .card h3{margin:0 0 8px;font-size:20px;font-weight:900}
   .hint{font-weight:600;color:var(--soft);font-size:15px}
+  .orders{margin-top:14px;border-top:3px dashed #e6dfd2;padding-top:10px}
+  .orders .orow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+  .orders .olab{font-weight:800;min-width:150px}
+  .orders select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%}
+  .orders .owhy{flex-basis:100%;font-size:13px;color:var(--soft);margin:-2px 0 0}
   .pips{display:flex;gap:16px;margin:8px 0 10px;font-size:14px;flex-wrap:wrap}
   .pip{display:flex;align-items:center;gap:5px}
   .pip i{width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);background:#fff;display:inline-block}
@@ -231,6 +236,7 @@
           <div class="dial"><div class="lab">Their star</div><div class="seg" data-k="guard"><button>as normal</button><button>shadow</button><button>double</button></div><div class="d" data-d="guard"></div></div>
           <div class="dial"><div class="lab">Rebounds</div><div class="seg" data-k="boards"><button>get back</button><button>balanced</button><button>crash</button></div><div class="d" data-d="boards"></div></div>
         </div>
+        <div class="orders" id="orders"></div>
         <div class="small" id="oppNote" style="font-size:15px;color:var(--ink);margin-top:12px"></div>
         <div class="clip" id="check"></div>
         <div class="small" id="subNote" style="font-size:15px;color:var(--ink)"></div>
@@ -420,7 +426,7 @@ function queuePlan(){
   clearTimeout(planTimer);
   planTimer=setTimeout(async()=>{
     const me=S.me;if(!ONLINE||!me||S.phase!=='week')return;
-    try{const v=await api('plan',{starters:me.starters,subs:me.subs,ball:me.ball,sheet:me.sheet});
+    try{const v=await api('plan',{starters:me.starters,subs:me.subs,ball:me.ball,sheet:me.sheet,orders:me.orders||null});
       if(v.league.match_no!==V.league.match_no||v.league.no!==V.league.no){applyView(v);render();}else V.league=v.league;}
     catch(e){toast(e.message);goOnline('view');}
   },500);
@@ -954,8 +960,23 @@ function planCheck(){
   }
   return L;
 }
+// the half-time orders: one row per case, a list of orders, a player for "everything through one player"
+function ordersHtml(){
+  const me=S.me,O=me.orders||(me.orders={behind:null,close:null,ahead:null});
+  const rows=ORDER_KEYS.map(w=>{const o=O[w];const sel=`<select data-w="${w}"><option value="">Keep the plan</option>${ORDERS.map(x=>`<option value="${x.k}" ${o&&o.k===x.k?'selected':''}>${x.txt}</option>`).join('')}</select>`;
+    const who=o&&o.k==='star'?`<select data-wp="${w}">${me.players.map(p=>`<option value="${p.id}" ${o.pid===p.id?'selected':''}>${esc(p.n)}${me.starters.includes(p.id)?'':me.subs.includes(p.id)?' (substitute)':' (not playing)'}</option>`).join('')}</select>`:'';
+    return `<div class="orow"><span class="olab">${ORDER_WHEN[w].replace(' at half-time','')}</span>${sel}${who}${o?`<div class="owhy">${orderOf(o.k).why}</div>`:''}</div>`;}).join('');
+  return `<div class="lab">Half-time orders</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score and follows the order for that case. Behind or ahead means ${ORDER_MARGIN} points or more; anything closer is close. Leave a row on "Keep the plan" to change nothing.</div>${rows}`;
+}
+$('orders').addEventListener('change',e=>{
+  const t=e.target;if(S.phase!=='week'||!t.dataset)return;const O=S.me.orders||(S.me.orders={behind:null,close:null,ahead:null});
+  if(t.dataset.w){const k=t.value;O[t.dataset.w]=!k?null:k==='star'?{k,pid:(byId(S.me,S.me.ball)||byId(S.me,S.me.starters[0])||S.me.players[0]).id}:{k};}
+  else if(t.dataset.wp){const o=O[t.dataset.wp];if(o&&o.k==='star')o.pid=+t.value;}
+  save();renderPlan();
+});
 function renderPlan(){
   const sh=S.me.sheet;
+  $('orders').innerHTML=ordersHtml();
   document.querySelectorAll('.seg').forEach(s=>{const k=s.dataset.k;[...s.children].forEach((b,i)=>b.classList.toggle('on',sh[k]===i));});
   const n=S.me.starters.length;
   document.querySelectorAll('.dial .d').forEach(d=>{d.textContent=DESC[d.dataset.d][sh[d.dataset.d]];});
@@ -965,7 +986,7 @@ function renderPlan(){
   const op=nextOpp();if(op){const ov=oppView(op);
     $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`
       +(ONLINE&&op.sc&&op.sc.n>=2?leagueSoFarHtml(op.sc):'')
-      +(ONLINE&&op.rep&&((op.rep.pros||[]).length||(op.rep.cons||[]).length)?`<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their last match:</b> ${op.rep.us>op.rep.them?'beat':'lost to'} ${esc(op.rep.opp)} ${op.rep.us}–${op.rep.them}.${repLines(op.rep)}<div class="small" style="margin-top:4px">All match reports are in the Table tab.</div></div>`:'');}
+      +(ONLINE&&op.rep&&((op.rep.pros||[]).length||(op.rep.cons||[]).length)?`<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their last match:</b> ${op.rep.us>op.rep.them?'beat':'lost to'} ${esc(op.rep.opp)} ${op.rep.us}–${op.rep.them}.${halfWords(op.rep.half)}${repLines(op.rep)}<div class="small" style="margin-top:4px">All match reports are in the Table tab.</div></div>`:'');}
   const L=planCheck();
   $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant looks at this plan, your players today, and the opponent</div>'+(L.length?L.map(([k,t])=>`<div class="chk ${k>0?'g':k<0?'b':''}"><i>${k>0?'✓':k<0?'✗':'·'}</i><span>${t}</span></div>`).join(''):'<div class="chk"><i>·</i><span>Nothing stands out. A plain plan for a plain day.</span></div>');
   $('planH').textContent='Game plan for '+DAY();
@@ -1023,12 +1044,19 @@ function renderHelp(){
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
   <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
-  <h4><i>6</i>The rule of the week</h4>
+  <h4><i>6</i>Half-time orders</h4>
+  <p>The match is played without you, so you leave orders for half-time. There are three cases, <b>behind</b> (3 points or more down), <b>close</b> (within 2) and <b>ahead</b> (3 or more up). For each you choose one order, or nothing. At half-time your team reads the score and follows the order for that case for the rest of the match.</p>
+  <ul><li><b>Press them</b> and <b>Drop into a zone</b> change the defence. <b>Slow the game down</b> and <b>Speed the game up</b> change the tempo, and the second half gets shorter or longer with it. <b>Shoot from outside</b> goes for three-pointers.</li>
+  <li><b>Fresh legs</b>: both substitutes come on for the two most tired players on the court. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on.</li>
+  <li>An order costs what it costs in the normal plan: a press and a fast game tire the legs, fresh legs are weaker legs, slowing down also shortens your own comeback. Players in a bad mood ignore an order the way they ignore the plan.</li>
+  <li>Your result says when an order kicked in and what the second half did. The match reports show everybody's half-time score and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
+  <li>No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week.</li></ul>
+  <h4><i>7</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
-  <h4><i>7</i>The match</h4>
+  <h4><i>8</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'two or three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
   <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
-  <h4><i>8</i>Match reports: scout the others</h4>
+  <h4><i>9</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
   <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that keeps losing the ball, shoots badly from long range or gets outrun tells you how to play them.</li>
   <li><b>Their league so far.</b> From an opponent's second match of the league on, you also see next to their name what they have done in the whole league: the plans they chose most often and their numbers per match (ball losses, fast breaks, second shots, how they shoot and how teams shoot against them).</li>
@@ -1036,7 +1064,7 @@ function renderHelp(){
   <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
   <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of older match days.</li></ul>
   <p>Match reports are part of the online league.</p>
-  <h4><i>9</i>The league</h4>
+  <h4><i>10</i>The league</h4>
   <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 26 matches. The team with the most points wins the league.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
@@ -1096,6 +1124,8 @@ async function loadRound(pos){
   RD_KEY=key;RD_BUSY=false;
   if(ONLINE&&SCREEN==='game'&&S.phase!=='draft'&&S.tab==='league')renderLeague();
 }
+// "Half-time 8–12, then Press them." as a sentence for the match-day list and the opponent's note
+function halfWords(h){if(!h)return '';return ` Half-time ${h.us}–${h.them}${h.order?', then <b>'+esc(orderOf(h.order).txt.toLowerCase())+(h.who?' ('+esc(h.who)+')':'')+'</b>':h.left?', no order for that case':''}.`;}
 function roundHtml(){
   if(!ONLINE||!V)return '';
   let h=`<div class="card" style="margin-bottom:16px"><h3>Match reports${RD&&RD.matches?' · '+esc(RD.name)+' · match '+RD.match:''}</h3>`;
@@ -1106,7 +1136,7 @@ function roundHtml(){
   h+=`<div class="rdnav"><button id="rdPrev" ${RD.prev?'':'disabled'}>‹ Earlier</button><button id="rdNext" ${RD.next?'':'disabled'}>Later ›</button></div>`;
   const mine=S.me?S.me.id:null,next=S.opp?S.opp.id:null;
   const tag=id=>id===mine?' <span class="tagx">your team</span>':id===next?' <span class="tagx">your next opponent</span>':'';
-  const team=(id,name,won,r)=>`<div class="rdt"><div><b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}</div>${repLines(r)||'<div class="small">No report for this match.</div>'}</div>`;
+  const team=(id,name,won,r)=>`<div class="rdt"><div><b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}${halfWords(r.half)}</div>${repLines(r)||'<div class="small">No report for this match.</div>'}</div>`;
   for(const m of RD.matches){
     const open=RD.matches.length<=3||[m.a,m.b].includes(mine)||[m.a,m.b].includes(next);
     h+=`<details class="rd" ${open?'open':''}><summary><span>${esc(m.an)}</span><span class="scb">${m.sa}–${m.sb}</span><span>${esc(m.bn)}</span>${[m.a,m.b].includes(mine)?'<span class="tagx">your match</span>':[m.a,m.b].includes(next)?'<span class="tagx">your next opponent</span>':''}</summary>
@@ -1229,7 +1259,7 @@ function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;T+=dt;
   requestAnimationFrame(loop);}
 boot();
 requestAnimationFrame(loop);
-Object.assign(window,{setMode,applyView,api,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
+Object.assign(window,{setMode,applyView,api,ORDERS,ORDER_WHEN,ORDER_KEYS,orderOf,cleanOrders,orderWords,ordersHtml,halfWords,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
 </script>
 </body>
 </html>
