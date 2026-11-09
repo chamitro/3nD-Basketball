@@ -85,7 +85,7 @@ const ruleOf=k=>RULES.find(r=>r.k===k);
 // fresh legs are weaker legs...). "First to eleven" has no half-time, so no orders there.
 const ORDERS=[
   {k:'press',txt:'Press them',why:'The defence becomes a press: steals the ball from tall, slow or tired players, tires your own legs.'},
-  {k:'zone',txt:'Drop into a zone',why:'Guards the hoop and hides weak defenders, leaves long shots open.'},
+  {k:'zone',txt:'Drop into a zone',why:'Guards the hoop and hides weak defenders; leaves long shots open and gives up second shots, since nobody boxes out.'},
   {k:'slow',txt:'Slow the game down',why:'Fewer possessions for both teams and legs are saved. Protects a lead, kills your own comeback.'},
   {k:'fast',txt:'Speed the game up',why:'More possessions for both teams and fast breaks if you are quicker. Tires the legs.'},
   {k:'outside',txt:'Shoot from outside',why:'Long shots for three. Attack dots decide, a zone leaves them open.'},
@@ -271,12 +271,12 @@ function playMatch(A,B,ruleKey){
     let def;if(stp){if(isF)def=stp;else{const o=D.court.filter(d=>d!==stp);def=o.length?pick(o):stp;}}else def=pick(D.court);
     const dfx=MOODFX[def.mood];
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
-    const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.12:-0.10):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone hides weak defenders and wastes strong ones
+    const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.16:-0.14):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.14 balances the second shots it gives up, measured 9 Nov 2026)
     let pm;
     if(three){pm=0.33+0.085*nrm(shooter.sh)*aMul-0.04*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
     else{pm=0.52+0.03*nrm(shooter.sh)*aMul+0.13*(shooter.h-def.h)*hMul-0.05*nrm(def.df)*dMul*dW+zoneIn;}
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
-    pm+=-0.07*tiredOf(shooter)+0.05*tiredOf(def);
+    pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
     let tag=0;
     if(!forceInside){
@@ -297,7 +297,7 @@ function playMatch(A,B,ruleKey){
       if(tag===1)sst.shadM++;if(tag===2)sst.dblM++;if(tag===3)O.openM++;
     }else if(!second){
       const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
-      const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);
+      const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
       if(R()<clamp(pr,0.03,0.6)){O.oreb++;possession(O,D,late,true);}
     }
   }
