@@ -101,8 +101,8 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // ───────────────────────── trash talk ─────────────────────────
 // Before a match a manager may send one line from this menu to the other dugout. It is the last word before tip-off:
 // each opposing player takes it by character, moods only. Research (Yip, Schweitzer & Nurmohamed 2018): trash talk
-// mostly fires the target up and sometimes rattles them, so fighters, old hands and jokers get sharper while worriers,
-// pleasers, the proud and the hot-tempered lose their heads. A line aimed at their star reaches the star for sure and
+// mostly fires the target up and sometimes rattles them, so fighters and old hands get sharper while worriers,
+// pleasers, the proud and the hot-tempered lose their heads; jokers and loners are put off half the time. A line aimed at their star reaches the star for sure and
 // the others less. A team that has heard the same manager before is harder to rattle. The sender is banned from the bench for the next
 // match: no team talk, no half-time talk, no trash talk (talks with single players go on, like training).
 const TRASH=[
@@ -113,16 +113,18 @@ const TRASH=[
   {txt:'Your star could not hit the sea from the beach.',at:'star'},
   {txt:'Everybody knows your star folds when it matters.',at:'star'},
 ];
-const TRASH_REACH={rattle:0.9,fire:0.35};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 9 Nov 2026: about +3 points of win chance against a court that rattles, -3 against one that fires up.
+const TRASH_REACH={rattle:0.7,fire:0.6};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 10 Nov 2026: about +2.5 points of win chance against a court that rattles, -4 against one that fires up, +1 on average.
 // what a character does with an insult from the other dugout: [mood, fired up?]
 const TRASH_FX={showoff:['angry',false],worrier:['nervous',false],pleaser:['nervous',false],hothead:['angry',false],
-  fighter:['angry',true],veteran:['cool',true],joker:['happy',true],loner:['ok',false],easygoing:['ok',false]};
+  fighter:['angry',true],veteran:['cool',true],joker:['sad',false],loner:['nervous',false],easygoing:['ok',false]};
+// a joker wilts when it gets serious and a loner hates the attention, but only half the time, and never get sharper (Harry, 10 Nov 2026)
+const TRASH_CAP={joker:0.5,loner:0.5};
 // apply one trash line to a team; `heard` = how often this team has heard that manager before. Returns who was rattled and who was fired up.
 function trashTeam(team,line,starId,heard){
   const rattled=[],fired=[];const l=TRASH[line];if(!l)return {rattled,fired};
   for(const p of team.players){
     const isStar=p.id===starId;const [mood,up]=TRASH_FX[p.temp]||['ok',false];if(mood==='ok')continue;
-    const reach=l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle);
+    const reach=Math.min(l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle),TRASH_CAP[p.temp]||1);
     const chance=up?reach:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
     if(R()>=chance||p.mood===mood)continue;
     p.mood=mood;(up?fired:rattled).push(p.n);
