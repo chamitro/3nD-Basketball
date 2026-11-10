@@ -103,8 +103,8 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // each opposing player takes it by character, moods only. Research (Yip, Schweitzer & Nurmohamed 2018): trash talk
 // mostly fires the target up and sometimes rattles them, so fighters and old hands get sharper while worriers,
 // pleasers, the proud and the hot-tempered lose their heads; jokers and loners are put off half the time. A line aimed at their star reaches the star for sure and
-// the others less. A team that has heard the same manager before is harder to rattle. The sender is banned from the bench for the next
-// match: no team talk, no half-time talk, no trash talk (talks with single players go on, like training).
+// the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
+// match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
 const TRASH=[
   {txt:'We have watched your matches. We laughed.',at:'team'},
   {txt:'Our substitutes would beat you.',at:'team'},
@@ -454,7 +454,7 @@ function reportLines(X,Y,won,rule){
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
   if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half,o=h.order&&orderOf(h.order);
-    const talk=h.gagged?' Banned from the bench, you were not in the locker room: no half-time talk.':h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
+    const talk=h.gagged?' Banned, you were not in the locker room: no half-time talk.':h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
     const order=o?` Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}.`:h.failed?` Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`:'';
     L.unshift(`Half-time ${h.us}-${h.them}.${talk}${order} Second half ${X.score-h.us}-${Y.score-h.them}.`);L.length=Math.min(L.length,2);}
   return L;
