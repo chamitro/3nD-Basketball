@@ -1036,10 +1036,18 @@ function renderHelp(){
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
   <h4><i>1</i>Pick your team</h4>
   <p>Choose <b>7 players</b> out of 14 and give your team a name. Look at their stats and at their character.</p>
-  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is. A partly filled dot is a stat between two numbers: talks and matches move the stats in small steps, and every step stays until something moves it again. An arrow next to the dots marks a change made this week. Every player also has four <b>Energy</b> dots, and starts with all four.</li>
-  <li><b>Character</b>: tells you roughly how the player takes being talked to.</li></ul>
+  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is. <b>The dots count for a lot.</b> Attack decides the shots, defence what the other team makes against you, height the close shots and the rebounds, speed the fast breaks and the press. Choose with care: a squad with better dots wins more over a season, and the same goes for the one player you may change between leagues.</li>
+  <li><b>Form.</b> A partly filled dot is a stat between two numbers. Talks and matches move the stats in small steps, and every step stays until something moves it again, but a stat never strays more than half a dot from the level the player was drafted with: good coaching gets the most out of a player, it does not turn a 2 into a 4. An arrow next to the dots marks a change made this week.</li>
+  <li><b>Energy.</b> Every player also has four Energy dots, and starts with all four.</li>
+  <li><b>Character</b>: tells you how the player takes being talked to, by you, by the other dugout and at half-time.</li></ul>
   <div class="two">${chars}</div>
-  <h4><i>2</i>Talk to your players</h4>
+  <h4><i>2</i>What decides a match</h4>
+  <p>Roughly in this order:</p>
+  <ul><li><b>The players.</b> Dots and height, and whether the three on the court are the right three for the week's rule.</li>
+  <li><b>Their state.</b> Mood, trust and energy, which you set with your talks and your rotation. Over a season this is the biggest difference between managers.</li>
+  <li><b>The plan.</b> Six dials, the star, and the half-time orders and talk, which tilt a close match one way or the other. No dial is good in itself: each pays against some teams and costs against others.</li>
+  <li><b>Luck.</b> Every shot is a roll of the dice. A better team loses sometimes; over a league the better manager comes out on top.</li></ul>
+  <h4><i>3</i>Talk to your players</h4>
   <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>. There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
   <ul><li>The same words do not work on everyone. Praise makes one player buzz and another anxious. Study each personality.</li>
   <li>Every player also has a secret <b>soft spot</b> (one talk that always works) and a <b>sore spot</b> (one that always backfires). You find them only by trying.</li>
@@ -1047,12 +1055,13 @@ function renderHelp(){
   <li>Saying the same thing two weeks in a row falls flat.</li>
   <li><b>Silence costs you.</b> A player you do not talk to for two matches in a row starts to feel ignored: they sulk or get angry, trust you less and play worse, and it gets worse every match. Old hands and fighters last a little longer, easy-going players longer still, and loners do not mind at all. A talk to the whole team counts for half.</li>
   <li>A talk changes the player's <b>mood</b>, how much they <b>trust</b> you, and moves one of their stats a little, up or down.</li>
-  <li>A talk to the whole team reaches everybody, but more weakly. Some will like it and some will not.</li></ul>
-  <h4><i>3</i>Moods, trust and form</h4>
+  <li>A talk to the whole team reaches everybody, but more weakly. Some will like it and some will not.</li>
+  <li>There are two more moments to talk: the <b>half-time talk</b> (section 7) and the <b>trash talk</b> to the other team (section 8).</li></ul>
+  <h4><i>4</i>Moods, trust and form</h4>
   <p>The mood decides how a player performs and which tactics suit them today.</p>
   <ul>${moods}</ul>
-  <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like. Stats also move after each match: a player who shot well improves, one who never plays gets rusty, and a player you leave out completely may sulk or get angry.</p>
-  <h4><i>4</i>Energy: rotate your squad</h4>
+  <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like. Stats also move after each match: a player who shot well improves, one who never plays gets rusty, and a player you leave out completely may sulk or get angry. All of it within half a dot of the drafted level, as said above.</p>
+  <h4><i>5</i>Energy: rotate your squad</h4>
   <p>Every player has four <b>Energy</b> dots on their card. Four is fresh, one is worn out.</p>
   <ul><li><b>Playing costs energy.</b> A whole match costs about one dot. A fast tempo or a press costs more, a slow tempo less. A substitute who plays only part of the match pays less.</li>
   <li><b>A match off gives a dot and a half back.</b></li>
@@ -1061,32 +1070,35 @@ function renderHelp(){
   <li><b>Resting a tired player does not upset them</b> and costs them no form. Leaving out a fresh player still does.</li>
   <li>A small battery appears beside the name of a tired player in the gym, and your assistant warns you before the match.</li></ul>
   <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
-  <h4><i>5</i>Set the game plan</h4>
+  <h4><i>6</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. Substitutes come on when a starter tires. Look at Energy before you choose.</li>
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game.</li>
+  <li>Everything is saved the moment you set it, and stays from match to match until you change it. <b>Name three starters before every match:</b> a team without a line-up plays its three weakest players.</li>
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
   <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
-  <h4><i>6</i>Half-time orders</h4>
+  <h4><i>7</i>Half-time orders</h4>
   <p>The match is played without you, so you leave orders for half-time. There are three cases: <b>behind</b> means you are 5 points or more down at half-time, <b>ahead</b> means 5 or more up, and <b>close</b> is anything less than 5 points apart, for example 10-6 or 8-12. For each you choose one order, or nothing. At half-time your team reads the score and follows the order for that case for the rest of the match.</p>
   <ul><li><b>Press them</b> and <b>Drop into a zone</b> change the defence. <b>Slow the game down</b> and <b>Speed the game up</b> change the tempo, and the second half gets shorter or longer with it. <b>Shoot from outside</b> goes for three-pointers.</li>
   <li><b>Fresh legs</b>: both substitutes come on for the two most tired players on the court. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan.</li>
   <li>An order costs what it costs in the normal plan: a press and a fast game tire the legs, fresh legs are weaker legs, slowing down also shortens your own comeback. Players in a bad mood ignore an order the way they ignore the plan.</li>
   <li><b>The half-time talk.</b> Next to each order you can choose what you say to the whole team in the locker room, in one of your nine tones. Every player reacts to it the way they react to that tone in the week, moods only: no trust and no form change at half-time. A sharp talk (be honest, challenge, demand more) also lifts the whole second half a little, as real half-time speeches do; shouting lifts it less and makes hot-tempered and proud players fume; a soft talk works only through the players it reaches.</li>
   <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
-  <li>No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week.</li></ul>
-  <h4><i>7</i>Trash talk</h4>
+  <li>Orders and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week. A manager banned for trash talk gives no half-time talk that match.</li></ul>
+  <h4><i>8</i>Trash talk</h4>
   <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. Each of them takes it by character, moods only: worriers, people-pleasers, proud and hot-tempered players lose their heads; fighters and old hands get sharper; jokers and loners are put off half the time; easy-going players shrug. A line aimed at their star reaches the star for sure and the others less. A team that has heard you before is harder to rattle.</p>
   <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders. The ban ends when that match is played. Everybody sees it in the match reports.</li>
-  <li>You can take a line back any time before the match. Nobody sees it until the match is played.</li>
+  <li>One line per match. Four of the six lines are aimed at the whole team, two at their star. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
   <li>Real research on trash talk says it mostly fires the target up and only sometimes rattles them. Look at who you are talking to before you send it.</li></ul>
-  <h4><i>8</i>The rule of the week</h4>
-  <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most. After the match all managers vote for the next rule.</p>
-  <h4><i>9</i>The match</h4>
+  <h4><i>9</i>The rule of the week</h4>
+  <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most, so read it before you pick the starters.</p>
+  <ul><li><b>The vote.</b> After a match you vote between three rules. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
+  <h4><i>10</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'two or three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
-  <ul><li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
-  <h4><i>10</i>Match reports: scout the others</h4>
+  <ul><li><b>Who you play.</b> Everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, and teams on similar points meet when there is a choice. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
+  <li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
+  <h4><i>11</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
   <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that keeps losing the ball, shoots badly from long range or gets outrun tells you how to play them.</li>
   <li><b>Their league so far.</b> From an opponent's second match of the league on, you also see next to their name what they have done in the whole league: the plans they chose most often and their numbers per match (ball losses, fast breaks, second shots, how they shoot and how teams shoot against them).</li>
@@ -1094,8 +1106,8 @@ function renderHelp(){
   <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
   <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of older match days.</li></ul>
   <p>Match reports are part of the online league.</p>
-  <h4><i>11</i>The league</h4>
-  <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 26 matches. The team with the most points wins the league.</p>
+  <h4><i>12</i>The league</h4>
+  <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 25 matches, two a week. The team with the most points wins the league. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
   <ul><li><b>Every new league starts with no teams.</b> When a league ends, open the game: you see how it ended, and you press <b>Enter the league</b> to put your team in the next one. A team whose manager does not press the button is not in it.</li>
