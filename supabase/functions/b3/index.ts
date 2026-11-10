@@ -23,11 +23,11 @@ const TONE_SAY={praise:'You were brilliant out there.',comfort:'It is all right.
 // reply: [line, mood after, trust change]. The same words land differently on each character.
 const TEMPS={
   showoff:{r:{
-    praise:['Say it again. Slower.','happy',1],comfort:['I do not need a hug. I need the BALL.','ok',0],challenge:['Watch me. No really, WATCH me.','happy',1],demand:['Fine. But the ball comes to ME.','ok',0],shout:['Then find another superstar!','angry',-2],joke:['Are you laughing at ME?','angry',-1],honest:['I was NOT bad. The others were bad.','sad',-1],calm:['I am calm. I am ALWAYS calm.','ok',0],space:['You are... ignoring me?','sad',-1]}},
+    praise:['Say it again. Slower.','happy',1],comfort:['I do not need a hug. I need the BALL.','ok',0],challenge:['Watch me. No really, WATCH me.','happy',1],demand:['Fine. But the ball comes to ME.','ok',0],shout:['Then find another superstar!','angry',-2],joke:['Are you laughing at ME?','angry',-1],honest:['I was NOT bad. The others were bad.','angry',-1],calm:['I am calm. I am ALWAYS calm.','ok',0],space:['You are... ignoring me?','sad',-1]}},
   worrier:{r:{
-    praise:['Now I have to live up to that...','nervous',0],comfort:['Thanks. I needed that.','happy',1],challenge:['What if I cannot?','nervous',-1],demand:['Okay. Okay. Okay. I can do that.','ok',0],shout:['...','sad',-1],joke:['Are you... making fun of me?','nervous',-1],honest:['I would rather know. Thank you.','cool',1],calm:['In... out... okay. Okay.','cool',1],space:['Did I do something wrong?','nervous',0]}},
+    praise:['Now I have to live up to that...','nervous',0],comfort:['Thanks. I needed that.','happy',1],challenge:['What if I cannot?','nervous',-1],demand:['Okay. Okay. Okay. I can do that.','nervous',0],shout:['...','sad',-1],joke:['Are you... making fun of me?','nervous',-1],honest:['I would rather know. Thank you.','cool',1],calm:['In... out... okay. Okay.','cool',1],space:['Did I do something wrong?','nervous',0]}},
   veteran:{r:{
-    praise:['Do not butter me up.','angry',-1],comfort:['I am not a child.','sad',-1],challenge:['Hm. All right. One more time.','cool',1],demand:['Fair.','cool',1],shout:['I have been shouted at by better.','ok',0],joke:['Heh. Not bad.','ok',0],honest:['Good. That I can work with.','happy',2],calm:['I was calm before you were born.','ok',0],space:['Finally. Peace.','ok',1]}},
+    praise:['Do not butter me up.','ok',-1],comfort:['I am not a child.','ok',-1],challenge:['Hm. All right. One more time.','cool',1],demand:['Fair.','cool',1],shout:['I have been shouted at by better.','ok',0],joke:['Heh. Not bad.','ok',0],honest:['Good. That I can work with.','happy',2],calm:['I was calm before you were born.','ok',0],space:['Finally. Peace.','ok',1]}},
   hothead:{r:{
     praise:['Damn right.','ok',0],comfort:['...Fine. FINE. Thanks.','cool',1],challenge:['You think I CANNOT?!','angry',-1],demand:['Do NOT tell me what to do!','angry',-1],shout:['Say that again and I WALK!','angry',-2],joke:['HA! All right, all right.','happy',1],honest:['So I am the problem?!','angry',-1],calm:['...Breathing. I am breathing.','cool',1],space:['Good. I need to punch a pillow.','cool',0]}},
   joker:{r:{
@@ -39,11 +39,11 @@ const TEMPS={
   fighter:{r:{
     praise:['Do not go soft on me.','sad',-1],comfort:['Do I look like I need a blanket?','sad',-1],challenge:['OH, IS THAT SO?! WATCH ME!','angry',1],demand:['Now we are talking.','cool',1],shout:['FINALLY, some passion!','angry',1],joke:['Funny. Real funny.','ok',0],honest:['Good. Straight at me. I like it.','happy',1],calm:['You are putting my fire out.','sad',-1],space:['Suit yourself.','ok',0]}},
   easygoing:{r:{
-    praise:['Cheers, coach.','ok',0],comfort:['I am good, honestly.','ok',0],challenge:['Sure, why not.','ok',0],demand:['Whoa. Bit intense, coach.','nervous',0],shout:['Deep breath, coach. It is only a game.','ok',0],joke:['Ha! Nice one.','happy',1],honest:['Fair enough.','cool',1],calm:['Already there.','ok',0],space:['Cool. See you Sunday.','ok',0]}},
+    praise:['Cheers, coach.','ok',0],comfort:['I am good, honestly.','ok',0],challenge:['Sure, why not.','ok',0],demand:['Whoa. Bit intense, coach.','ok',0],shout:['Deep breath, coach. It is only a game.','ok',0],joke:['Ha! Nice one.','happy',1],honest:['Fair enough.','cool',1],calm:['Already there.','ok',0],space:['Cool. See you Sunday.','ok',0]}},
 };
 // what the manager is told about each character: a name, a colour, one line
 const CHAR={
-  showoff:['Proud','#ffd43b','Lives for praise and a stage. Cannot take a joke.'],
+  showoff:['Proud','#ffd43b','Lives for praise and a stage, rises to the big moment. Cannot take a joke or criticism.'],
   worrier:['Worrier','#a5d8ff','Easily rattled. Even praise can weigh on them.'],
   veteran:['Old hand','#d0bfff','Seen it all. Flattery annoys them.'],
   hothead:['Hot-tempered','#ffa8a8','Blows up when pushed. A laugh cools them down.'],
@@ -61,7 +61,7 @@ function quirks(p){const t=[...TONES].sort(()=>R()-0.5);p.love=t[0];p.hate=t[1];
 const TEMPKEYS=Object.keys(TEMPS);
 const WORD={happy:'buzzing',ok:'fine',angry:'fuming',sad:'sulking',nervous:'anxious',cool:'locked in'};
 // mood -> [shooting, turnover, obey, defence]
-const MOODFX={happy:[0.06,0,1,0],cool:[0.02,-0.03,1,0.03],ok:[0,0,0.95,0],nervous:[-0.04,0.05,0.9,0],sad:[-0.08,0,0.8,-0.04],angry:[-0.03,0.03,0.55,0.05]};
+const MOODFX={happy:[0.042,0,1,0],cool:[0.014,-0.03,1,0.03],ok:[0,0,0.95,0],nervous:[-0.028,0.05,0.9,0],sad:[-0.056,0,0.8,-0.04],angry:[-0.021,0.03,0.55,0.05]};   // shooting effects were 0.06/0.02/-0.04/-0.08/-0.03 until 9 Nov 2026 (30% less now, so that the dots count for more)
 
 // ───────────────────────── rules of the week ─────────────────────────
 const RULES=[
@@ -82,6 +82,71 @@ const RULES=[
   {k:'no_dribble',txt:'No dribbling. Passes only!',why:'Speed is useless. Players who ignore the plan ruin everything, so trust matters.'},
 ];
 const ruleOf=k=>RULES.find(r=>r.k===k);
+// ───────────────────────── half-time orders ─────────────────────────
+// The manager leaves one order for each way the first half can end. At half-time the engine looks at the score and
+// the second half is played with the changed plan. Every order has its cost from the ordinary rules (a press tires,
+// fresh legs are weaker legs...). "First to eleven" has no half-time, so no orders there.
+const ORDERS=[
+  {k:'press',txt:'Press them',why:'The defence becomes a press: steals the ball from tall, slow or tired players, tires your own legs.'},
+  {k:'zone',txt:'Drop into a zone',why:'Guards the hoop and hides weak defenders; leaves long shots open and gives up second shots, since nobody boxes out.'},
+  {k:'slow',txt:'Slow the game down',why:'Fewer possessions for both teams and legs are saved. Protects a lead, kills your own comeback.'},
+  {k:'fast',txt:'Speed the game up',why:'More possessions for both teams and fast breaks if you are quicker. Tires the legs.'},
+  {k:'outside',txt:'Shoot from outside',why:'Long shots for three. Attack dots decide, a zone leaves them open.'},
+  {k:'fresh',txt:'Fresh legs',why:'Both substitutes come on for the two most tired players on the court.'},
+  {k:'star',txt:'Everything through one player',why:'Star ball for the second half, to the player you name; from the bench they come on. Pays for a player who is buzzing or locked in, sinks a cold, anxious or sulking one.'},
+];
+const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close at half-time',ahead:'If we are ahead at half-time'};
+// The half-time talk: one tone, said to the whole team in the locker room. Each character reacts as it always does
+// (moods only: no trust and no form change at half-time). A sharp talk also lifts the whole second half a little,
+// as a 304-game study of half-time speeches found, but shouting overshoots: it lifts less and makes the wrong players fume.
+const TALK_SHARP={honest:1,challenge:1,demand:1,shout:2};
+const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'challenged them',demand:'demanded more',shout:'shouted at them',joke:'cracked a joke',honest:'gave it to them straight',calm:'calmed them down',space:'left them alone'};
+// ───────────────────────── trash talk ─────────────────────────
+// Before a match a manager may send one line from this menu to the other dugout. It is the last word before tip-off:
+// each opposing player takes it by character, moods only. Research (Yip, Schweitzer & Nurmohamed 2018): trash talk
+// mostly fires the target up and sometimes rattles them, so fighters, old hands and jokers get sharper while worriers,
+// pleasers, the proud and the hot-tempered lose their heads. A line aimed at their star reaches the star for sure and
+// the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
+// match: no talks with their own players, no half-time talk.
+const TRASH=[
+  {txt:'We have watched your matches. We laughed.',at:'team'},
+  {txt:'Our substitutes would beat you.',at:'team'},
+  {txt:'Enjoy the bottom of the table. It suits you.',at:'team'},
+  {txt:'Bring tissues on match day.',at:'team'},
+  {txt:'Your star could not hit the sea from the beach.',at:'star'},
+  {txt:'Everybody knows your star folds when it matters.',at:'star'},
+];
+const TRASH_REACH={rattle:0.9,fire:0.35};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 9 Nov 2026: about +3 points of win chance against a court that rattles, -3 against one that fires up.
+// what a character does with an insult from the other dugout: [mood, fired up?]
+const TRASH_FX={showoff:['angry',false],worrier:['nervous',false],pleaser:['nervous',false],hothead:['angry',false],
+  fighter:['angry',true],veteran:['cool',true],joker:['happy',true],loner:['ok',false],easygoing:['ok',false]};
+// apply one trash line to a team; `heard` = how often this team has heard that manager before. Returns who was rattled and who was fired up.
+function trashTeam(team,line,starId,heard){
+  const rattled=[],fired=[];const l=TRASH[line];if(!l)return {rattled,fired};
+  for(const p of team.players){
+    const isStar=p.id===starId;const [mood,up]=TRASH_FX[p.temp]||['ok',false];if(mood==='ok')continue;
+    const reach=l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle);
+    const chance=up?reach:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
+    if(R()>=chance||p.mood===mood)continue;
+    p.mood=mood;(up?fired:rattled).push(p.n);
+  }
+  return {rattled,fired};
+}
+const TALK_REACH=0.45;   // chance that a player is moved by the half-time talk (a short moment in a locker room; 0.6 made "be honest" worth +5 points when close)
+const TALK_LIFT=[0,0.02,0.008];   // shot quality for the rest of the match, by sharpness (0.03 made "be honest" worth +5 points of win chance when close: too much of a default)
+const ORDER_KEYS=['behind','close','ahead'];
+const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
+const orderOf=k=>ORDERS.find(o=>o.k===k);
+// orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
+function cleanOrders(team,rule){
+  const o=team.orders&&typeof team.orders==='object'?team.orders:{};const out={};
+  for(const w of ORDER_KEYS){const x=o[w];const talk=x&&TONES.includes(x.talk)?x.talk:null;
+    if(!x||!orderOf(x.k)){out[w]=talk?{k:null,talk}:null;continue;}
+    if(x.k==='star'){const p=byId(team,x.pid);if(!p||(rule==='tall_out'&&tallestId(team)===p.id)){out[w]=talk?{k:null,talk}:null;continue;}out[w]={k:'star',pid:p.id,talk};}
+    else out[w]={k:x.k,talk};}
+  team.orders=out;return out;
+}
+const orderWords=(o,team)=>!o||!o.k?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
 
 // ───────────────────────── players & teams ─────────────────────────
 const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7'];
@@ -93,7 +158,7 @@ function makePlayer0(){
   const temp=pick(TEMPKEYS);const h=R();
   let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
-    sh,df,sp,mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
+    sh,df,sp,base:{sh,df,sp},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
@@ -103,7 +168,11 @@ const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5};   // a whole match played; a who
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
 const nrm=v=>(v-2.5)/1.5; // a stat of 1..4 as -1..1
 // nudge a stat; returns +1/-1 when a whole dot is gained or lost
-function bump(p,k,d){const before=Math.round(p[k]);p[k]=clamp(p[k]+d,1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
+// A stat moves with talks and matches and stays where it was put, but within STAT_BAND of the player's natural level
+// (`base`, the dots they were drafted with): form, not endless growth. Players from before 9 Nov 2026 get their base
+// the first time a stat moves.
+const STAT_BAND=0.5;
+function bump(p,k,d){p.base=p.base||{};if(p.base[k]===undefined)p.base[k]=p[k];const before=Math.round(p[k]);p[k]=clamp(clamp(p[k]+d,p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
 function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 function tallestId(team){return team.players.reduce((a,b)=>a.h>b.h?a:b).id;}
@@ -111,6 +180,7 @@ function enforceRule(team,rule){
   if(rule==='tall_out'){const t=tallestId(team);team.starters=team.starters.filter(id=>id!==t);team.subs=team.subs.filter(id=>id!==t);if(team.ball===t)team.ball=null;}
   team.starters=team.starters.filter(id=>byId(team,id));
   team.subs=team.subs.filter(id=>byId(team,id)&&!team.starters.includes(id)).slice(0,2);
+  cleanOrders(team,rule);
   if(team.ball&&!team.starters.includes(team.ball))team.ball=null;
 }
 function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
@@ -125,6 +195,7 @@ function botPrepare(team,opp,rule,oppLast){
   }
   const sheet={...team.style};
   const r=rule,wise=()=>R()<0.5+0.5*sk;
+  team.orders={behind:wise()?{k:pick(['press','fast','outside']),talk:wise()?pick(['honest','challenge','demand']):null}:null,close:wise()&&R()<0.4?{k:null,talk:'honest'}:null,ahead:wise()&&R()<0.6?{k:'slow',talk:null}:null};
   if(r==='attack'){if(wise())sheet.tempo=2;if(wise()&&sheet.shots===0)sheet.shots=1;}
   if(r==='defence'&&wise())sheet.def=2;
   if(r==='speed'&&wise())sheet.tempo=2;
@@ -171,6 +242,9 @@ function botPrepare(team,opp,rule,oppLast){
 
 // ───────────────────────── the match ─────────────────────────
 function obey(p){return clamp(MOODFX[p.mood][2]+0.08*p.trust,0.2,1);}
+// how much the dots weigh in a shot, against moods, energy and tactics: attack on long shots, attack on close shots, height, defence.
+// All 1 in the first release: the squad then explained ~2% of a season and the manager ~65% (season simulator, 9 Nov 2026).
+const DOT={sh3:1.6,sh2:3,h:2.5,df:2.5};
 const PRESS_MID={h:0.5,sp:0,tired:0.15};   // an average ball handler: height, speed (as -1..1) and tiredness
 function playMatch(A,B,ruleKey){
   const rule=ruleKey;
@@ -184,10 +258,11 @@ function playMatch(A,B,ruleKey){
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
-    return {T,court,bench,st,noLineup,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
+    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
   };
   const a=mk(A),b=mk(B);
-  const P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
+  let P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
+  const half=rule==='first11'?-1:Math.floor(P/2);
   const noRun=rule==='no_dribble'||rule==='tiny_court';
   const hMul=rule==='tiny_court'?3.5:rule==='paint'?1.8:1;
   const aMul=rule==='attack'?2:1,dMul=rule==='attack'?0.5:rule==='defence'?2:1,sMul=rule==='speed'?2:1;
@@ -195,8 +270,8 @@ function playMatch(A,B,ruleKey){
   const rawObey=p=>MOODFX[p.mood][2]+0.08*p.trust;
   const stopperOf=X=>[...X.court].sort((p,q)=>q.df-p.df)[0];
   function possession(O,D,late,second){
-    const os=O.T.sheet,ds=D.T.sheet;
-    const star=O.court.find(p=>p.id===O.T.ball)||null;
+    const os=O.sheet,ds=D.sheet;
+    const star=O.court.find(p=>p.id===O.ball)||null;
     const focus=star||[...O.court].sort((p,q)=>q.sh-p.sh)[0]; // the one the defence worries about
     // who shoots
     let shooter=null,hog=false;
@@ -221,7 +296,7 @@ function playMatch(A,B,ruleKey){
     if(dbl&&isF)pTO+=0.03;
     if(rule==='slippery')pTO*=2;if(rule==='no_dribble')pTO*=1.4;
     if(R()<pTO){sst.to++;if(ds.def===2||rule==='defence')D.steals++;if(rule==='defence'){D.score++;D.rb++;}return;}
-    let q=0;if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
+    let q=O.lift||0;if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
     if(os.tempo===0)q+=m==='nervous'?0.04:-0.015; // a slow attack meets a set defence
     if(os.tempo===2)q+=m==='happy'?0.03:m==='sad'?-0.06:0;
     // how the attack is run
@@ -245,12 +320,12 @@ function playMatch(A,B,ruleKey){
     let def;if(stp){if(isF)def=stp;else{const o=D.court.filter(d=>d!==stp);def=o.length?pick(o):stp;}}else def=pick(D.court);
     const dfx=MOODFX[def.mood];
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
-    const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.12:-0.10):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone hides weak defenders and wastes strong ones
+    const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
-    if(three){pm=0.33+0.085*nrm(shooter.sh)*aMul-0.04*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
-    else{pm=0.52+0.03*nrm(shooter.sh)*aMul+0.13*(shooter.h-def.h)*hMul-0.05*nrm(def.df)*dMul*dW+zoneIn;}
+    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
+    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn;}
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
-    pm+=-0.07*tiredOf(shooter)+0.05*tiredOf(def);
+    pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
     let tag=0;
     if(!forceInside){
@@ -258,7 +333,7 @@ function playMatch(A,B,ruleKey){
       if(dbl){if(isF){pm-=0.14;tag=2;sst.dbl++;}else{pm+=[0.17,0.06,0.11][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not
     }
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.11;
-    if(late){if(shooter.mood==='happy'||shooter.mood==='cool')pm+=0.04;if(shooter.mood==='nervous')pm-=0.08;}
+    if(late){if(shooter.mood==='happy'||shooter.mood==='cool')pm+=0.04;if(shooter.mood==='nervous')pm-=0.08;if(shooter.temp==='showoff')pm+=0.04;}   // a proud player rises to the big moment (narcissism and performance under pressure)
     sst.fga++;if(three)sst.a3++;
     if(R()<clamp(pm,0.05,0.9)){
       let pts=three?(rule==='three5'?5:rule==='paint'?2:3):(rule==='paint'?3:2);
@@ -271,18 +346,45 @@ function playMatch(A,B,ruleKey){
       if(tag===1)sst.shadM++;if(tag===2)sst.dblM++;if(tag===3)O.openM++;
     }else if(!second){
       const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
-      const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);
+      const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
       if(R()<clamp(pr,0.03,0.6)){O.oreb++;possession(O,D,late,true);}
     }
   }
-  function tire(X){const sh=X.T.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.T.ball?0.008:0)+(p===stp?0.008:0));}}
+  function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
   function subs(X){for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.25);
     if(!X.bench.length)return;
     const tired=[...X.court].sort((p,q)=>X.st[q.id].f-X.st[p.id].f)[0];
     const fresh=[...X.bench].sort((p,q)=>(X.st[p.id].min-X.st[q.id].min)||(X.st[p.id].f-X.st[q.id].f))[0];
     if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
+  // half-time: each side reads the score and follows the order left for that case
+  const bringOn=(X,p)=>{   // a bench player comes on for the most tired player on the court
+    if(!X.bench.includes(p))return false;const tired=[...X.court].sort((u,v)=>X.st[v.id].f-X.st[u.id].f)[0];
+    X.court[X.court.indexOf(tired)]=p;X.bench[X.bench.indexOf(p)]=tired;return true;};
+  const halfTime=()=>{
+    const m=a.score-b.score;
+    for(const [X,d] of [[a,m],[b,-m]]){
+      const cond=d>=ORDER_MARGIN?'ahead':d<=-ORDER_MARGIN?'behind':'close';
+      X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null,talk:null,gagged:false,up:[],down:[]};
+      const o=X.T.orders&&X.T.orders[cond];if(!o)continue;
+      if(TONES.includes(o.talk)&&(X.T.ban||0)>0)X.half.gagged=true;
+      else if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
+        for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<TALK_REACH&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
+          const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
+          if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
+      if(!orderOf(o.k))continue;
+      if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
+      else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);}
+      else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
+        if(!p){X.half.failed='that player is not available';continue;}
+        if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);}
+        X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;}
+      X.half.order=o.k;
+    }
+    P=half+Math.round(([15,19,23][a.sheet.tempo]+[15,19,23][b.sheet.tempo])/4);   // the second half is as long as the new tempos say
+  };
   for(let i=0;i<P;i++){
+    if(i===half)halfTime();
     const late=i>=P*0.8&&Math.abs(a.score-b.score)<=5;
     possession(a,b,late);tire(a);
     if(rule==='first11'&&a.score>=11)break;
@@ -311,8 +413,8 @@ function reportLines(X,Y,won,rule){
   const good=[],bad=[];
   if(top&&st(top).pts>=7)good.push([st(top).pts,`${top.n}${top.mood==='happy'?', buzzing,':top.mood==='cool'?', locked in,':top.mood==='angry'&&top.temp==='fighter'?', furious and loving it,':''} scored ${st(top).pts}.`]);
   if(benchHero&&benchHero!==top)good.push([st(benchHero).pts+2,`${benchHero.n} came off the bench with ${st(benchHero).pts}.`]);
-  if(X.T.sheet.def===2&&X.steals>=4)good.push([X.steals+2,`Your press stole the ball ${X.steals} times.`]);
-  if(Y.T.sheet.def===1&&my3>=4)good.push([my3+1,`Their zone left your shooters open outside.`]);
+  if(X.sheet.def===2&&X.steals>=4)good.push([X.steals+2,`Your press stole the ball ${X.steals} times.`]);
+  if(Y.sheet.def===1&&my3>=4)good.push([my3+1,`Their zone left your shooters open outside.`]);
   if(X.oreb-Y.oreb>=3)good.push([X.oreb-Y.oreb+2,`You grabbed ${X.oreb} second chances under the hoop.`]);
   if(X.fast>=3)good.push([X.fast+1,`Your fast breaks outran them ${X.fast} times.`]);
   if(X.rb-Y.rb>=3)good.push([X.rb-Y.rb+5,`The rule was worth ${X.rb} points to you and ${Y.rb} to them.`]);
@@ -322,8 +424,8 @@ function reportLines(X,Y,won,rule){
     if(d>=1.2)good.push([d*3+4,`You started the better ${LU[1]} in a week when ${LU[2]}.`]);
     if(d<=-1.2)bad.push([-d*3+4,`They started the better ${LU[1]} in a week when ${LU[2]}.`]);}
   // the newer dials
-  const xs=X.T.sheet,ys=Y.T.sheet;
-  const foc=Z=>Z.T.players.find(p=>p.id===Z.T.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const xs=X.sheet,ys=Y.sheet;
+  const foc=Z=>Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
   const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id];
   if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)bad.push([ms.dbl+5,`They double-teamed ${mf.n}: ${ms.dblM} of ${ms.dbl}.${xs.off===1?' Star ball walked straight into it.':''}`]);
   if(ys.guard===2&&X.openM>=4)good.push([X.openM+3,`Their double team on ${mf.n} left your others open for ${X.openM} easy ones.`]);
@@ -342,16 +444,20 @@ function reportLines(X,Y,won,rule){
   if(xs.boards===0&&ys.tempo===2&&Y.fast<=1)good.push([5,'You got back early and their fast game had nowhere to run.']);
   if(cold)bad.push([st(cold).fga+3,`${cold.n}, ${moodWhy(cold)}, missed ${st(cold).fga-st(cold).fgm} of ${st(cold).fga}.`]);
   if(hog)bad.push([st(hog).free+4,`${hog.n} ignored the plan and kept shooting.`]);
-  if(Y.T.sheet.def===2&&Y.steals>=4)bad.push([Y.steals+2,`Their press took the ball off you ${Y.steals} times.`]);
-  if(X.T.sheet.def===1&&their3>=4)bad.push([their3+2,`Your zone left their shooters open: ${their3} long ones went in.`]);
-  if(tiredAvg>0.62)bad.push([6,`${X.T.sheet.def===2?'The press':X.T.sheet.tempo===2?'Fast tempo':'A long game'} wore your players out by the end.`]);
+  if(Y.sheet.def===2&&Y.steals>=4)bad.push([Y.steals+2,`Their press took the ball off you ${Y.steals} times.`]);
+  if(X.sheet.def===1&&their3>=4)bad.push([their3+2,`Your zone left their shooters open: ${their3} long ones went in.`]);
+  if(tiredAvg>0.62)bad.push([6,`${X.sheet.def===2?'The press':X.sheet.tempo===2?'Fast tempo':'A long game'} wore your players out by the end.`]);
   if(Y.oreb-X.oreb>=3)bad.push([Y.oreb-X.oreb+2,xs.boards===0?`You got back early and left them the rebounds: ${Y.oreb} second shots.`:`They owned the rebounds: ${Y.oreb} second shots.`]);
-  const tos=ps.reduce((s,p)=>s+st(p).to,0);if(tos>=6&&!(Y.T.sheet.def===2&&Y.steals>=4))bad.push([tos,`You fumbled the ball away ${tos} times.`]);
+  const tos=ps.reduce((s,p)=>s+st(p).to,0);if(tos>=6&&!(Y.sheet.def===2&&Y.steals>=4))bad.push([tos,`You fumbled the ball away ${tos} times.`]);
   good.sort((x,y)=>y[0]-x[0]);bad.sort((x,y)=>y[0]-x[0]);
   if(won){if(good[0])L.push(good[0][1]);if(good[1])L.push(good[1][1]);else if(bad[0])L.push('Even so: '+bad[0][1]);}
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
+  if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half,o=h.order&&orderOf(h.order);
+    const talk=h.gagged?' Banned, you were not in the locker room: no half-time talk.':h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
+    const order=o?` Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}.`:h.failed?` Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`:'';
+    L.unshift(`Half-time ${h.us}-${h.them}.${talk}${order} Second half ${X.score-h.us}-${Y.score-h.them}.`);L.length=Math.min(L.length,2);}
   return L;
 }
 // ───────────────────────── the match report everybody can read ─────────────────────────
@@ -363,7 +469,7 @@ function scoutReport(X,Y,rule){
   const ps=X.T.players.filter(p=>X.st[p.id]),st=p=>X.st[p.id];
   const sum=f=>ps.reduce((s,p)=>s+f(st(p)),0),osum=f=>Y.T.players.filter(p=>Y.st[p.id]).reduce((s,p)=>s+f(Y.st[p.id]),0);
   const C=[],add=(score,text)=>{if(isFinite(score)&&score!==0)C.push([score,text]);};
-  const xs=X.T.sheet,ys=Y.T.sheet,them=Y.T.name,times=n=>n===1?'once':n===2?'twice':n+' times';
+  const xs=X.sheet,ys=Y.sheet,them=Y.T.name,times=n=>n===1?'once':n===2?'twice':n+' times';
   const fga=sum(z=>z.fga),fgm=sum(z=>z.fgm),a3=sum(z=>z.a3),m3=sum(z=>z.m3),a2=fga-a3,m2=fgm-m3,to=sum(z=>z.to);
   const ofga=osum(z=>z.fga),ofgm=osum(z=>z.fgm),o3=osum(z=>z.m3);
   // shooting
@@ -407,7 +513,7 @@ function scoutReport(X,Y,rule){
   if(xs.def===2){if(X.steals>=4)add(0.4+0.2*X.steals,`The press won the ball ${X.steals} times.`);else if(X.steals<=1)add(-0.6,`The press won the ball ${X.steals?'only once':'not even once'}.`);}
   if(xs.def===1&&o3>=4)add(-(0.3+0.2*o3),`The zone left shooters open: ${o3} long shots went in.`);
   // the star and the special guard on a star
-  const foc=Z=>Z.T.players.find(p=>p.id===Z.T.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const foc=Z=>Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
   const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id],stopper=[...X.court].sort((p,q)=>q.df-p.df)[0];
   if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)add(-(0.6+0.12*ms.dbl),`${mf.n} was double-teamed and made ${ms.dblM} of ${ms.dbl}.`);
   if(ys.guard===2&&X.openM>=4)add(0.4+0.15*X.openM,`Beat the double team on ${mf.n}: ${X.openM} open baskets for the others.`);
@@ -463,13 +569,17 @@ function seasonCard(prev,leagueNo,X,Y,won){
 function roundPairs(n,k){const a=[...Array(n).keys()];const rest=a.slice(1);for(let i=0;i<k;i++)rest.unshift(rest.pop());const arr=[0,...rest];const out=[];for(let i=0;i<n/2;i++)out.push([arr[i],arr[n-1-i]]);return out;}
 
 // ───────────────────────── talking ─────────────────────────
-function react(p,tone,strength){
+function replyTo(p,tone){
   let r=TEMPS[p.temp].r[tone];
   if(tone===p.love)r=[pick(LOVE_LINES),'happy',1];
   else if(tone===p.hate)r=[pick(HATE_LINES),(p.temp==='hothead'||p.temp==='showoff')?'angry':'sad',-1];
   else if(tone==='calm'&&p.temp==='hothead'&&p.mood!=='angry')r=['I AM CALM!!','angry',-1];
   if(tone!==p.love&&tone!==p.hate&&tone==='praise'&&p.cold&&['veteran','loner','hothead','fighter'].includes(p.temp))r=['After THAT game? Do not.','ok',-1];
   if(tone==='shout'&&p.mood==='sad'&&p.temp!=='fighter')r=[r[0],r[1]==='angry'?'angry':'sad',Math.min(r[2],-2)];
+  return r;
+}
+function react(p,tone,strength){
+  let r=replyTo(p,tone);
   if(strength>=1){if(p.lastTone===tone)r=[pick(['You said that last time, coach.','Yes, yes. Heard it.','Is this the same speech?']),'ok',0];p.lastTone=tone;}
   const before=p.mood;
   if(strength>=1||R()<0.6){p.mood=r[1];}
@@ -658,7 +768,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='f82d6caf';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='06ff84aa';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -838,7 +948,16 @@ async function runMatchday(store,lg,now){
     done.add(A.id);done.add(B.id);
     if(A.is_house)botPrepare(A.data,B.data,rule,B.pub.ls||null);
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
-    const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet}},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet}}};
+    const ordersOf=T=>{const o=T.data.orders||{};return ORDER_KEYS.some(w=>o[w])?{behind:o.behind||null,close:o.close||null,ahead:o.ahead||null}:null;};
+    const before={a:{st:[...A.data.starters],ball:A.data.ball,sheet:{...A.data.sheet},orders:ordersOf(A)},b:{st:[...B.data.starters],ball:B.data.ball,sheet:{...B.data.sheet},orders:ordersOf(B)}};
+    // trash talk: the last word before tip-off. Each side's line (if any) lands on the other team's players; the sender is banned next match.
+    const wasBanned={a:(A.data.ban||0)>0,b:(B.data.ban||0)>0};
+    const trash={a:null,b:null};
+    for(const [X,Y,k] of [[A,B,'a'],[B,A,'b']]){const t=X.data.trash;X.data.trash=null;
+      if(!t||t.league!==lg.no||t.match!==lg.match_no||t.opp!==Y.id||!TRASH[t.i]||X.is_house)continue;
+      const heard=(Y.data.heard||{})[X.id]||0;const fx=trashTeam(Y.data,t.i,Y.data.ball,heard);
+      Y.data.heard={...(Y.data.heard||{}),[X.id]:heard+1};
+      trash[k]={i:t.i,line:TRASH[t.i].txt,by:X.name,to:Y.name,rattled:fx.rattled,fired:fx.fired};}
     const r=playMatch(A.data,B.data,rule);
     // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
     const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
@@ -848,14 +967,23 @@ async function runMatchday(store,lg,now){
       const won=xs.score>ys.score;
       X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
       const lines=reportLines(xs,ys,won,rule);
+      // trash talk, as the manager hears of it (the sender's ban starts now, a ban served this match ends)
+      const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
+      if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
+      if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match.`);
+      if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}
+      // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
+      const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
+      const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,talk:xs.half.talk||null,
+        left:mine.orders?Object.fromEntries(ORDER_KEYS.map(w=>[w,leftWords(mine.orders[w])])):null}:null;
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
-      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons}};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
+      X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half,trash:sent?sent.line:null}};
+      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
     }
     matches.push(rec);
   }
@@ -918,7 +1046,19 @@ function checkPlan(data,req,rule){
   if(sb.some(id=>st.includes(id)))return 'bad lineup';
   const ball=req.ball==null?null:req.ball;if(ball!==null&&!st.includes(ball))return 'bad star';
   const sh={};for(const k of Object.keys(DEF_SHEET)){const v=req.sheet&&req.sheet[k];if(![0,1,2].includes(v))return 'bad plan';sh[k]=v;}
-  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;
+  // half-time orders: one per case, each an order key, "star" with one of the manager's own players
+  let orders=data.orders||null;
+  if(req.orders!==undefined){
+    if(req.orders===null)orders={behind:null,close:null,ahead:null};
+    else{if(typeof req.orders!=='object')return 'bad orders';orders={};
+      for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
+        if(typeof o!=='object')return 'bad orders';
+        const talk=o.talk==null?null:o.talk;if(talk!==null&&!TONES.includes(talk))return 'bad orders';
+        if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
+        if(!orderOf(o.k))return 'bad orders';
+        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
+  }
+  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;
   return null;
 }
 
@@ -935,7 +1075,7 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
     me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
-      sheet:d.sheet,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
+      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
@@ -950,7 +1090,7 @@ async function roundView(store,req){
   const rows=await store.roundMatches(L,M,ROUND_MAX+1);
   if(!rows.length)return {none:true,league:L,match:M};
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
-  const side=d=>({sheet:(d&&d.sheet)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
+  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
   const d0=rows[0].detail||{};
   return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
@@ -1058,7 +1198,14 @@ async function handle2(store,req,a,h,now){
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
   if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in '+(isSeasonal(lg.no)?'the ':'')+leagueName(lg.no,lg.next_match_at,true)+' yet. Enter the league first.'};
-  if(a==='talk'){
+  const bannedMsg=()=>'You are banned for this match'+(d.banFor?' for trash-talking '+d.banFor:'')+': no talks with your players, no half-time talk, no trash talk.';
+  if((d.ban||0)>0&&['talk','teamtalk','trash'].includes(a))return {error:bannedMsg()};
+  if(a==='trash'){   // the last word before tip-off, sent to the next opponent; i=null takes it back
+    if(out)return {error:'Your team is not in the league yet.'};
+    if(req.i===null||req.i===undefined){d.trash=null;dirty=true;}
+    else{if(!Number.isInteger(req.i)||!TRASH[req.i])return {error:'bad line'};if(!row.next_opp)return {error:'No opponent yet.'};
+      d.trash={league:lg.no,match:lg.match_no,opp:row.next_opp,i:req.i};dirty=true;}
+  }else if(a==='talk'){
     const p=d.players.find(x=>x.id===req.pid);
     if(!p||!TONES.includes(req.tone))return {error:'bad talk'};
     if(p.talked)return {error:'You already talked to '+p.n+' before this match.'};

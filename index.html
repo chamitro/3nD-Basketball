@@ -521,7 +521,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.08-2331';   // stamped by build.py
+const APP_VERSION='2026.11.09-1906';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -583,7 +583,6 @@ function reactFx(p,before,strength){
 }
 function talk(tone){
   const p=byId(S.me,S.sel);if(!p||p.talked||S.phase!=='week')return;
-  if(ONLINE&&(S.me.ban||0)>0){toast('You are banned for this match: no talks with your players.');return;}
   if(ONLINE){if(netBusy)return;netBusy++;
     api('talk',{pid:p.id,tone}).then(v=>{applyView(v);const q=byId(S.me,v.said.pid);reactFx(q,v.said.before,1);bubble={id:q.id,text:v.said.text,t0:T};render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);
     return;}
@@ -592,7 +591,7 @@ function talk(tone){
 }
 function teamTalk(tone){
   if(S.me.teamTalked||S.phase!=='week')return;
-  if(ONLINE&&(S.me.ban||0)>0){toast('You are banned for this match: no talks with your players.');return;}
+  if(ONLINE&&(S.me.ban||0)>0){toast('You are banned from the bench for this match: no team talk.');return;}
   if(ONLINE){if(netBusy)return;netBusy++;
     api('teamtalk',{tone}).then(v=>{applyView(v);for(const p of S.me.players)if(p.mood!==v.team.before[p.id])reactFx(p,v.team.before[p.id],0.5);toast(v.team.msg);render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);
     return;}
@@ -988,13 +987,13 @@ $('orders').addEventListener('change',e=>{
 function renderTrash(){
   const el=$('trashUI');if(!el)return;const me=S.me,op=nextOpp();
   if(!ONLINE||S.phase!=='week'||S.out||!op){el.innerHTML='';return;}
-  if((me.ban||0)>0){el.innerHTML=`<div class="banned">Banned for this match${me.banFor?' for trash-talking '+esc(me.banFor):''}. No talks with your players, no half-time talk, no trash talk. The ban ends when ${DAY()}'s match is played.</div>`;return;}
+  if((me.ban||0)>0){el.innerHTML=`<div class="banned">Banned from the bench for this match${me.banFor?' for trash-talking '+esc(me.banFor):''}: no team talk, no half-time talk, no trash talk. You can still talk to your players one by one and set the plan. The ban ends when ${DAY()}'s match is played.</div>`;return;}
   const sent=me.trash!==null&&me.trash!==undefined&&TRASH[me.trash];
-  el.innerHTML=`<div class="trash"><div class="lab">Trash talk the other dugout</div><div class="small" style="margin:2px 0 4px">One line to ${esc(op.name)}, delivered right before tip-off. Their players take it by character: some get rattled, some get fired up. <b>You are banned for the next match:</b> no talks with your players, no half-time talk.</div>
+  el.innerHTML=`<div class="trash"><div class="lab">Trash talk the other dugout</div><div class="small" style="margin:2px 0 4px">One line to ${esc(op.name)}, delivered right before tip-off. Their players take it by character: some get rattled, some get fired up. <b>You are banned from the bench for the next match:</b> no team talk, no half-time talk. Talks with single players go on.</div>
     ${sent?`<div style="margin:6px 0"><b>Sent:</b> "${esc(TRASH[me.trash].txt)}" <button id="trashBack" style="background:#fff">Take it back</button></div>`
     :`<select id="trashSel">${TRASH.map((l,i)=>`<option value="${i}">${esc(l.txt)}${l.at==='star'?' (at their star)':''}</option>`).join('')}</select><button id="trashGo">Send it</button>`}</div>`;
   const go=$('trashGo'),back=$('trashBack');
-  if(go)go.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:+$('trashSel').value}).then(v=>{applyView(v);toast('Sent. It lands right before tip-off. You will be banned for the next match.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
+  if(go)go.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:+$('trashSel').value}).then(v=>{applyView(v);toast('Sent. It lands right before tip-off. You will be banned from the bench for the next match.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
   if(back)back.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:null}).then(v=>{applyView(v);toast('Taken back.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
 }
 function renderPlan(){
@@ -1078,7 +1077,7 @@ function renderHelp(){
   <li>No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week.</li></ul>
   <h4><i>7</i>Trash talk</h4>
   <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. Each of them takes it by character, moods only: worriers, people-pleasers, proud and hot-tempered players lose their heads, fighters, old hands and jokers get sharper. A line aimed at their star reaches the star for sure and the others less. A team that has heard you before is harder to rattle.</p>
-  <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no half-time talk, no trash talk. The ban ends when that match is played. Everybody sees it in the match reports.</li>
+  <ul><li><b>The price.</b> You are banned from the bench for the next match, like a suspended coach: no team talk before it, no half-time talk, no trash talk. You still talk to your players one by one during the week and set the whole plan. The ban ends when that match is played. Everybody sees it in the match reports.</li>
   <li>You can take a line back any time before the match. Nobody sees it until the match is played.</li>
   <li>Real research on trash talk says it mostly fires the target up and only sometimes rattles them. Look at who you are talking to before you send it.</li></ul>
   <h4><i>8</i>The rule of the week</h4>

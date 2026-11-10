@@ -94,8 +94,8 @@ free plan allows; the scheduled job fails loudly from 350 on).
 - Trash talk: action `trash {i}` stores one line of `TRASH` (engine.js) for the next opponent (`data.trash`, `i:null`
   takes it back). On match day it is the last word before tip-off: `trashTeam` moves the opposing players' moods by
   character (`TRASH_FX`: rattled or fired up; a line aimed at the star reaches the star for sure; a team that has
-  heard this manager before, `data.heard`, is harder to rattle). The sender gets `data.ban = 1` (and `banFor`): talk,
-  team talk and trash talk are refused and the half-time talk is skipped (`half.gagged`) until the next match is
-  played. The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
+  heard this manager before, `data.heard`, is harder to rattle). The sender gets `data.ban = 1` (and `banFor`), a bench ban: team talk
+  and trash talk are refused and the half-time talk is skipped (`half.gagged`) until the next match is played;
+  talks with single players go on (Harry, 10 Nov 2026: a week without any talk was "very harsh"). The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.

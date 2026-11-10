@@ -219,7 +219,7 @@ async function runMatchday(store,lg,now){
       // trash talk, as the manager hears of it (the sender's ban starts now, a ban served this match ends)
       const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
       if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
-      if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match.`);
+      if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned from the bench for the next match: no team talk, no half-time talk.`);
       if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}
       // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
       const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
@@ -447,8 +447,9 @@ async function handle2(store,req,a,h,now){
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
   if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in '+(isSeasonal(lg.no)?'the ':'')+leagueName(lg.no,lg.next_match_at,true)+' yet. Enter the league first.'};
-  const bannedMsg=()=>'You are banned for this match'+(d.banFor?' for trash-talking '+d.banFor:'')+': no talks with your players, no half-time talk, no trash talk.';
-  if((d.ban||0)>0&&['talk','teamtalk','trash'].includes(a))return {error:bannedMsg()};
+  // a banned coach is off the bench for one match: no team talk, no half-time talk, no trash talk (talks with single players go on)
+  const bannedMsg=()=>'You are banned from the bench for this match'+(d.banFor?' for trash-talking '+d.banFor:'')+': no team talk, no half-time talk, no trash talk. You can still talk to your players one by one.';
+  if((d.ban||0)>0&&['teamtalk','trash'].includes(a))return {error:bannedMsg()};
   if(a==='trash'){   // the last word before tip-off, sent to the next opponent; i=null takes it back
     if(out)return {error:'Your team is not in the league yet.'};
     if(req.i===null||req.i===undefined){d.trash=null;dirty=true;}
