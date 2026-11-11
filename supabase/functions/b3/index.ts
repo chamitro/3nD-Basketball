@@ -104,10 +104,10 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // ───────────────────────── trash talk ─────────────────────────
 // Before a match a manager may send one line from this menu to the other dugout. It is the last word before tip-off:
 // each opposing player takes it by character, moods only. Research (Yip, Schweitzer & Nurmohamed 2018): trash talk
-// mostly fires the target up and sometimes rattles them, so fighters, old hands and jokers get sharper while worriers,
-// pleasers, the proud and the hot-tempered lose their heads. A line aimed at their star reaches the star for sure and
+// mostly fires the target up and sometimes rattles them, so fighters and old hands get sharper while worriers,
+// pleasers, the proud and the hot-tempered lose their heads; jokers and loners are put off half the time. A line aimed at their star reaches the star for sure and
 // the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
-// match: no talks with their own players, no half-time talk.
+// match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
 const TRASH=[
   {txt:'We have watched your matches. We laughed.',at:'team'},
   {txt:'Our substitutes would beat you.',at:'team'},
@@ -116,16 +116,18 @@ const TRASH=[
   {txt:'Your star could not hit the sea from the beach.',at:'star'},
   {txt:'Everybody knows your star folds when it matters.',at:'star'},
 ];
-const TRASH_REACH={rattle:0.9,fire:0.35};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 9 Nov 2026: about +3 points of win chance against a court that rattles, -3 against one that fires up.
+const TRASH_REACH={rattle:0.7,fire:0.6};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 10 Nov 2026: about +2.5 points of win chance against a court that rattles, -4 against one that fires up, +1 on average.
 // what a character does with an insult from the other dugout: [mood, fired up?]
 const TRASH_FX={showoff:['angry',false],worrier:['nervous',false],pleaser:['nervous',false],hothead:['angry',false],
-  fighter:['angry',true],veteran:['cool',true],joker:['happy',true],loner:['ok',false],easygoing:['ok',false]};
+  fighter:['angry',true],veteran:['cool',true],joker:['sad',false],loner:['nervous',false],easygoing:['ok',false]};
+// a joker wilts when it gets serious and a loner hates the attention, but only half the time, and never get sharper (Harry, 10 Nov 2026)
+const TRASH_CAP={joker:0.5,loner:0.5};
 // apply one trash line to a team; `heard` = how often this team has heard that manager before. Returns who was rattled and who was fired up.
 function trashTeam(team,line,starId,heard){
   const rattled=[],fired=[];const l=TRASH[line];if(!l)return {rattled,fired};
   for(const p of team.players){
     const isStar=p.id===starId;const [mood,up]=TRASH_FX[p.temp]||['ok',false];if(mood==='ok')continue;
-    const reach=l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle);
+    const reach=Math.min(l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle),TRASH_CAP[p.temp]||1);
     const chance=up?reach:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
     if(R()>=chance||p.mood===mood)continue;
     p.mood=mood;(up?fired:rattled).push(p.n);
@@ -158,7 +160,7 @@ function makePlayer0(){
   const temp=pick(TEMPKEYS);const h=R();
   let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
-    sh,df,sp,base:{sh,df,sp},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
+    sh,df,sp,base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
@@ -168,11 +170,17 @@ const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5};   // a whole match played; a who
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
 const nrm=v=>(v-2.5)/1.5; // a stat of 1..4 as -1..1
 // nudge a stat; returns +1/-1 when a whole dot is gained or lost
-// A stat moves with talks and matches and stays where it was put, but within STAT_BAND of the player's natural level
-// (`base`, the dots they were drafted with): form, not endless growth. Players from before 9 Nov 2026 get their base
-// the first time a stat moves.
-const STAT_BAND=0.5;
-function bump(p,k,d){p.base=p.base||{};if(p.base[k]===undefined)p.base[k]=p[k];const before=Math.round(p[k]);p[k]=clamp(clamp(p[k]+d,p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
+// A stat = the player's natural level (`base`, the dots they were drafted with) + what talks have done (`tk`, stays
+// until another talk moves it) + match form (`fm`, fades by FORM_FADE a week, as a hot or cold game does in real
+// basketball: skill does not change from one game to the next, only form), all within STAT_BAND of the base.
+// Players from before 9 Nov 2026 get their base the first time a stat moves.
+const STAT_BAND=0.5,FORM_FADE=0.3;
+function bump(p,k,d,kind){
+  p.base=p.base||{};if(p.base[k]===undefined)p.base[k]=p[k];p.tk=p.tk||{};p.fm=p.fm||{};if(p.tk[k]===undefined)p.tk[k]=0;if(p.fm[k]===undefined)p.fm[k]=0;
+  if(kind==='talk')p.tk[k]=clamp(p.tk[k]+d,-STAT_BAND,STAT_BAND);else p.fm[k]=clamp(p.fm[k]+d,-STAT_BAND,STAT_BAND);
+  const before=Math.round(p[k]);p[k]=clamp(clamp(p.base[k]+p.tk[k]+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
+// match form fades a little every week; the talks' part stays
+function fadeForm(p){if(!p.fm||!p.base)return;for(const k of ['sh','df','sp']){if(!p.fm[k])continue;p.fm[k]*=1-FORM_FADE;if(Math.abs(p.fm[k])<0.01)p.fm[k]=0;p[k]=clamp(clamp(p.base[k]+(p.tk&&p.tk[k]||0)+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);}}
 function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 function tallestId(team){return team.players.reduce((a,b)=>a.h>b.h?a:b).id;}
@@ -183,7 +191,7 @@ function enforceRule(team,rule){
   cleanOrders(team,rule);
   if(team.ball&&!team.starters.includes(team.ball))team.ball=null;
 }
-function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
+function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first)fadeForm(p);if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
 
 // ───────────────────────── bots ─────────────────────────
 function botPrepare(team,opp,rule,oppLast){
@@ -352,11 +360,16 @@ function playMatch(A,B,ruleKey){
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
     for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
+  // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
+  // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
+  // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
+  // the most tired starter was swapped for a substitute whatever their quality, so naming no substitutes paid 6 points.
+  const worth=(X,p)=>rating(p)-3*X.st[p.id].f-2*tiredOf(p)+(rule==='bench'&&X.st[p.id].bench?4:0);
   function subs(X){for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.25);
     if(!X.bench.length)return;
-    const tired=[...X.court].sort((p,q)=>X.st[q.id].f-X.st[p.id].f)[0];
-    const fresh=[...X.bench].sort((p,q)=>(X.st[p.id].min-X.st[q.id].min)||(X.st[p.id].f-X.st[q.id].f))[0];
-    if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
+    const tired=[...X.court].sort((p,q)=>worth(X,p)-worth(X,q))[0];
+    const fresh=[...X.bench].sort((p,q)=>worth(X,q)-worth(X,p))[0];
+    if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07&&worth(X,fresh)>worth(X,tired)+0.1){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
   // half-time: each side reads the score and follows the order left for that case
   const bringOn=(X,p)=>{   // a bench player comes on for the most tired player on the court
     if(!X.bench.includes(p))return false;const tired=[...X.court].sort((u,v)=>X.st[v.id].f-X.st[u.id].f)[0];
@@ -588,7 +601,7 @@ function react(p,tone,strength){
   p.fx=null;
   if(p.mood===r[1]&&(p.mood!==before||strength>=1)){const k=strength>=1?1:0.5;
     const FX={happy:['sh',0.2],cool:['df',0.2],nervous:['sh',-0.2],sad:['sp',-0.2],angry:p.temp==='fighter'?['sh',0.2]:['df',-0.2]}[r[1]];
-    if(FX){bump(p,FX[0],FX[1]*k);p.fx=FX;}}
+    if(FX){bump(p,FX[0],FX[1]*k,'talk');p.fx=FX;}}
   return r;
 }
 // one private talk with one player
@@ -634,7 +647,8 @@ function aftermath(team,X,won,conceded){
     else if(u&&u.fga>=5&&u.fgm/u.fga<0.25)p.mood=(p.temp==='hothead'||p.temp==='fighter')?'angry':(p.temp==='veteran'||p.temp==='loner'||p.temp==='easygoing')?'ok':'nervous';
     else if(!started&&p.temp==='showoff'){p.mood='sad';p.trust=clamp(p.trust-1,-2,2);}
     else if(wins===1&&R()<0.4&&p.mood!=='angry')p.mood=p.mood==='sad'?'ok':'happy';
-    else if(wins===0&&R()<0.5)p.mood=p.temp==='hothead'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.mood;
+    // a loss leaves most players down, a heavy one (8 or more) nearly everyone; old hands, loners and easy-going players shrug (Harry, 11 Nov 2026: losses should hurt a little more)
+    else if(wins===0&&R()<(conceded-X.score>=8?0.8:0.6))p.mood=p.temp==='hothead'||p.temp==='fighter'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.temp==='showoff'||p.temp==='joker'?'sad':p.mood;
     // left out completely: some take it personally
     const played=u&&u.min>0;
     if(!played&&p.enWas<3.5){/* a tired player is glad of the rest */}
@@ -768,7 +782,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='06ff84aa';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='6a167f04';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -970,7 +984,7 @@ async function runMatchday(store,lg,now){
       // trash talk, as the manager hears of it (the sender's ban starts now, a ban served this match ends)
       const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
       if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
-      if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match.`);
+      if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match: no talks with your players, no half-time talk.`);
       if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}
       // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
       const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
@@ -1198,7 +1212,8 @@ async function handle2(store,req,a,h,now){
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
   if(out&&['talk','teamtalk','plan','vote'].includes(a))return {error:'Your team is not in '+(isSeasonal(lg.no)?'the ':'')+leagueName(lg.no,lg.next_match_at,true)+' yet. Enter the league first.'};
-  const bannedMsg=()=>'You are banned for this match'+(d.banFor?' for trash-talking '+d.banFor:'')+': no talks with your players, no half-time talk, no trash talk.';
+  // a banned coach is kept away from the players for one match: no talks, no team talk, no half-time talk, no trash talk (the plan is set as usual)
+  const bannedMsg=()=>'You are banned for this match'+(d.banFor?' for trash-talking '+d.banFor:'')+': no talks with your players, no team talk, no half-time talk, no trash talk. The plan, the line-up and the orders are yours as usual.';
   if((d.ban||0)>0&&['talk','teamtalk','trash'].includes(a))return {error:bannedMsg()};
   if(a==='trash'){   // the last word before tip-off, sent to the next opponent; i=null takes it back
     if(out)return {error:'Your team is not in the league yet.'};
