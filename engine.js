@@ -357,11 +357,16 @@ function playMatch(A,B,ruleKey){
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
     for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
+  // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
+  // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
+  // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
+  // the most tired starter was swapped for a substitute whatever their quality, so naming no substitutes paid 6 points.
+  const worth=(X,p)=>rating(p)-3*X.st[p.id].f-2*tiredOf(p)+(rule==='bench'&&X.st[p.id].bench?4:0);
   function subs(X){for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.25);
     if(!X.bench.length)return;
-    const tired=[...X.court].sort((p,q)=>X.st[q.id].f-X.st[p.id].f)[0];
-    const fresh=[...X.bench].sort((p,q)=>(X.st[p.id].min-X.st[q.id].min)||(X.st[p.id].f-X.st[q.id].f))[0];
-    if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
+    const tired=[...X.court].sort((p,q)=>worth(X,p)-worth(X,q))[0];
+    const fresh=[...X.bench].sort((p,q)=>worth(X,q)-worth(X,p))[0];
+    if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07&&worth(X,fresh)>worth(X,tired)+0.1){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
   // half-time: each side reads the score and follows the order left for that case
   const bringOn=(X,p)=>{   // a bench player comes on for the most tired player on the court
     if(!X.bench.includes(p))return false;const tired=[...X.court].sort((u,v)=>X.st[v.id].f-X.st[u.id].f)[0];

@@ -1006,7 +1006,7 @@ function renderPlan(){
   document.querySelectorAll('.dial .d').forEach(d=>{d.textContent=DESC[d.dataset.d][sh[d.dataset.d]];});
   const sn=S.me.subs.map(id=>byId(S.me,id)).filter(Boolean).map(q=>q.n);
   const idle=S.me.players.filter(q=>!S.me.starters.includes(q.id)&&!S.me.subs.includes(q.id)).map(q=>q.n);
-  $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
+  $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires, if they are worth more on the court than the tired starter.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
   const op=nextOpp();if(op){const ov=oppView(op);
     $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`
       +(ONLINE&&op.sc&&op.sc.n>=2?leagueSoFarHtml(op.sc):'')
@@ -1073,7 +1073,7 @@ function renderHelp(){
   <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
   <h4><i>6</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
-  <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. Substitutes come on when a starter tires. Look at Energy before you choose.</li>
+  <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game.</li>
   <li>Everything is saved the moment you set it, and stays from match to match until you change it. <b>Name three starters before every match:</b> a team without a line-up plays its three weakest players.</li>
   </ul><p>Then six dials:</p>
