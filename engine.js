@@ -633,7 +633,8 @@ function aftermath(team,X,won,conceded){
     else if(u&&u.fga>=5&&u.fgm/u.fga<0.25)p.mood=(p.temp==='hothead'||p.temp==='fighter')?'angry':(p.temp==='veteran'||p.temp==='loner'||p.temp==='easygoing')?'ok':'nervous';
     else if(!started&&p.temp==='showoff'){p.mood='sad';p.trust=clamp(p.trust-1,-2,2);}
     else if(wins===1&&R()<0.4&&p.mood!=='angry')p.mood=p.mood==='sad'?'ok':'happy';
-    else if(wins===0&&R()<0.5)p.mood=p.temp==='hothead'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.mood;
+    // a loss leaves most players down, a heavy one (8 or more) nearly everyone; old hands, loners and easy-going players shrug (Harry, 11 Nov 2026: losses should hurt a little more)
+    else if(wins===0&&R()<(conceded-X.score>=8?0.8:0.6))p.mood=p.temp==='hothead'||p.temp==='fighter'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.temp==='showoff'||p.temp==='joker'?'sad':p.mood;
     // left out completely: some take it personally
     const played=u&&u.min>0;
     if(!played&&p.enWas<3.5){/* a tired player is glad of the rest */}
