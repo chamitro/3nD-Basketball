@@ -89,6 +89,10 @@ begin
          vote_opts = p_league->'vote_opts', final = p_league->'final', busy_until = null
    where id = 1;
   delete from b3_pools where created_at < now() - interval '14 days';
+  if p_reset then   -- the box scores of the league that just ended are deleted, its last match day included (Harry, 11 Nov 2026); the match reports stay
+    update b3_matches set detail = (detail #- '{a,box}') #- '{b,box}'
+     where league_no = (p_league->>'no')::int - 1 and (detail #> '{a,box}' is not null or detail #> '{b,box}' is not null);
+  end if;
 end $$;
 revoke all on function public.b3_commit(jsonb, jsonb, jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.b3_commit(jsonb, jsonb, jsonb, boolean) to service_role;
@@ -130,7 +134,7 @@ revoke all on function public.b3_size() from public, anon, authenticated;
 grant execute on function public.b3_size() to service_role;
 
 -- Which version of this file was run last. The server reports it in its "ping" answer, so it can be checked from outside.
-insert into public.b3_config (key, value) values ('sql', '3'::jsonb)
+insert into public.b3_config (key, value) values ('sql', '4'::jsonb)
 on conflict (key) do update set value = excluded.value;
 
 -- Handy to look at (run one at a time, any time):
