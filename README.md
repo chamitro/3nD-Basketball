@@ -67,7 +67,7 @@ free plan allows; the scheduled job fails loudly from 350 on).
   `league_no`, so the next league is empty until managers enter it (action `enter`, which older copies of the
   page send as `swap`). A brand-new team joins the running league directly. The all-time list of leagues won is
   worked out when a league ends and kept with the league (`final.hall`).
-- Match reports: after every match the server works out three strong and three weak points for each side, and keeps a box score per player (points, shots, threes, rebounds, steals, ball losses, shots guarded and allowed) until the league ends; then the box scores are deleted and the reports stay
+- Match reports: after every match the server works out three strong and three weak points for each side, and keeps a box score per player (points, shots, threes, rebounds, steals, ball losses, shots guarded and allowed) until the league ends; then all the matches of that league are deleted (scores, reports, box scores) and only the teams, the champion and each team's record line stay
   (`scoutReport` in `engine.js`, from what happened on the court only) and stores them with the match
   (`b3_matches.detail`). Action `round` returns one match day for everybody to read; each team's last report is
   also kept in its public data (`pub.rep`) and shown to its next opponent. What a manager is told in private

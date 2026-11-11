@@ -89,9 +89,9 @@ begin
          vote_opts = p_league->'vote_opts', final = p_league->'final', busy_until = null
    where id = 1;
   delete from b3_pools where created_at < now() - interval '14 days';
-  if p_reset then   -- the box scores of the league that just ended are deleted, its last match day included (Harry, 11 Nov 2026); the match reports stay
-    update b3_matches set detail = (detail #- '{a,box}') #- '{b,box}'
-     where league_no = (p_league->>'no')::int - 1 and (detail #> '{a,box}' is not null or detail #> '{b,box}' is not null);
+  if p_reset then   -- the matches of the league that just ended are deleted, scores, reports and box scores, its last match day
+                    -- included (Harry, 11 Nov 2026). What stays: the teams with their players, the champion and the record.
+    delete from b3_matches where league_no = (p_league->>'no')::int - 1;
   end if;
 end $$;
 revoke all on function public.b3_commit(jsonb, jsonb, jsonb, boolean) from public, anon, authenticated;
