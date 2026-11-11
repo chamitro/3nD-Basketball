@@ -253,7 +253,17 @@ function obey(p){return clamp(MOODFX[p.mood][2]+0.08*p.trust,0.2,1);}
 // how much the dots weigh in a shot, against moods, energy and tactics: attack on long shots, attack on close shots, height, defence.
 // All 1 in the first release: the squad then explained ~2% of a season and the manager ~65% (season simulator, 9 Nov 2026).
 const DOT={sh3:1.6,sh2:3,h:2.5,df:2.5};
-const PRESS_MID={h:0.5,sp:0,tired:0.15};   // an average ball handler: height, speed (as -1..1) and tiredness
+const PRESS_MID={h:0.5,sp:0,tired:0.15};
+// one of a list, by weight (weights below zero count as zero)
+function wpick(arr,f){const w=arr.map(p=>Math.max(0,f(p)));let x=R()*w.reduce((s,v)=>s+v,0);for(let i=0;i<arr.length;i++){x-=w[i];if(x<=0)return arr[i];}return arr[arr.length-1];}
+// The box score of one side after a match: a row per player who was named or played, starters first.
+// [id, name, possessions on the court, points, shots made, shots taken, threes made, threes taken, rebounds, steals,
+// ball losses, shots guarded, shots allowed]. "Stops" on the page = guarded - allowed. About 60 bytes a player.
+function boxOf(X){
+  const T=X.T,named=[...(T.starters||[]),...(T.subs||[])].map(id=>byId(T,id)).filter(Boolean);
+  const extra=T.players.filter(p=>!named.includes(p)&&X.st[p.id]&&X.st[p.id].min>0);
+  return [...named,...extra].map(p=>{const s=X.st[p.id];return s?[p.id,p.n,s.min,s.pts,s.fgm,s.fga,s.m3,s.a3,s.reb,s.stl,s.to,s.dg,s.da]:null;}).filter(Boolean);
+}   // an average ball handler: height, speed (as -1..1) and tiredness
 function playMatch(A,B,ruleKey){
   const rule=ruleKey;
   const mk=T=>{
@@ -265,7 +275,7 @@ function playMatch(A,B,ruleKey){
     const rest=avail.filter(p=>!court.includes(p)).sort((a,b)=>noLineup?rating(a)-rating(b):rating(b)-rating(a));
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
-    const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0};
+    const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0,reb:0,stl:0,dg:0,da:0};
     return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
   };
   const a=mk(A),b=mk(B);
@@ -303,7 +313,7 @@ function playMatch(A,B,ruleKey){
     if(ds.def===2&&m==='nervous')pTO+=0.03;
     if(dbl&&isF)pTO+=0.03;
     if(rule==='slippery')pTO*=2;if(rule==='no_dribble')pTO*=1.4;
-    if(R()<pTO){sst.to++;if(ds.def===2||rule==='defence')D.steals++;if(rule==='defence'){D.score++;D.rb++;}return;}
+    if(R()<pTO){sst.to++;if(ds.def===2||rule==='defence'){D.steals++;const thief=D.st[wpick(D.court,d=>d.df+(d.mood==='angry'?1.5:0)+(d.mood==='sad'?-0.8:0)).id];thief.stl++;if(rule==='defence'){D.score++;D.rb++;thief.pts++;}}return;}
     let q=O.lift||0;if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
     if(os.tempo===0)q+=m==='nervous'?0.04:-0.015; // a slow attack meets a set defence
     if(os.tempo===2)q+=m==='happy'?0.03:m==='sad'?-0.06:0;
@@ -342,8 +352,8 @@ function playMatch(A,B,ruleKey){
     }
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.11;
     if(late){if(shooter.mood==='happy'||shooter.mood==='cool')pm+=0.04;if(shooter.mood==='nervous')pm-=0.08;if(shooter.temp==='showoff')pm+=0.04;}   // a proud player rises to the big moment (narcissism and performance under pressure)
-    sst.fga++;if(three)sst.a3++;
-    if(R()<clamp(pm,0.05,0.9)){
+    sst.fga++;if(three)sst.a3++;const dst=D.st[def.id];dst.dg++;
+    if(R()<clamp(pm,0.05,0.9)){dst.da++;
       let pts=three?(rule==='three5'?5:rule==='paint'?2:3):(rule==='paint'?3:2);
       if(rule==='three5'&&three)O.rb+=2;if(rule==='paint'&&!three)O.rb+=1;
       if(rule==='speed'&&forceInside){pts=3;O.rb+=1;}
@@ -352,10 +362,16 @@ function playMatch(A,B,ruleKey){
       if(rule==='bench'&&sst.bench){O.rb+=pts;pts*=2;}
       sst.fgm++;if(three)sst.m3++;sst.pts+=pts;O.score+=pts;
       if(tag===1)sst.shadM++;if(tag===2)sst.dblM++;if(tag===3)O.openM++;
-    }else if(!second){
-      const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
-      const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
-      if(R()<clamp(pr,0.03,0.6)){O.oreb++;possession(O,D,late,true);}
+    }else{
+      // the miss: a second shot for the attack, or the defence takes the ball. The rebound goes to a player: the tall
+      // ones and the ones sent to crash (or to get back) take most of them.
+      let kept=false;
+      if(!second){
+        const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
+        const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
+        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)).id].reb++;possession(O,D,late,true);}
+      }
+      if(!kept)D.st[wpick(D.court,p=>0.25+p.h+(ds.boards===0?0.3:0)).id].reb++;
     }
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
@@ -782,7 +798,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='6a167f04';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='2939d6c7';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -993,11 +1009,11 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons};}
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
       X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half,trash:sent?sent.line:null}};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons};
+      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs)};
     }
     matches.push(rec);
   }
@@ -1104,7 +1120,7 @@ async function roundView(store,req){
   const rows=await store.roundMatches(L,M,ROUND_MAX+1);
   if(!rows.length)return {none:true,league:L,match:M};
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
-  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[]});
+  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
   const d0=rows[0].detail||{};
   return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
