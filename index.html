@@ -146,10 +146,16 @@
   .rd summary::before{content:'▸';font-size:14px}.rd[open] summary::before{content:'▾'}
   .rd .scb{border:3px solid var(--ink);border-radius:10px;padding:0 8px;background:#eee;white-space:nowrap}
   .rdg{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px;margin-top:8px}
+  .box{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px;font-weight:600}
+  .box th,.box td{padding:2px 3px;text-align:center;border-bottom:1px solid #e8dcc0;white-space:nowrap}
+  .box th{font-size:11px;color:var(--soft);text-transform:uppercase;letter-spacing:.3px}
+  .box td:first-child,.box th:first-child{text-align:left;max-width:92px;overflow:hidden;text-overflow:ellipsis}
+  .box td.dnp{color:var(--soft);font-weight:500}
+  .boxd summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--soft);margin-top:4px}
   .rdt{min-width:0}.rdt .chk{font-size:13px;padding:2px 0}.rdt .chk i{flex:0 0 18px;height:18px;border-width:2px;font-size:12px}
   .tagx{font-size:11px;font-weight:800;border:2px solid var(--ink);border-radius:999px;padding:0 7px;background:#fff1a8;white-space:nowrap}
   .rdnav{display:flex;gap:8px;justify-content:space-between;margin:6px 0 2px}.rdnav button{font-size:13px;padding:5px 12px}
-  @media(max-width:700px){.rdg{grid-template-columns:1fr;gap:10px}}
+  @media(max-width:700px){.rdg{grid-template-columns:1fr;gap:10px}.box{font-size:12px}.box th,.box td{padding:2px 2px}.box th{font-size:10px;letter-spacing:0}.box td:first-child,.box th:first-child{max-width:70px}}
   /* phones */
   @media(max-width:700px){
     body{font-size:15px}
@@ -321,7 +327,7 @@ function playSunday(){
       A.pf+=r.a.score;A.pa+=r.b.score;B.pf+=r.b.score;B.pa+=r.a.score;
       if(aw){A.w++;B.l++;day[A.name].w++;day[B.name].l++;}else{B.w++;A.l++;day[B.name].w++;day[A.name].l++;}
       if(!A.human)energyAfter(A,r.a);if(!B.human)energyAfter(B,r.b);
-      if(A.human||B.human){const X=A.human?r.a:r.b,Y=A.human?r.b:r.a;const won=X.score>Y.score;res.push({opp:Y.T.name,us:X.score,them:Y.score,won,lines:reportLines(X,Y,won,S.rule),oppSheet:{...Y.T.sheet}});
+      if(A.human||B.human){const X=A.human?r.a:r.b,Y=A.human?r.b:r.a;const won=X.score>Y.score;res.push({opp:Y.T.name,us:X.score,them:Y.score,won,lines:reportLines(X,Y,won,S.rule),oppSheet:{...Y.T.sheet},box:boxOf(X),oppBox:boxOf(Y)});
         myX=X;conceded+=Y.score;}
     }
   }
@@ -410,7 +416,7 @@ function applyView(v){
   if(v.opp&&v.opp.house&&v.opp.ls)S.lastSheets.push({name:v.opp.name,sheet:v.opp.ls,w:0,l:0,human:false});
   if(!S.lastSheets.length)S.lastSheets=null;
   S.vote={opts:v.league.vote_opts,tally:[0,0,0]};S.myVote=me.vote;S.won=me.won;S.played=me.played;S.history=me.history||[];
-  const last=me.last,res=last?{list:[{opp:last.opp,us:last.us,them:last.them,won:last.won,lines:last.lines,oppSheet:last.oppSheet,pros:last.pros,cons:last.cons}],moves:last.moves||[],place:last.place,of:last.of}:null;
+  const last=me.last,res=last?{list:[{opp:last.opp,us:last.us,them:last.them,won:last.won,lines:last.lines,oppSheet:last.oppSheet,pros:last.pros,cons:last.cons,box:last.box,oppBox:last.oppBox}],moves:last.moves||[],place:last.place,of:last.of}:null;
   S.lastResults=last?{list:res.list,rule:last.rule}:null;
   const seen=+(localStorage.getItem('b3seen')||0);
   if(last&&resKey(last)>seen){S.phase='results';S.results=res;}
@@ -1107,7 +1113,8 @@ function renderHelp(){
   <li><b>The reading is yours.</b> Your assistant does not judge these numbers for you. It knows your own players and what the opponent did last time; what an opponent's history means for your plan is your decision.</li>
   <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
   <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of older match days.</li></ul>
-  <p>Match reports are part of the online league.</p>
+  <p><b>The box score.</b> Under your result, and under every team in the match reports, a table gives each player's numbers from that match: <b>On</b> (the share of the match they were on the court), <b>Pts</b>, <b>Shots</b> made of taken, <b>3s</b> made of taken, <b>Reb</b> (rebounds: the tall take most, more if sent to crash), <b>Stl</b> (steals: only a press or the Defence rule steals the ball, other ball losses are the attacker's own), <b>Lost</b> (ball losses) and <b>Stops</b>: of the shots that player guarded, how many missed. A player with 2 of 9 stops is being hunted. A substitute who did not come on is marked "did not play".</p>
+  <p>Match reports are part of the online league; the box score is also shown in practice.</p>
   <h4><i>12</i>The league</h4>
   <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 25 matches, two a week. The team with the most points wins the league. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
@@ -1132,7 +1139,8 @@ function renderResults(){
   const r=S.results;
   let h=`<div class="card pop" style="margin-top:16px"><h3>${ONLINE?'Match '+V.me.last.match:'Sunday '+S.sunday} · full time</h3>`;
   for(const m of r.list){h+=`<div class="res"><div class="sc ${m.won?'w':'l'}" data-us="${m.us}" data-them="${m.them}">0–0</div><div><div>${m.won?'beat':'lost to'} ${m.opp}<span class="stamp ${m.won?'w':'l'}">${m.won?'WIN':'LOSS'}</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;
-    if(ONLINE&&((m.pros||[]).length||(m.cons||[]).length))h+=`<div class="rdt" style="margin-top:6px"><div class="small" style="margin:0 0 2px">What every manager can read about your team in this match (the Table tab has the reports of all teams):</div>${repLines(m)}</div>`;}
+    if(ONLINE&&((m.pros||[]).length||(m.cons||[]).length))h+=`<div class="rdt" style="margin-top:6px"><div class="small" style="margin:0 0 2px">What every manager can read about your team in this match (the Table tab has the reports of all teams):</div>${repLines(m)}</div>`;
+    h+=boxHtml(m.box,'Your players')+boxHtml(m.oppBox,m.opp,true);}
   h+=`<div class="small">${r.moves.length?'Afterwards: '+r.moves.join(', ')+'.':'The mood in the locker room is unchanged.'} You are ${ord(r.place)} of ${r.of||8}.</div></div>`;
   if(!(ONLINE&&S.out)){h+=`<h3 style="margin:18px 4px 8px">${ONLINE?'Vote for '+DAY2()+"'s rule":"Vote for next Sunday's rule"}</h3>${ONLINE?'<div class="small" style="margin:-4px 4px 8px">'+DAY()+"'s rule is already set: <b>"+ruleOf(S.rule).txt+'</b> The votes cast now decide the rule of the match after it.</div>':''}<div class="grid3">`;
   S.vote.opts.forEach((k,i)=>{h+=`<div class="card vote ${S.myVote===i?'on':''}" data-v="${i}">${ruleOf(k).txt}<small>${ruleOf(k).why}</small></div>`;});
@@ -1161,6 +1169,15 @@ function archiveHtml(){
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let RD=null,RD_KEY='',RD_BUSY=false;
 const rdKey=()=>V?V.league.no+'/'+V.league.match_no:'';
+// the box score of one side: a row per player. Columns: share of the match on the court, points, shots made of taken,
+// threes made of taken, rebounds, steals, ball losses, stops (shots guarded that missed, of shots guarded)
+function boxHtml(box,label,fold){
+  if(!box||!box.length)return '';const tot=Math.max(1,...box.map(r=>r[2]));
+  const row=r=>r[2]?`<tr><td>${esc(r[1])}</td><td>${Math.round(100*r[2]/tot)}%</td><td><b>${r[3]}</b></td><td>${r[4]}/${r[5]}</td><td>${r[6]}/${r[7]}</td><td>${r[8]}</td><td>${r[9]}</td><td>${r[10]}</td><td>${r[11]?(r[11]-r[12])+'/'+r[11]:'–'}</td></tr>`
+    :`<tr><td>${esc(r[1])}</td><td class="dnp" colspan="8">did not play</td></tr>`;
+  const t=`<div style="overflow-x:auto"><table class="box"><thead><tr><th>${label}</th><th title="share of the match on the court">On</th><th>Pts</th><th title="shots made of taken">Shots</th><th title="threes made of taken">3s</th><th title="rebounds">Reb</th><th title="steals">Stl</th><th title="ball losses">Lost</th><th title="shots they guarded that missed, of shots guarded">Stops</th></tr></thead><tbody>${box.map(row).join('')}</tbody></table></div>`;
+  return fold?`<details class="boxd"><summary>${label}: the numbers</summary>${t}</details>`:t;
+}
 function repLines(r){return (r.pros||[]).map(x=>`<div class="chk g"><i>+</i><span>${esc(x)}</span></div>`).join('')+(r.cons||[]).map(x=>`<div class="chk b"><i>−</i><span>${esc(x)}</span></div>`).join('');}
 async function loadRound(pos){
   if(RD_BUSY||!ONLINE||!V)return;RD_BUSY=true;const key=rdKey();
@@ -1176,11 +1193,11 @@ function roundHtml(){
   if(!RD)return h+`<div class="small" style="margin:0">Loading the match reports…</div></div>`;
   if(RD.error)return h+`<div class="small" style="margin:0">The match reports could not be loaded just now.</div></div>`;
   if(!RD.matches)return h+`<div class="small" style="margin:0">No match has been played yet. After each match day you find here every score, and for each team three strong points and three weak points from that match.</div></div>`;
-  h+=`<div class="small" style="margin:0">Every score of the match day. For each team: the plan it played, three strong points (+) and three weak points (−) from that match. Played under: <b>${ruleOf(RD.rule).txt}</b></div>`;
+  h+=`<div class="small" style="margin:0">Every score of the match day. For each team: the plan it played, three strong points (+) and three weak points (−) from that match, and every player's numbers. Played under: <b>${ruleOf(RD.rule).txt}</b></div>`;
   h+=`<div class="rdnav"><button id="rdPrev" ${RD.prev?'':'disabled'}>‹ Earlier</button><button id="rdNext" ${RD.next?'':'disabled'}>Later ›</button></div>`;
   const mine=S.me?S.me.id:null,next=S.opp?S.opp.id:null;
   const tag=id=>id===mine?' <span class="tagx">your team</span>':id===next?' <span class="tagx">your next opponent</span>':'';
-  const team=(id,name,won,r)=>`<div class="rdt"><div><b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}${halfWords(r.half)}</div>${r.trash?`<div class="small" style="margin-top:1px">Trash talk before the match: "${esc(r.trash.line)}"${r.trash.rattled.length?' Rattled: '+esc(r.trash.rattled.join(', '))+'.':''}${r.trash.fired.length?' Fired up: '+esc(r.trash.fired.join(', '))+'.':''}${!r.trash.rattled.length&&!r.trash.fired.length?' Nobody cared.':''}</div>`:''}${repLines(r)||'<div class="small">No report for this match.</div>'}</div>`;
+  const team=(id,name,won,r)=>`<div class="rdt"><div><b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}${halfWords(r.half)}</div>${r.trash?`<div class="small" style="margin-top:1px">Trash talk before the match: "${esc(r.trash.line)}"${r.trash.rattled.length?' Rattled: '+esc(r.trash.rattled.join(', '))+'.':''}${r.trash.fired.length?' Fired up: '+esc(r.trash.fired.join(', '))+'.':''}${!r.trash.rattled.length&&!r.trash.fired.length?' Nobody cared.':''}</div>`:''}${repLines(r)||'<div class="small">No report for this match.</div>'}</div>${r.box?boxHtml(r.box,'Players',true):''}`;
   for(const m of RD.matches){
     const open=RD.matches.length<=3||[m.a,m.b].includes(mine)||[m.a,m.b].includes(next);
     h+=`<details class="rd" ${open?'open':''}><summary><span>${esc(m.an)}</span><span class="scb">${m.sa}–${m.sb}</span><span>${esc(m.bn)}</span>${[m.a,m.b].includes(mine)?'<span class="tagx">your match</span>':[m.a,m.b].includes(next)?'<span class="tagx">your next opponent</span>':''}</summary>
