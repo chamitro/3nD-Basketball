@@ -44,17 +44,18 @@
   .scene{position:relative;border:4px solid var(--ink);border-radius:26px;overflow:hidden;box-shadow:0 7px 0 var(--ink);background:#bfe9ff}
   canvas#gym{display:block;width:100%;height:auto;cursor:pointer}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .row>*,.dials>*,.cand{min-width:0}   /* a card may shrink below its content (a drop-down's natural width was pushing the cards off a phone screen, 11 Nov 2026) */
   .card{background:var(--card);border:4px solid var(--ink);border-radius:22px;padding:14px 16px;box-shadow:0 6px 0 var(--ink)}
   .card h3{margin:0 0 8px;font-size:20px;font-weight:900}
   .hint{font-weight:600;color:var(--soft);font-size:15px}
   .orders{margin-top:14px;border-top:3px dashed #e6dfd2;padding-top:10px}
   .trash{margin-top:14px;border-top:3px dashed #e6dfd2;padding-top:10px}
-  .trash select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%;margin:6px 6px 6px 0}
+  .trash select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%;box-sizing:border-box;margin:6px 6px 6px 0}
   .trash button{font:inherit;font-weight:800;border:3px solid var(--ink);border-radius:12px;padding:7px 12px;background:#ffd43b;cursor:pointer}
   .banned{background:#ffc9c9;border:3px solid var(--ink);border-radius:14px;padding:10px 12px;margin-top:10px;font-weight:700}
   .orders .orow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
   .orders .olab{font-weight:800;min-width:150px}
-  .orders select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%}
+  .orders select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%;box-sizing:border-box}
   .orders .owhy{flex-basis:100%;font-size:13px;color:var(--soft);margin:-2px 0 0}
   .pips{display:flex;gap:16px;margin:8px 0 10px;font-size:14px;flex-wrap:wrap}
   .pip{display:flex;align-items:center;gap:5px}
@@ -521,7 +522,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.11-1959';   // stamped by build.py
+const APP_VERSION='2026.11.11-2021';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
