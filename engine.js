@@ -157,7 +157,7 @@ function makePlayer0(){
   const temp=pick(TEMPKEYS);const h=R();
   let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
-    sh,df,sp,base:{sh,df,sp},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
+    sh,df,sp,base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
@@ -167,11 +167,17 @@ const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5};   // a whole match played; a who
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
 const nrm=v=>(v-2.5)/1.5; // a stat of 1..4 as -1..1
 // nudge a stat; returns +1/-1 when a whole dot is gained or lost
-// A stat moves with talks and matches and stays where it was put, but within STAT_BAND of the player's natural level
-// (`base`, the dots they were drafted with): form, not endless growth. Players from before 9 Nov 2026 get their base
-// the first time a stat moves.
-const STAT_BAND=0.5;
-function bump(p,k,d){p.base=p.base||{};if(p.base[k]===undefined)p.base[k]=p[k];const before=Math.round(p[k]);p[k]=clamp(clamp(p[k]+d,p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
+// A stat = the player's natural level (`base`, the dots they were drafted with) + what talks have done (`tk`, stays
+// until another talk moves it) + match form (`fm`, fades by FORM_FADE a week, as a hot or cold game does in real
+// basketball: skill does not change from one game to the next, only form), all within STAT_BAND of the base.
+// Players from before 9 Nov 2026 get their base the first time a stat moves.
+const STAT_BAND=0.5,FORM_FADE=0.3;
+function bump(p,k,d,kind){
+  p.base=p.base||{};if(p.base[k]===undefined)p.base[k]=p[k];p.tk=p.tk||{};p.fm=p.fm||{};if(p.tk[k]===undefined)p.tk[k]=0;if(p.fm[k]===undefined)p.fm[k]=0;
+  if(kind==='talk')p.tk[k]=clamp(p.tk[k]+d,-STAT_BAND,STAT_BAND);else p.fm[k]=clamp(p.fm[k]+d,-STAT_BAND,STAT_BAND);
+  const before=Math.round(p[k]);p[k]=clamp(clamp(p.base[k]+p.tk[k]+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
+// match form fades a little every week; the talks' part stays
+function fadeForm(p){if(!p.fm||!p.base)return;for(const k of ['sh','df','sp']){if(!p.fm[k])continue;p.fm[k]*=1-FORM_FADE;if(Math.abs(p.fm[k])<0.01)p.fm[k]=0;p[k]=clamp(clamp(p.base[k]+(p.tk&&p.tk[k]||0)+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);}}
 function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 function tallestId(team){return team.players.reduce((a,b)=>a.h>b.h?a:b).id;}
@@ -182,7 +188,7 @@ function enforceRule(team,rule){
   cleanOrders(team,rule);
   if(team.ball&&!team.starters.includes(team.ball))team.ball=null;
 }
-function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
+function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first)fadeForm(p);if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
 
 // ───────────────────────── bots ─────────────────────────
 function botPrepare(team,opp,rule,oppLast){
@@ -587,7 +593,7 @@ function react(p,tone,strength){
   p.fx=null;
   if(p.mood===r[1]&&(p.mood!==before||strength>=1)){const k=strength>=1?1:0.5;
     const FX={happy:['sh',0.2],cool:['df',0.2],nervous:['sh',-0.2],sad:['sp',-0.2],angry:p.temp==='fighter'?['sh',0.2]:['df',-0.2]}[r[1]];
-    if(FX){bump(p,FX[0],FX[1]*k);p.fx=FX;}}
+    if(FX){bump(p,FX[0],FX[1]*k,'talk');p.fx=FX;}}
   return r;
 }
 // one private talk with one player

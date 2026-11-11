@@ -85,8 +85,10 @@ free plan allows; the scheduled job fails loudly from 350 on).
   (`TALK_SHARP`). The half-time record carries `talk`, the manager's lines say who was lifted or put off.
 - Balance of squad and manager (9 Nov 2026, from the season simulator in the test scripts): the dots weigh more in
   a shot than at first release (`DOT` in `engine.js`: attack on long shots 1.6x, on close shots 3x, height 2.5x,
-  defence 2.5x), moods move shooting 30% less (`MOODFX`), and a stat moved by talks or matches stays within
-  `STAT_BAND` (0.5) of the player's drafted level (`base`; older players get it the first time a stat moves). Measured
+  defence 2.5x), moods move shooting 30% less (`MOODFX`), and a stat = `base` (drafted level) + `tk` (what talks did, stays) + `fm` (match form, fades by
+  `FORM_FADE` 0.3 a week in `weekReset`), within `STAT_BAND` (0.5) of the base (`bump(p,k,d,kind)`; older players get
+  base/tk/fm the first time a stat moves). From the research of 11 Nov 2026: skill does not change game to game,
+  shooting regresses to the mean, no between-game momentum (Vergin 2000), only fatigue carries over. Measured
   over 150 simulated seasons: the squad now explains ~5% of a season's results overall and ~20% within one manager
   style (was ~2% and ~3%); a typical gap between two squads is worth ~5 points of win rate (was ~1); the gap between
   the best and the worst manager style fell from 45 to ~40 points. Talking well remains the biggest lever (+19),
