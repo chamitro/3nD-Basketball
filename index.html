@@ -1052,10 +1052,10 @@ function renderHelp(){
   <p>Roughly in this order:</p>
   <ul><li><b>The players.</b> Dots and height, and whether the three on the court are the right three for the week's rule.</li>
   <li><b>Their state.</b> Mood, trust and energy, which you set with your talks and your rotation. Over a season this is the biggest difference between managers.</li>
-  <li><b>The plan.</b> Six dials, the star, and the half-time orders and talk, which tilt a close match one way or the other. No dial is good in itself: each pays against some teams and costs against others.</li>
+  <li><b>The plan.</b> Six dials, the star, the half-time orders and talk, and the trash talk, which tilt a close match one way or the other. No dial is good in itself: each pays against some teams and costs against others.</li>
   <li><b>Luck.</b> Every shot is a roll of the dice. A better team loses sometimes; over a league the better manager comes out on top.</li></ul>
   <h4><i>3</i>Talk to your players</h4>
-  <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>. There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
+  <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>, unless you are banned for trash talk (section 8). There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
   <ul><li>The same words do not work on everyone. Praise makes one player buzz and another anxious. Study each personality.</li>
   <li>Every player also has a secret <b>soft spot</b> (one talk that always works) and a <b>sore spot</b> (one that always backfires). You find them only by trying.</li>
   <li>The player's card remembers what you tried: ✓ worked, ✗ backfired, ~ nothing much.</li>
@@ -1081,7 +1081,7 @@ function renderHelp(){
   <h4><i>6</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>
-  <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game.</li>
+  <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game. Star ball is as good as your star's mood today: a buzzing or locked-in star pays, an anxious or sulking one sinks you. A double team on your star is answered by sharing the ball, so look at what the opponent did last time.</li>
   <li>Everything is saved the moment you set it, and stays from match to match until you change it. <b>Name three starters before every match:</b> a team without a line-up plays its three weakest players.</li>
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
