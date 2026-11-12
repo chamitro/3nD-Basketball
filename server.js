@@ -73,6 +73,13 @@ function newPlayers(n,avoid){
   for(let i=0;i<n;i++){const p=makePlayer();do{p.id=1+Math.floor(R()*2000000000);}while(ids.has(p.id));ids.add(p.id);out.push(p);}
   return out;
 }
+// the computer team's seven, like everyone's, fit under the cap: the best seven of a pool that do
+function capSeven(pool,cap){const ps=[...pool].sort((a,b)=>rating(b)-rating(a));const out=[];let v=0;
+  for(const p of ps){if(out.length<7&&v+valueOf(p)<=cap){out.push(p);v+=valueOf(p);}}
+  if(out.length===7)return out;
+  const cheap=[...pool].sort((a,b)=>valueOf(a)-valueOf(b)).slice(0,7);return squadValue(cheap)<=cap?cheap:null;}
+function houseSeven(avoid){for(let t=0;t<30;t++){const s=capSeven(newPlayers(14,avoid),CAP);if(s)return s;}return newPlayers(7,avoid);}
+const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+money(squadValue(ps))+' and the cap is '+money(cap)+'. Let a dearer player go.':null;
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
@@ -90,7 +97,7 @@ function newTeamRow(hash,name,players,leagueNo,now,kit){
   return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:kitOf(kit,name)},data};
 }
 function newHouseRow(leagueNo,now){
-  const t=makeTeam(CFG.HOUSE_NAME,newPlayers(7),false);t.skill=0.6;
+  const t=makeTeam(CFG.HOUSE_NAME,houseSeven(),false);t.skill=0.6;
   const top=[...t.players].sort((a,b)=>rating(b)-rating(a));t.starters=top.slice(0,3).map(p=>p.id);t.subs=top.slice(3,5).map(p=>p.id);t.ball=t.starters[0];
   return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:randomKit()},data:t};
 }
@@ -287,10 +294,12 @@ async function runMatchday(store,lg,now){
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.
     if(redraft)for(const t of [...all,...rows.filter(t=>t.is_house)]){   // `all` is every manager's team; the computer team is among the rows in play
-      if(t.is_house){t.data.players=fresh(7);firstLineup(t.data);t.data.orders=null;continue;}
+      if(t.is_house){const pool=fresh(14);t.data.players=capSeven(pool,CAP)||pool.slice(0,7);firstLineup(t.data);t.data.orders=null;continue;}
       if(!map.has(t.id)){rows.push(t);map.set(t.id,t);}
       t.data.redraft={after:lg.no,pool:fresh(14)};
     }
+    // the wage cap: the lower half of the table gets a little extra room for the next league, the rest none
+    for(const t of [...humans,...away]){const place=placeOf(t.id);t.data.capBonus=place>tbl.length/2?CAP_BONUS:0;}
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
@@ -354,15 +363,15 @@ async function makeView(store,row,lg,now,extra){
   if(row.next_opp){const o=await store.teamById(row.next_opp);
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
-      opp={id:o.id,name:o.name,kit:kitOf(o.pub.kit,o.name),house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
+      opp={id:o.id,name:o.name,kit:kitOf(o.pub.kit,o.name),sv:squadValue(o.data.players),house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
         starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null,sc:o.pub.sc&&o.pub.sc.lg===lg.no?o.pub.sc:null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
-    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
 
 // ───────────────────────── match reports ─────────────────────────
@@ -465,11 +474,12 @@ async function handle2(store,req,a,h,now){
       const mine=pool.players.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
+      {const e=overCap(mine,CAP);if(e)return {error:e};}
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
       // a name taken by a team that joined in the meantime is changed for a fresh one (looks and dots stay); the other
       // open pools do not count here, they were made to avoid this one
       {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);}}
-      const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);
+      const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);fresh.pub.sv=squadValue(mine);
       try{row=await store.insertTeam(fresh);}
       catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once
         row=await store.teamByKey(h);
@@ -528,6 +538,7 @@ async function handle2(store,req,a,h,now){
     if(d.redraft){   // the fresh draft: seven of the fourteen new players replace the whole squad
       const picks=Array.isArray(req.picks)?[...new Set(req.picks)]:[];const mine=d.redraft.pool.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven of the new players. (If you see no new players, update the game first.)'};
+      {const e=overCap(mine,capOf(d));if(e)return {error:e};}
       d.players=mine;firstLineup(d,lg.rule);d.sheet={...DEF_SHEET,...(d.sheet||{})};d.orders=null;d.teamTalked=false;d.heard={};delete d.redraft;
       const k=cleanKit(req.kit);if(k)row.pub={...row.pub,kit:k};
     }else if(outs.length||ins.length){
@@ -535,9 +546,10 @@ async function handle2(store,req,a,h,now){
       if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
       const agents=d.agents||[];
       if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
+      {const after=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));const e=overCap(after,capOf(d));if(e)return {error:e};}
       d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
     }
-    d.agents=[];if(d.final)d.final.seen=true;
+    d.agents=[];if(d.final)d.final.seen=true;row.pub={...row.pub,sv:squadValue(d.players)};
     if(out)d.vote=null;
     enforceRule(d,lg.rule);row.last_seen=now;
     if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent

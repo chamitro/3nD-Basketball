@@ -179,7 +179,19 @@ const SP_SHIFT=[0.6,0,0.3,0.6],BD_SP=[0.2,0,0.4];   // chance that the body move
 const TIRE_HT=[0.9,1,1.1,1.2],TIRE_BD=[0.9,1,1.2];   // how fast a body tires, in a match and from match to match: 0.81 (tiny, slim) to 1.44 (very tall, fat)
 const FAT={reb:0.5,team:0.03,inside:0.04};
 const TALL3=[0,0,0.03,0.06];   // what a long shot loses by height: real centres shoot worse from range than guards (Harry, 12 Nov 2026)
-const tall3=p=>p.ht===undefined?0:TALL3[p.ht];   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
+const tall3=p=>p.ht===undefined?0:TALL3[p.ht];
+// ───────────────────────── the wage cap ─────────────────────────
+// Every team has the same cap (Harry, 12 Nov 2026). A player's value comes from the dots they were drafted with (attack
+// most, then defence, then speed), their height and build, and a little from character; never from mood or form. The
+// cap binds every time a squad changes: the draft, the one change between leagues, the mid-season window. The lower half
+// of a table gets a little extra room for the next league. Values are shown as millions.
+const CAP=130,CAP_BONUS=8;   // seven average players are worth about 122: the cap leaves room for one dear player, not for seven
+const CHAR_VALUE={veteran:1,easygoing:0.5,hothead:-1,worrier:-0.5};
+function valueOf(p){const b=p.base||p;const dots=(b.sh||p.sh)*1.2+(b.df||p.df)+(b.sp||p.sp)*0.6;
+  return Math.max(6,Math.round(dots*2.2+p.h*4+(p.bd===2?1:0)+(CHAR_VALUE[p.temp]||0)));}
+const squadValue=ps=>(ps||[]).reduce((s,p)=>s+valueOf(p),0);
+const money=v=>'$'+v+'M';
+const capOf=d=>CAP+((d&&d.capBonus)||0);   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
 const bodyOf=p=>p.ht===undefined||p.bd===undefined?null:{ht:p.ht,bd:p.bd};
 const tireOf=p=>{const b=bodyOf(p);return b?TIRE_HT[b.ht]*TIRE_BD[b.bd]:1;};
 const isFat=p=>p.bd===2&&p.ht!==undefined;
