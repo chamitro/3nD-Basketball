@@ -248,6 +248,7 @@
       </div>
       <div class="card plan">
         <h3 id="planH">Game plan for Sunday</h3>
+        <div class="small" id="capNote" style="margin:-4px 0 8px"></div>
         <div class="dials">
           <div class="dial"><div class="lab">Tempo</div><div class="seg" data-k="tempo"><button>slow</button><button>steady</button><button>fast</button></div><div class="d" data-d="tempo"></div></div>
           <div class="dial"><div class="lab">Shots</div><div class="seg" data-k="shots"><button>inside</button><button>mixed</button><button>outside</button></div><div class="d" data-d="shots"></div></div>
@@ -1133,6 +1134,7 @@ function renderPlan(){
   const sn=S.me.subs.map(id=>byId(S.me,id)).filter(Boolean).map(q=>q.n);
   const idle=S.me.players.filter(q=>!S.me.starters.includes(q.id)&&!S.me.subs.includes(q.id)).map(q=>q.n);
   $('minsUI').innerHTML=minsHtml();wireMins();$('voteRoom').innerHTML=voteRoomHtml();wireVoteRoom();
+  {const myCap=(ONLINE&&V&&V.me&&V.me.cap)||CAP;$('capNote').innerHTML=`Squad value <b>${money(squadValue(S.me.players))}</b> of your <b>${money(myCap)}</b> cap${myCap>CAP?' ('+money(myCap-CAP)+' extra for finishing in the lower half)':''}. Room: ${money(myCap-squadValue(S.me.players))}.`;}
   $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires, if they are worth more on the court than the tired starter.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
   const op=nextOpp();if(op){const ov=oppView(op);
     $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`
