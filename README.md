@@ -103,7 +103,8 @@ free plan allows; the scheduled job fails loudly from 350 on).
   `bd` (0 slim, 1 normal, 2 fat); `h` and `bulk` follow from them (`HT_H`, `BD_BULK` in `engine.js`). A body tires by
   `TIRE_HT[ht]*TIRE_BD[bd]` (0.81 for tiny and slim to 1.44 for very tall and fat; set 12 Nov 2026 against real figures: bigs
   have a 21-26% lower aerobic capacity and play about a quarter fewer minutes than guards), both inside a match and in the
-  energy a match costs (`tireOf`). Speed follows the body as a tendency at creation (`SP_SHIFT` by height, `BD_SP` by build). A fat player takes more rebounds,
+  energy a match costs (`tireOf`). Speed follows the body as a tendency at creation (`SP_SHIFT` by height, `BD_SP` by build). Tall and very tall players lose
+  `TALL3[ht]` (0.03, 0.06) on every long shot, as real centres shoot worse from range. A fat player takes more rebounds,
   adds to the side's second shots and takes `FAT.inside` off close shots against them (`FAT`). Players from before the
   update have no `ht`/`bd` and none of this applies to them. Measured over 400 simulated leagues of computer teams (no rotation): a
   very tall player's side wins about 55% of the matches they play in, a tiny one's about 45% (the same spread as before

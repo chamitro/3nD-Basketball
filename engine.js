@@ -177,7 +177,9 @@ const HT_H=[0.08,0.38,0.68,0.94],BD_BULK=[0.08,0.5,0.95];
 // is a tendency of a dot, weight slows a little as well; height and weight both win rebounds.
 const SP_SHIFT=[0.6,0,0.3,0.6],BD_SP=[0.2,0,0.4];   // chance that the body moves the speed by a dot: tiny and slim up, tall, very tall and fat down
 const TIRE_HT=[0.9,1,1.1,1.2],TIRE_BD=[0.9,1,1.2];   // how fast a body tires, in a match and from match to match: 0.81 (tiny, slim) to 1.44 (very tall, fat)
-const FAT={reb:0.5,team:0.03,inside:0.04};   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
+const FAT={reb:0.5,team:0.03,inside:0.04};
+const TALL3=[0,0,0.03,0.06];   // what a long shot loses by height: real centres shoot worse from range than guards (Harry, 12 Nov 2026)
+const tall3=p=>p.ht===undefined?0:TALL3[p.ht];   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
 const bodyOf=p=>p.ht===undefined||p.bd===undefined?null:{ht:p.ht,bd:p.bd};
 const tireOf=p=>{const b=bodyOf(p);return b?TIRE_HT[b.ht]*TIRE_BD[b.bd]:1;};
 const isFat=p=>p.bd===2&&p.ht!==undefined;
@@ -395,7 +397,7 @@ function playMatch(A,B,ruleKey){
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
     const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
-    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
+    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0)-tall3(shooter);}   // the big ones shoot worse from range
     else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
