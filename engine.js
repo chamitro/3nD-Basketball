@@ -170,8 +170,13 @@ const CHEEKS=['none','freckles','blush','plaster','mole'];
 const HEIGHTS=['tiny','medium','tall','very tall'],BUILDS=['slim','normal','fat'];
 const HT_ODDS=[0.2,0.35,0.3,0.15],BD_ODDS=[0.3,0.45,0.25];
 const HT_H=[0.08,0.38,0.68,0.94],BD_BULK=[0.08,0.5,0.95];
-const SP_SHIFT=[0.8,0,0.4,0.8];   // chance that the height moves the speed by a dot: tiny up, tall and very tall down
-const TIRE_HT=[0.7,0.92,1.15,1.4],TIRE_BD=[0.85,1,1.25];   // how fast a body tires, in a match and from match to match
+// Set against real basketball (12 Nov 2026): bigs are 6-12% taller and 17-25% heavier than guards, have a 21-26% lower
+// aerobic capacity and slower repeated sprints, and play about a quarter fewer minutes (EuroLeague centres ~21 of 40,
+// guards ~28); guards cover almost twice the high-intensity distance. So a typical big tires about a quarter faster than
+// a typical guard, the extremes (very tall and fat against tiny and slim) not quite twice as fast; the height-speed link
+// is a tendency of a dot, weight slows a little as well; height and weight both win rebounds.
+const SP_SHIFT=[0.6,0,0.3,0.6],BD_SP=[0.2,0,0.4];   // chance that the body moves the speed by a dot: tiny and slim up, tall, very tall and fat down
+const TIRE_HT=[0.9,1,1.1,1.2],TIRE_BD=[0.9,1,1.2];   // how fast a body tires, in a match and from match to match: 0.81 (tiny, slim) to 1.44 (very tall, fat)
 const FAT={reb:0.5,team:0.03,inside:0.04};   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
 const bodyOf=p=>p.ht===undefined||p.bd===undefined?null:{ht:p.ht,bd:p.bd};
 const tireOf=p=>{const b=bodyOf(p);return b?TIRE_HT[b.ht]*TIRE_BD[b.bd]:1;};
@@ -194,7 +199,7 @@ function makePlayer0(){
   // speed follows the height as a tendency, not a rule: after the dots are drawn, a tiny player usually gains a dot of
   // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
   let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
-  if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);
+  if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);if(R()<BD_SP[bd])sp=clamp(sp+(bd===0?1:-1),1,4);
   return {id:NEXT_ID++,n:makeName(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
     hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
     socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),

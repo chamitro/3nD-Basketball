@@ -101,13 +101,14 @@ free plan allows; the scheduled job fails loudly from 350 on).
   plan, line-up and orders are set as usual (Harry's rule, 10 Nov 2026). The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
 - Body types (Winter League 2026/27, Harry 12 Nov 2026): a player has a height `ht` (0 tiny .. 3 very tall) and a build
   `bd` (0 slim, 1 normal, 2 fat); `h` and `bulk` follow from them (`HT_H`, `BD_BULK` in `engine.js`). A body tires by
-  `TIRE_HT[ht]*TIRE_BD[bd]` (0.6 for tiny and slim to 1.75 for very tall and fat), both inside a match and in the energy a
-  match costs (`tireOf`). Speed follows the height as a tendency at creation (`SP_SHIFT`). A fat player takes more rebounds,
+  `TIRE_HT[ht]*TIRE_BD[bd]` (0.81 for tiny and slim to 1.44 for very tall and fat; set 12 Nov 2026 against real figures: bigs
+  have a 21-26% lower aerobic capacity and play about a quarter fewer minutes than guards), both inside a match and in the
+  energy a match costs (`tireOf`). Speed follows the body as a tendency at creation (`SP_SHIFT` by height, `BD_SP` by build). A fat player takes more rebounds,
   adds to the side's second shots and takes `FAT.inside` off close shots against them (`FAT`). Players from before the
-  update have no `ht`/`bd` and none of this applies to them. Measured over 400 simulated leagues of computer teams: a
+  update have no `ht`/`bd` and none of this applies to them. Measured over 400 simulated leagues of computer teams (no rotation): a
   very tall player's side wins about 55% of the matches they play in, a tiny one's about 45% (the same spread as before
-  the update, 54 to 44), fat about 1.5 points more than slim; tall and fat players start a match with about 0.6 energy
-  dots less than tiny ones.
+  the update, 54 to 44: height wins close shots and rebounds), fat about 1.5 points more than slim; very tall players
+  start a match with about 0.5 energy dots less than tiny ones.
 - Every player is one of a kind: `takenNames` collects every name on every team, in free agents, in fresh-draft pools and in the
   draft pools still open; new pools and new players are made against it, and at `join` a name taken in the meantime is swapped
   for a fresh one (Harry, 12 Nov 2026).
