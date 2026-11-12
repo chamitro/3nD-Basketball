@@ -11,6 +11,7 @@ const CFG={
   LEAGUE_MATCHES:13,      // length of the leagues before SEASONS_FROM: 13 match days, so that 13 or 14 teams all meet each other once (League 1: Sun 8 Nov - Sun 6 Dec 2026)
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
+  REDRAFT_AFTER:[1],      // when one of these leagues ends, every team drafts seven new players from fourteen instead of changing one (League 1: the switch to the players with body types, Harry 12 Nov 2026)
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
@@ -66,21 +67,23 @@ function newPlayers(n,avoid){
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
-function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,col:p.col,top:p.top,shape:p.shape,num:p.num,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+// a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
+function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
-function newTeamRow(hash,name,players,leagueNo,now){
+function newTeamRow(hash,name,players,leagueNo,now,kit){
   const top=[...players].sort((a,b)=>rating(b)-rating(a));
   const data={name,players,starters:top.slice(0,3).map(p=>p.id),subs:top.slice(3,5).map(p=>p.id),
     ball:top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id,sheet:{...DEF_SHEET},teamTalked:false,vote:null,last:null,final:null,agents:[],won:0,played:0};
-  return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{},data};
+  return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:kitOf(kit,name)},data};
 }
 function newHouseRow(leagueNo,now){
   const t=makeTeam(CFG.HOUSE_NAME,newPlayers(7),false);t.skill=0.6;
   const top=[...t.players].sort((a,b)=>rating(b)-rating(a));t.starters=top.slice(0,3).map(p=>p.id);t.subs=top.slice(3,5).map(p=>p.id);t.ball=t.starters[0];
-  return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{},data:t};
+  return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:randomKit()},data:t};
 }
 const standing=(a,b)=>b.pts-a.pts||(b.pf-b.pa)-(a.pf-a.pa)||(a.name<b.name?-1:1);
 
@@ -236,11 +239,11 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppKit:kitOf(Y.pub.kit,Y.name),oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
       X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half,trash:sent?sent.line:null}};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs)};
+      rec.detail[X===A?'a':'b']={kit:kitOf(X.pub.kit,X.name),sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs)};
     }
     matches.push(rec);
   }
@@ -263,12 +266,20 @@ async function runMatchday(store,lg,now){
     const all=(await store.allTeams()).map(t=>map.get(t.id)||t);
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
     for(const t of away){rows.push(t);map.set(t.id,t);}
+    const redraft=CFG.REDRAFT_AFTER.includes(lg.no);
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
       t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,seen:false};
       t.data.played=(t.data.played||0)+1;if(place===1)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
-      t.data.agents=newPlayers(7,t.data.players.map(p=>p.n));
+      t.data.agents=redraft?[]:newPlayers(7,t.data.players.map(p=>p.n));
+    }
+    // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
+    // its way into the next league. The old squad stays until then; the computer team simply gets new players.
+    if(redraft)for(const t of [...all,...rows.filter(t=>t.is_house)]){   // `all` is every manager's team; the computer team is among the rows in play
+      if(t.is_house){t.data.players=newPlayers(7);firstLineup(t.data);t.data.orders=null;continue;}
+      if(!map.has(t.id)){rows.push(t);map.set(t.id,t);}
+      t.data.redraft={after:lg.no,pool:newPlayers(14)};
     }
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
@@ -333,15 +344,15 @@ async function makeView(store,row,lg,now,extra){
   if(row.next_opp){const o=await store.teamById(row.next_opp);
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
-      opp={id:o.id,name:o.name,house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
+      opp={id:o.id,name:o.name,kit:kitOf(o.pub.kit,o.name),house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
         starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null,sc:o.pub.sc&&o.pub.sc.lg===lg.no?o.pub.sc:null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
-    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
 
 // ───────────────────────── match reports ─────────────────────────
@@ -354,7 +365,7 @@ async function roundView(store,req){
   const rows=await store.roundMatches(L,M,ROUND_MAX+1);
   if(!rows.length)return {none:true,league:L,match:M};
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
-  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
+  const side=d=>({kit:(d&&d.kit)||null,sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
   const d0=rows[0].detail||{};
   return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
@@ -445,7 +456,7 @@ async function handle2(store,req,a,h,now){
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
-      const fresh=newTeamRow(h,name,mine,lg.no,now);enforceRule(fresh.data,lg.rule);
+      const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);
       try{row=await store.insertTeam(fresh);}
       catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once
         row=await store.teamByKey(h);
@@ -494,11 +505,19 @@ async function handle2(store,req,a,h,now){
   }else if(a==='vote'){
     if(![0,1,2].includes(req.i))return {error:'bad vote'};
     d.vote=req.i;dirty=true;
+  }else if(a==='kit'){   // the team's two colours and its badge; may be changed at any time, it changes nothing in a match
+    const k=cleanKit(req.kit);if(!k)return {error:'Pick two different colours and a badge.'};
+    row.pub={...row.pub,kit:k};dirty=true;
   }else if(a==='enter'||a==='swap'){   // enter the league that is running now, changing a player on the way in if the last league just ended ('swap' is what older copies of the game send)
     const fresh=!!(d.final&&!d.final.seen);   // this team finished a league and has not started another since
     if(!out&&!fresh)return a==='enter'?makeView(store,row,lg,now,null):{error:'No swaps now. They open when a league ends.'};
     const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
-    if(outs.length||ins.length){
+    if(d.redraft){   // the fresh draft: seven of the fourteen new players replace the whole squad
+      const picks=Array.isArray(req.picks)?[...new Set(req.picks)]:[];const mine=d.redraft.pool.filter(p=>picks.includes(p.id));
+      if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven of the new players. (If you see no new players, update the game first.)'};
+      d.players=mine;firstLineup(d,lg.rule);d.sheet={...DEF_SHEET,...(d.sheet||{})};d.orders=null;d.teamTalked=false;d.heard={};delete d.redraft;
+      const k=cleanKit(req.kit);if(k)row.pub={...row.pub,kit:k};
+    }else if(outs.length||ins.length){
       if(!fresh)return {error:'No player changes now. They open when a league you played in ends.'};
       if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
       const agents=d.agents||[];

@@ -148,15 +148,56 @@ function cleanOrders(team,rule){
 const orderWords=(o,team)=>!o||!o.k?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
 
 // ───────────────────────── players & teams ─────────────────────────
-const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7'];
-const TOPS=['bun','band','cap','horns','antenna','mohawk','tuft','propeller','cone','duck','sprout','crown','pan'];
+const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7',
+  '#f6c9a0','#e0a878','#c68642','#9c6b43','#7a5236','#d0bfff','#b2f2bb','#ffe3a3','#c5d0e6','#f1aeb5','#9bd4c8','#e8d5b0'];   // the last twelve (skin and pastel tones) came with the players update of the Winter League 2026/27
+const TOPS=['bun','band','cap','horns','antenna','mohawk','tuft','propeller','cone','duck','sprout','crown','pan',
+  'afro','spikes','ponytail','flat','beanie','curls','visor','bald','bow','feather','sidepart'];
 const SHAPES=['pill','pill','pear','bean'];
+// Looks that came with the players update: hair colour, beard, glasses, sweatbands, socks, shoes, cheeks. Numbers into
+// these lists are kept with the player; the page draws them (toon in index.html).
+const HAIRS=['#2b2233','#5c3a21','#a0522d','#e8b04a','#d9480f','#f1f3f5','#ff6fb5','#3bc9db'];
+const BEARDS=['none','moustache','goatee','beard','stubble'];
+const SPECS=['none','glasses','shades','goggles'];
+const ACCS=['none','headband','wristbands','both'];
+const SOCKS=['none','short','high','striped'];
+const SHOES=['#ffffff','#2b2233','#ff6b6b','#ffd43b','#4dabf7','#69db7c'];
+const CHEEKS=['none','freckles','blush','plaster','mole'];
+// Body types (Harry, 12 Nov 2026): four heights by three builds, drawn so that they can be seen, and they matter.
+//   height (`ht`): tall players tire faster and tend to be slow, tiny ones tire slower and tend to be quick
+//   build (`bd`): fat players tire faster but rebound better and are tougher to score on close to the hoop; slim ones tire slower
+// `h` (0..1, used by every height rule of the match) and `bulk` (0..1, the drawing) follow from them.
+// Players from before the update have no `ht`/`bd`: for them nothing changes (TIRE 1, no fat rules).
+const HEIGHTS=['tiny','medium','tall','very tall'],BUILDS=['slim','normal','fat'];
+const HT_ODDS=[0.2,0.35,0.3,0.15],BD_ODDS=[0.3,0.45,0.25];
+const HT_H=[0.08,0.38,0.68,0.94],BD_BULK=[0.08,0.5,0.95];
+const SP_SHIFT=[0.8,0,0.4,0.8];   // chance that the height moves the speed by a dot: tiny up, tall and very tall down
+const TIRE_HT=[0.7,0.92,1.15,1.4],TIRE_BD=[0.85,1,1.25];   // how fast a body tires, in a match and from match to match
+const FAT={reb:0.5,team:0.03,inside:0.04};   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
+const bodyOf=p=>p.ht===undefined||p.bd===undefined?null:{ht:p.ht,bd:p.bd};
+const tireOf=p=>{const b=bodyOf(p);return b?TIRE_HT[b.ht]*TIRE_BD[b.bd]:1;};
+const isFat=p=>p.bd===2&&p.ht!==undefined;
+const bodyWords=p=>{const b=bodyOf(p);return b?HEIGHTS[b.ht]+(b.bd===1?'':' and '+BUILDS[b.bd]):'';};
+const odds=a=>{let x=R();for(let i=0;i<a.length;i++){x-=a[i];if(x<=0)return i;}return a.length-1;};
+// Team kits: two colours and a badge, chosen by the manager (a team without one gets a kit from its name).
+const KIT_COLS=['#e03131','#f76707','#f59f00','#ffd43b','#74b816','#2f9e44','#0ca678','#1098ad','#1c7ed6','#3b5bdb','#7048e8','#ae3ec9','#d6336c','#f783ac','#ffffff','#ced4da','#495057','#212529','#7f5539','#0b3d91'];
+const BADGES=['🦉','🦁','🔥','🏀','🐺','🦅','🐻','🐝','🦈','🐉','⚡','⭐','🌵','🍕','🚀','👑','🐙','🦊','🐸','🌙','💀','🐢','🦄','🍩'];
+function cleanKit(k){if(!k||typeof k!=='object')return null;const a=k.a,b=k.b,g=k.g;
+  if(!Number.isInteger(a)||!Number.isInteger(b)||!Number.isInteger(g)||a<0||b<0||g<0||a>=KIT_COLS.length||b>=KIT_COLS.length||g>=BADGES.length||a===b)return null;return {a,b,g};}
+function nameKit(name){let x=7;for(const ch of String(name||''))x=(x*31+ch.codePointAt(0))%1000003;const a=x%KIT_COLS.length;let b=Math.floor(x/20)%KIT_COLS.length;if(b===a)b=(b+7)%KIT_COLS.length;return {a,b,g:Math.floor(x/400)%BADGES.length};}
+const kitOf=(kit,name)=>cleanKit(kit)||nameKit(name);
+const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R()*KIT_COLS.length);if(b===a)b=(b+1)%KIT_COLS.length;return {a,b,g:Math.floor(R()*BADGES.length)};};
 let NEXT_ID=1;
 function makePlayer(){const q=makePlayer0();quirks(q);return q;}
 function makePlayer0(){
-  const temp=pick(TEMPKEYS);const h=R();
-  let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
-  return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+  const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
+  const h=clamp(HT_H[ht]+(R()-0.5)*0.1,0,1),d4=()=>1+Math.floor(R()*4);
+  // speed follows the height as a tendency, not a rule: after the dots are drawn, a tiny player usually gains a dot of
+  // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
+  let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
+  if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);
+  return {id:NEXT_ID++,n:makeName(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+    hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
+    socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
     sh,df,sp,base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
@@ -178,7 +219,7 @@ function bump(p,k,d,kind){
   const before=Math.round(p[k]);p[k]=clamp(clamp(p.base[k]+p.tk[k]+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
 // match form fades a little every week; the talks' part stays
 function fadeForm(p){if(!p.fm||!p.base)return;for(const k of ['sh','df','sp']){if(!p.fm[k])continue;p.fm[k]*=1-FORM_FADE;if(Math.abs(p.fm[k])<0.01)p.fm[k]=0;p[k]=clamp(clamp(p.base[k]+(p.tk&&p.tk[k]||0)+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);}}
-function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
+function makeTeam(name,players,human){return {name,players,kit:randomKit(),starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 // ───────────────────────── playing time ─────────────────────────
 // A manager may give each of the five named players a share of the match in quarters (none, a quarter, a half, three
@@ -350,7 +391,7 @@ function playMatch(A,B,ruleKey){
     const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
     if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
-    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn;}
+    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
@@ -377,14 +418,14 @@ function playMatch(A,B,ruleKey){
       let kept=false;
       if(!second){
         const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
-        const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
-        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)).id].reb++;possession(O,D,late,true);}
+        const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length)+FAT.team*(O.court.filter(isFat).length-D.court.filter(isFat).length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
+        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)+(isFat(p)?FAT.reb:0)).id].reb++;possession(O,D,late,true);}
       }
-      if(!kept)D.st[wpick(D.court,p=>0.25+p.h+(ds.boards===0?0.3:0)).id].reb++;
+      if(!kept)D.st[wpick(D.court,p=>0.25+p.h+(ds.boards===0?0.3:0)+(isFat(p)?FAT.reb:0)).id].reb++;
     }
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+tireOf(p)*(0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)));}}   // big and heavy bodies tire faster
   // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
   // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
   // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
@@ -659,7 +700,7 @@ function energyAfter(team,X){
   for(const p of team.players){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
-    p.en=clamp(p.enWas-ENERGY.COST*hard*share+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);
+    p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);   // the body's tiring rate on the cost, the night's recovery for everybody
   }
 }
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)

@@ -99,5 +99,22 @@ free plan allows; the scheduled job fails loudly from 350 on).
   heard this manager before, `data.heard`, is harder to rattle). The sender gets `data.ban = 1` (and `banFor`): talk, team talk and
   trash talk are refused and the half-time talk is skipped (`half.gagged`) until the next match is played; the
   plan, line-up and orders are set as usual (Harry's rule, 10 Nov 2026). The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
+- Body types (Winter League 2026/27, Harry 12 Nov 2026): a player has a height `ht` (0 tiny .. 3 very tall) and a build
+  `bd` (0 slim, 1 normal, 2 fat); `h` and `bulk` follow from them (`HT_H`, `BD_BULK` in `engine.js`). A body tires by
+  `TIRE_HT[ht]*TIRE_BD[bd]` (0.6 for tiny and slim to 1.75 for very tall and fat), both inside a match and in the energy a
+  match costs (`tireOf`). Speed follows the height as a tendency at creation (`SP_SHIFT`). A fat player takes more rebounds,
+  adds to the side's second shots and takes `FAT.inside` off close shots against them (`FAT`). Players from before the
+  update have no `ht`/`bd` and none of this applies to them. Measured over 400 simulated leagues of computer teams: a
+  very tall player's side wins about 55% of the matches they play in, a tiny one's about 45% (the same spread as before
+  the update, 54 to 44), fat about 1.5 points more than slim; tall and fat players start a match with about 0.6 energy
+  dots less than tiny ones.
+- Looks: `hair`, `beard`, `specs`, `acc` (sweatbands), `socks`, `shoe`, `cheek` are numbers into lists in `engine.js`,
+  drawn by `toon` in `index.html`; they change nothing in a match.
+- Team kit: two colours and a badge (`KIT_COLS`, `BADGES`, `cleanKit`), kept in `pub.kit`; a team without one gets a kit
+  from its name (`nameKit`). Chosen at the draft, changed with action `kit {kit:{a,b,g}}`, copied into each match record.
+- The fresh draft: when a league listed in `CFG.REDRAFT_AFTER` ends (League 1), every team gets `data.redraft.pool`,
+  fourteen new players, instead of free agents. `enter` then needs `picks` (seven of them), which replace the whole
+  squad; the old squad stays until then. The computer team simply gets new players. Only this once: later leagues end
+  with the usual one change.
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.

@@ -106,6 +106,13 @@
   .cand.in{background:var(--yellow)} .cand.out{background:#ffc9c9}
   .cand canvas{width:100%;height:auto;display:block}
   .cand .nm{font-size:17px;font-weight:900}
+  .cand .bdy{font-size:12px;font-weight:800;margin-top:3px}
+  .kit{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2.5px solid var(--ink);font-size:12px;line-height:1;vertical-align:middle;margin-right:6px;flex:none;font-style:normal}
+  .kitpick .sw{display:flex;flex-wrap:wrap;gap:7px;margin:5px 0 12px}
+  .kitpick .sw button{width:36px;height:36px;padding:0;border-radius:50%;box-shadow:0 3px 0 var(--ink);font-size:18px;line-height:1}
+  .kitpick .sw button.on{outline:4px solid var(--pink);outline-offset:2px}
+  .kitpick .sw button.bdg{border-radius:12px;background:var(--card)}
+  .kitpick .sw button.bdg.on{background:var(--yellow)}
   .cand .h{font-size:12px;font-weight:600;color:var(--soft);min-height:32px;margin-top:3px}
   .chr{display:inline-block;border:2px solid var(--ink);border-radius:999px;padding:0 9px;font-size:12px;font-weight:800;color:var(--ink);font-style:normal}
   .mark{font-size:13px;margin-left:4px}
@@ -291,7 +298,7 @@ function newGame(){
 }
 function startLeague(teamName){
   const mine=S.pool.filter(p=>p.picked).map(p=>{delete p.picked;return p;});
-  const me=makeTeam(teamName||'The Harbour Seven',mine,true);
+  const me=makeTeam(teamName||'The Harbour Seven',mine,true);if(cleanKit(S.draftKit))me.kit=S.draftKit;
   S.teams=[me];
   for(const nm of [...TEAM_NAMES].sort(()=>R()-0.5).slice(0,7)){const ps=[];for(let i=0;i<7;i++){const p=makePlayer();p.mood=pick(['ok','ok','happy','cool','nervous','sad','angry']);p.trust=Math.floor(R()*3)-1;ps.push(p);}S.teams.push(makeTeam(nm,ps,false));}
   S.me=me;S.pool=[];
@@ -410,7 +417,7 @@ function applyView(v){
   const me={...v.me,human:true};
   if(S.me)for(const p of me.players){const o=S.me.players.find(q=>q.id===p.id);if(o){p.x=o.x;p.y=o.y;p.s=o.s;}}   // keep them where they stand in the gym
   S.me=me;S.pool=[];
-  S.teams=v.table.map(t=>t.id===me.id?me:{id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,players:[],human:false});
+  S.teams=v.table.map(t=>t.id===me.id?me:{id:t.id,name:t.name,kit:t.kit,w:t.w,l:t.l,pf:t.pf,pa:t.pa,players:[],human:false});
   S.out=!!me.out;   // the running league is one this team has not entered
   if(!S.teams.includes(me)&&!S.out)S.teams.push(me);
   S.opp=null;
@@ -423,8 +430,9 @@ function applyView(v){
   S.lastResults=last?{list:res.list,rule:last.rule}:null;
   const seen=+(localStorage.getItem('b3seen')||0);
   if(last&&resKey(last)>seen){S.phase='results';S.results=res;}
-  else if(me.out||(me.final&&!me.final.seen)){const fresh=!!(me.final&&!me.final.seen);if(S.phase!=='cupend'){S.swapOut=[];S.swapIn=[];}S.phase='cupend';S.agents=fresh?me.agents||[]:[];S.finalPlace=me.final?me.final.place:0;S.champion=me.final?me.final.champion:'';}
+  else if(me.out||(me.final&&!me.final.seen)){const fresh=!!(me.final&&!me.final.seen);if(S.phase!=='cupend'){S.swapOut=[];S.swapIn=[];S.rePicks=[];S.kitPreview=null;}S.phase='cupend';S.agents=fresh?me.agents||[]:[];S.finalPlace=me.final?me.final.place:0;S.champion=me.final?me.final.champion:'';}
   else{S.phase='week';S.results=null;}
+  if(S.phase!=='cupend')S.kitPreview=null;
   if(!byId(me,S.sel))S.sel=me.players[0].id;
 }
 // any action that changes the screen: ask, then draw the answer
@@ -614,16 +622,32 @@ function teamTalk(tone){
 function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),4200);}
 
 // ───────────────────────── toon painter ─────────────────────────
+const lum=hex=>{const n=parseInt(hex.slice(1),16);return (0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))/255;};
+const inkOn=hex=>lum(hex)>0.45?INK:'#fff';
+// the kit the players on the screen wear: the manager's own, or the one being chosen at the draft
+function KIT(){return S.kitPreview?kitOf(S.kitPreview,''):S.me?kitOf(S.me.kit,S.me.name):kitOf(S.draftKit,'');}
+// a team's badge on its two colours, to stand next to its name
+const kitChip=k=>{if(!k)return '';k=kitOf(k,'');return `<i class="kit" style="background:linear-gradient(135deg,${KIT_COLS[k.a]} 50%,${KIT_COLS[k.b]} 50%)">${BADGES[k.g]}</i>`;};
+// the three choices of a kit: shirt colour, trim colour, badge. `set` is called with the new kit.
+function kitPickerHtml(k){k=kitOf(k,'');const sw=(f,other)=>KIT_COLS.map((c,i)=>`<button type="button" class="${i===k[f]?'on':''}" data-f="${f}" data-i="${i}" style="background:${c}" ${i===other?'disabled':''} aria-label="colour ${i+1}"></button>`).join('');
+  return `<div class="kitpick"><div class="small" style="margin:0"><b>Shirt</b></div><div class="sw">${sw('a',k.b)}</div><div class="small" style="margin:0"><b>Trim and shorts</b></div><div class="sw">${sw('b',k.a)}</div><div class="small" style="margin:0"><b>Badge</b></div><div class="sw">${BADGES.map((b,i)=>`<button type="button" class="bdg ${i===k.g?'on':''}" data-f="g" data-i="${i}">${b}</button>`).join('')}</div></div>`;}
+function wireKitPicker(root,cur,set){root.querySelectorAll('.kitpick button').forEach(b=>b.onclick=()=>{const k={...kitOf(cur(),'')};k[b.dataset.f]=+b.dataset.i;if(cleanKit(k))set(k);});}
+// what a body means, in words (players from before the body types only have a height)
+const bodyLine=p=>{const b=bodyOf(p);if(!b)return cap(heightWord(p.h))+'.';const t=tireOf(p);
+  return cap(bodyWords(p))+'. '+(t>=1.3?'Tires fast.':t>=1.08?'Tires faster than most.':t<=0.75?'Hardly tires.':t<=0.92?'Tires slower than most.':'Tires like most.')+(b.bd===2?' Strong on rebounds and hard to score on under the hoop.':'');};
+const EMOJI='"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 function bodyPath(c,bx,top,W,H,shape){
   c.beginPath();
-  if(shape==='pear'){const r1=W*0.34,bw=W*0.62,bh=W*0.42,bot=top+H;c.moveTo(bx-r1,top+r1);c.arc(bx,top+r1,r1,Math.PI,0);c.bezierCurveTo(bx+r1,top+H*0.45,bx+bw,top+H*0.5,bx+bw,bot-bh);c.ellipse(bx,bot-bh,bw,bh,0,0,Math.PI);c.bezierCurveTo(bx-bw,top+H*0.5,bx-r1,top+H*0.45,bx-r1,top+r1);}
-  else{const r=W/2;c.moveTo(bx-r,top+r);c.arc(bx,top+r,r,Math.PI,0);c.lineTo(bx+r,top+H-r);c.arc(bx,top+H-r,r,0,Math.PI);}
+  if(shape==='pear'&&H>W*1.05){const r1=W*0.34,bw=W*0.62,bh=W*0.42,bot=top+H;c.moveTo(bx-r1,top+r1);c.arc(bx,top+r1,r1,Math.PI,0);c.bezierCurveTo(bx+r1,top+H*0.45,bx+bw,top+H*0.5,bx+bw,bot-bh);c.ellipse(bx,bot-bh,bw,bh,0,0,Math.PI);c.bezierCurveTo(bx-bw,top+H*0.5,bx-r1,top+H*0.45,bx-r1,top+r1);}
+  else{const r=Math.min(W,H)/2,x0=bx-W/2,x1=bx+W/2;   // a pill; a body that is wider than it is tall becomes a ball
+    c.moveTo(x0,top+r);c.arcTo(x0,top,x0+r,top,r);c.lineTo(x1-r,top);c.arcTo(x1,top,x1,top+r,r);c.lineTo(x1,top+H-r);c.arcTo(x1,top+H,x1-r,top+H,r);c.lineTo(x0+r,top+H);c.arcTo(x0,top+H,x0,top+H-r,r);}
   c.closePath();
 }
 function pillH(c,x,y,w,h){const r=h/2;c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arc(x+w-r,y+r,r,-Math.PI/2,Math.PI/2);c.lineTo(x+r,y+h);c.arc(x+r,y+r,r,Math.PI/2,Math.PI*1.5);c.closePath();}
 function toon(c,p,x,y,s,t,o){
   o=o||{};
-  const H=(70+p.h*60)*s,W=(50+p.bulk*30)*s,leg=20*s,lw=4*s;
+  const H=(58+p.h*78)*s,W=(44+p.bulk*44)*s,leg=20*s,lw=4*s;   // height and build are drawn for real: tiny to very tall, slim to fat
+  const K=o.kit||KIT(),KA=KIT_COLS[K.a],KB=KIT_COLS[K.b],HC=p.hair===undefined?null:HAIRS[p.hair];
   const mood=o.mood||p.mood;
   let bob=Math.sin(t*3+p.ph)*2.5*s,shake=0,sq=1+Math.sin(t*3+p.ph)*0.02,wob=0.25;
   if(mood==='happy'){bob=-Math.abs(Math.sin(t*5+p.ph))*11*s;sq=1+Math.sin(t*10+p.ph*2)*0.04;wob=0.5;}
@@ -637,11 +661,13 @@ function toon(c,p,x,y,s,t,o){
   c.save();c.lineJoin='round';c.lineCap='round';c.strokeStyle=INK;c.lineWidth=lw;
   c.fillStyle='rgba(43,34,51,.18)';c.beginPath();c.ellipse(x,y+3*s,Math.max(8,W*0.62+bob*0.3),7*s,0,0,Math.PI*2);c.fill();
   // legs + big sneakers
-  for(const d of [-1,1]){const lx=bx+d*W*0.22;const fy=y-3*s+(bob<0?bob*0.5:0);c.beginPath();c.moveTo(lx,bot-6*s);c.lineTo(lx,fy-2*s);c.stroke();c.fillStyle=d<0?'#fff':'#fff';c.beginPath();c.ellipse(lx+4*s,fy,12*s,7*s,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=p.col;c.beginPath();c.ellipse(lx+9*s,fy-1*s,4*s,3*s,0,0,Math.PI*2);c.fill();}
+  for(const d of [-1,1]){const lx=bx+d*W*0.22;const fy=y-3*s+(bob<0?bob*0.5:0);c.beginPath();c.moveTo(lx,bot-6*s);c.lineTo(lx,fy-2*s);c.stroke();
+    if(p.socks){const sl=[0,5,10,10][p.socks]*s;c.lineWidth=lw*2.3;c.beginPath();c.moveTo(lx,fy-4*s-sl);c.lineTo(lx,fy-4*s);c.stroke();c.lineWidth=lw*1.3;c.strokeStyle=p.socks===3?KA:'#fff';c.stroke();if(p.socks===3){c.strokeStyle=KB;c.beginPath();c.moveTo(lx,fy-4*s-sl*0.75);c.lineTo(lx,fy-4*s-sl*0.4);c.stroke();}c.strokeStyle=INK;c.lineWidth=lw;}
+    c.fillStyle=p.shoe===undefined?'#fff':SHOES[p.shoe];c.beginPath();c.ellipse(lx+4*s,fy,12*s,7*s,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=p.shoe===undefined?p.col:KB;c.beginPath();c.ellipse(lx+9*s,fy-1*s,4*s,3*s,0,0,Math.PI*2);c.fill();}
   c.translate(bx,bot);c.rotate(lean);c.translate(-bx,-bot);
   // arms
   const armY=top+H*sq*0.55;const L=24*s;
-  const arm=(d,ang,len)=>{const ax=bx+d*W*0.47,ay=armY;const ex=ax+Math.cos(ang)*len*d,ey=ay+Math.sin(ang)*len;c.beginPath();c.moveTo(ax,ay);c.quadraticCurveTo(ax+d*len*0.6,ay+len*0.1,ex,ey);c.stroke();c.fillStyle=p.col;c.beginPath();c.arc(ex,ey,5.5*s,0,Math.PI*2);c.fill();c.stroke();return [ex,ey];};
+  const arm=(d,ang,len)=>{const ax=bx+d*W*0.47,ay=armY;const ex=ax+Math.cos(ang)*len*d,ey=ay+Math.sin(ang)*len;c.beginPath();c.moveTo(ax,ay);c.quadraticCurveTo(ax+d*len*0.6,ay+len*0.1,ex,ey);c.stroke();if(p.acc>=2){const wx=lerp(ax,ex,0.72)+d*len*0.07,wy=lerp(ay,ey,0.72);c.fillStyle=KB;c.beginPath();c.arc(wx,wy,3.6*s,0,Math.PI*2);c.fill();c.lineWidth=lw*0.6;c.stroke();c.lineWidth=lw;}c.fillStyle=p.col;c.beginPath();c.arc(ex,ey,5.5*s,0,Math.PI*2);c.fill();c.stroke();return [ex,ey];};
   const hasBall=o.ball&&mood!=='happy'&&mood!=='angry'&&mood!=='sad';
   if(mood==='happy'){arm(-1,-1.1+Math.sin(t*10)*0.2,L);arm(1,-1.1-Math.sin(t*10)*0.2,L);}
   else if(mood==='angry'){arm(-1,0.9,L*0.7);arm(1,0.9,L*0.7);}
@@ -649,16 +675,23 @@ function toon(c,p,x,y,s,t,o){
   else if(yawn){arm(-1,1.2,L);arm(1,-1.2,L);}
   else{arm(-1,1.2+Math.sin(t*3+p.ph)*0.1,L);const h=arm(1,hasBall?0.5:1.2-Math.sin(t*3+p.ph)*0.1,L);
     if(hasBall){const bb=Math.abs(Math.sin(t*4+p.ph));const by=lerp(y-9*s,h[1]+10*s,bb);c.fillStyle='#ff8c2a';c.beginPath();c.arc(h[0]+4*s,by,9*s,0,Math.PI*2);c.fill();c.stroke();c.lineWidth=lw*0.5;c.beginPath();c.moveTo(h[0]-5*s,by);c.lineTo(h[0]+13*s,by);c.stroke();c.lineWidth=lw;}}
-  // body + jersey
+  // body, then the team's kit: shirt in the first colour with a trim in the second, shorts in the second, the badge and the number
   c.fillStyle=p.col;bodyPath(c,bx,top,W,H*sq,p.shape);c.fill();
-  c.save();bodyPath(c,bx,top,W,H*sq,p.shape);c.clip();c.fillStyle='#fff';c.fillRect(bx-W,top+H*sq*0.6,W*2,H);c.fillStyle='#ff9f1c';c.fillRect(bx-W,top+H*sq*0.6,W*2,6*s);c.restore();
+  const hw=p.shape==='pear'&&H>W*1.05?W*0.68:W,fw=Math.min(hw,H*sq*0.62),tw=Math.min(hw,H*sq*0.9);   // head width, face width, the width hats are made for
+  const jy=top+H*sq*0.58,sy=bot-H*sq*0.13;
+  c.save();bodyPath(c,bx,top,W,H*sq,p.shape);c.clip();
+  c.fillStyle=KA;c.fillRect(bx-W,jy,W*2,H);c.fillStyle=KB;c.fillRect(bx-W,jy,W*2,5*s);c.fillRect(bx-W,sy,W*2,H);
+  c.lineWidth=lw*0.6;c.beginPath();c.moveTo(bx-W,sy);c.lineTo(bx+W,sy);c.moveTo(bx-W,jy);c.lineTo(bx+W,jy);c.stroke();c.lineWidth=lw;
+  if(p.acc===1||p.acc===3){c.fillStyle=KB;c.fillRect(bx-W,top+fw*0.1,W*2,6.5*s);c.lineWidth=lw*0.6;c.strokeRect(bx-W,top+fw*0.1,W*2,6.5*s);c.lineWidth=lw;}   // a sweatband
+  c.restore();
   bodyPath(c,bx,top,W,H*sq,p.shape);c.stroke();
-  c.fillStyle=INK;c.font=`900 ${Math.round(15*s)}px system-ui`;c.textAlign='center';c.fillText(p.num,bx,top+H*sq*0.6+24*s);
+  {const room=sy-jy-5*s,fs=Math.max(7*s,Math.min(14*s,room*0.92)),ny=jy+5*s+room/2+fs*0.36;
+    c.textAlign='center';c.fillStyle=inkOn(KA);c.font=`900 ${fs.toFixed(1)}px system-ui`;c.fillText(p.num,bx+W*0.13,ny);
+    c.font=`${(fs*0.86).toFixed(1)}px ${EMOJI}`;c.fillStyle=INK;c.fillText(BADGES[K.g],bx-W*0.26,ny-fs*0.04);}
   // head gear
-  const hw=p.shape==='pear'?W*0.68:W;
-  toppers(c,p,bx,top,hw,s,t,lw);
+  toppers(c,p,bx,top,tw,s,t,lw,KA,KB,HC);
   // googly eyes
-  const fy=top+hw*0.5,ex=hw*0.21,erB=hw*0.17;
+  const fy=top+fw*0.5,ex=fw*0.21,erB=fw*0.17;
   const blink=((t+p.ph*3)%3.6)<0.12||yawn;
   const look=Math.sin(t*0.7+p.ph)*0.3;
   for(const d of [-1,1]){
@@ -674,16 +707,36 @@ function toon(c,p,x,y,s,t,o){
     else if(mood==='sad'||mood==='nervous'){c.moveTo(bx+d*(ex+er),fy-er*0.9);c.lineTo(bx+d*(ex-er*0.7),fy-er*1.55);c.stroke();}
     else if(mood==='cool'&&!yawn){c.moveTo(bx+d*(ex-er),fy-er*1.3);c.lineTo(bx+d*(ex+er),fy-er*1.3);c.stroke();}
   }
+  // cheeks: freckles, a blush, a plaster, a mole
+  if(p.cheek){const cy=fy+erB*1.15,cx=fw*0.36;
+    if(p.cheek===1){c.fillStyle='#8a5a3c';for(const d of [-1,1])for(const [u,v] of [[-0.3,0],[0.3,-0.15],[0.1,0.35]]){c.beginPath();c.arc(bx+d*cx+u*erB,cy+v*erB,erB*0.11,0,Math.PI*2);c.fill();}}
+    else if(p.cheek===2){c.fillStyle='rgba(255,120,150,.55)';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*cx,cy,erB*0.5,0,Math.PI*2);c.fill();}}
+    else if(p.cheek===3){c.save();c.translate(bx+cx,cy);c.rotate(-0.5);c.fillStyle='#ffe3a3';c.lineWidth=lw*0.5;c.fillRect(-erB*0.75,-erB*0.3,erB*1.5,erB*0.6);c.strokeRect(-erB*0.75,-erB*0.3,erB*1.5,erB*0.6);c.restore();}
+    else{c.fillStyle=INK;c.beginPath();c.arc(bx-cx*0.95,cy+erB*0.2,erB*0.14,0,Math.PI*2);c.fill();}}
+  // glasses, shades, goggles
+  if(p.specs){c.lineWidth=lw*0.8;
+    for(const d of [-1,1]){const gx=bx+d*ex,gr=erB*1.3;
+      if(p.specs===1){c.beginPath();c.arc(gx,fy,gr,0,Math.PI*2);c.stroke();}
+      else if(p.specs===2){c.fillStyle=INK;c.beginPath();c.ellipse(gx,fy,gr,gr*0.82,0,0,Math.PI*2);c.fill();c.fillStyle='rgba(255,255,255,.75)';c.beginPath();c.ellipse(gx-gr*0.35,fy-gr*0.3,gr*0.28,gr*0.14,-0.5,0,Math.PI*2);c.fill();}
+      else{c.strokeStyle='#1c7ed6';c.lineWidth=lw*1.5;c.beginPath();c.arc(gx,fy,gr,0,Math.PI*2);c.stroke();c.strokeStyle=INK;c.lineWidth=lw*0.5;c.beginPath();c.arc(gx,fy,gr+lw*0.75,0,Math.PI*2);c.stroke();c.lineWidth=lw*0.8;}
+      c.beginPath();c.moveTo(gx+d*gr,fy);c.lineTo(bx+d*fw*0.5,fy-erB*0.3);c.stroke();}
+    c.beginPath();c.moveTo(bx-ex+erB*1.3,fy);c.lineTo(bx+ex-erB*1.3,fy);c.stroke();c.lineWidth=lw;}
+  // a full beard goes under the mouth
+  if(p.beard===3){c.fillStyle=HC||INK;c.save();bodyPath(c,bx,top,W,H*sq,p.shape);c.clip();c.beginPath();c.ellipse(bx,fy+erB*1.5,fw*0.5,erB*1.9,0,0,Math.PI);c.closePath();c.fill();c.lineWidth=lw*0.6;c.stroke();c.restore();c.lineWidth=lw;}
   // mouth
   const er=erB,my=fy+er*1.9;
   c.beginPath();
   if(yawn){c.fillStyle='#7a2233';c.ellipse(bx,my,er*0.7,er*0.95,0,0,Math.PI*2);c.fill();c.stroke();}
-  else if(mood==='happy'){c.fillStyle='#7a2233';c.arc(bx,my-er*0.3,er*1.15,0,Math.PI);c.closePath();c.fill();c.stroke();if(p.temp==='joker'||p.teeth){c.fillStyle='#ff8fa3';c.beginPath();c.ellipse(bx+er*0.2,my+er*0.55,er*0.5,er*0.6,0,0,Math.PI*2);c.fill();c.stroke();}c.fillStyle='#ffb3c1';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*hw*0.36,fy+er*1.1,er*0.5,0,Math.PI*2);c.fill();}}
+  else if(mood==='happy'){c.fillStyle='#7a2233';c.arc(bx,my-er*0.3,er*1.15,0,Math.PI);c.closePath();c.fill();c.stroke();if(p.temp==='joker'||p.teeth){c.fillStyle='#ff8fa3';c.beginPath();c.ellipse(bx+er*0.2,my+er*0.55,er*0.5,er*0.6,0,0,Math.PI*2);c.fill();c.stroke();}c.fillStyle='#ffb3c1';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*fw*0.36,fy+er*1.1,er*0.5,0,Math.PI*2);c.fill();}}
   else if(mood==='angry'){c.fillStyle='#fff';c.rect(bx-er*1.1,my-er*0.5,er*2.2,er*0.9);c.fill();c.stroke();c.beginPath();for(let k=-1;k<=1;k++){c.moveTo(bx+k*er*0.55,my-er*0.5);c.lineTo(bx+k*er*0.55,my+er*0.4);}c.stroke();}
   else if(mood==='sad'){c.arc(bx,my+er*0.9,er*0.9,Math.PI*1.2,Math.PI*1.8);c.stroke();}
   else if(mood==='nervous'){c.moveTo(bx-er,my);for(let k=0;k<=6;k++)c.lineTo(bx-er+k*er/3,my+(k%2?-1:1)*er*0.22);c.stroke();}
   else if(mood==='cool'){c.moveTo(bx-er*0.8,my);c.lineTo(bx+er*0.8,my);c.stroke();}
   else{c.arc(bx,my-er*0.5,er*0.9,Math.PI*0.15,Math.PI*0.85);c.stroke();if(p.teeth){c.fillStyle='#fff';c.fillRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.strokeRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.beginPath();c.moveTo(bx,my+er*0.2);c.lineTo(bx,my+er*0.75);c.stroke();}}
+  // moustache, goatee, stubble
+  if(p.beard===1){c.fillStyle=HC||INK;c.lineWidth=lw*0.5;for(const d of [-1,1]){c.beginPath();c.ellipse(bx+d*er*0.5,my-er*0.62,er*0.62,er*0.27,d*0.35,0,Math.PI*2);c.fill();c.stroke();}c.lineWidth=lw;}
+  else if(p.beard===2){c.fillStyle=HC||INK;c.lineWidth=lw*0.5;c.beginPath();c.moveTo(bx-er*0.42,my+er*0.75);c.lineTo(bx+er*0.42,my+er*0.75);c.lineTo(bx,my+er*1.55);c.closePath();c.fill();c.stroke();c.lineWidth=lw;}
+  else if(p.beard===4){c.fillStyle='rgba(43,34,51,.45)';for(let k=0;k<9;k++){const a=Math.PI*(0.08+0.84*k/8);c.beginPath();c.arc(bx+Math.cos(a)*er*1.5,my-er*0.2+Math.sin(a)*er*1.1,er*0.1,0,Math.PI*2);c.fill();}}
   // mood marks
   if(mood==='angry'){const mx=bx+hw*0.6,mmy=top-2*s;c.strokeStyle='#ef476f';for(const a of [0,1,2,3]){const ang=a*Math.PI/2+Math.PI/4;c.beginPath();c.arc(mx+Math.cos(ang)*8*s,mmy+Math.sin(ang)*8*s,5*s,ang+Math.PI*0.75,ang+Math.PI*1.25);c.stroke();}c.strokeStyle=INK;
     const k=(t*2+p.ph)%1;c.fillStyle='rgba(255,255,255,.8)';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*(hw*0.55+k*14*s),top+hw*0.5-k*10*s,(3+k*5)*s,0,Math.PI*2);c.globalAlpha=1-k;c.fill();c.globalAlpha=1;}}
@@ -694,15 +747,15 @@ function toon(c,p,x,y,s,t,o){
   c.restore();
   return {top:top,W,H};
 }
-function toppers(c,p,bx,top,W,s,t,lw){
+function toppers(c,p,bx,top,W,s,t,lw,KA,KB,HC){
   c.fillStyle=INK;
   switch(p.top){
     case 'horns':for(const d of [-1,1]){c.fillStyle='#fff3d6';c.beginPath();c.moveTo(bx+d*W*0.2,top+6*s);c.lineTo(bx+d*W*0.5,top-16*s);c.lineTo(bx+d*W*0.42,top+10*s);c.closePath();c.fill();c.stroke();}break;
-    case 'tuft':c.beginPath();c.moveTo(bx-6*s,top+2*s);c.quadraticCurveTo(bx-10*s,top-16*s,bx,top-10*s);c.quadraticCurveTo(bx+10*s,top-20*s,bx+7*s,top+2*s);c.fillStyle=p.col;c.fill();c.stroke();break;
+    case 'tuft':c.beginPath();c.moveTo(bx-6*s,top+2*s);c.quadraticCurveTo(bx-10*s,top-16*s,bx,top-10*s);c.quadraticCurveTo(bx+10*s,top-20*s,bx+7*s,top+2*s);c.fillStyle=HC||p.col;c.fill();c.stroke();break;
     case 'antenna':{const ax=bx+Math.sin(t*4+p.ph)*5*s;c.beginPath();c.moveTo(bx,top);c.quadraticCurveTo(bx+6*s,top-14*s,ax,top-22*s);c.stroke();c.fillStyle='#ffd23f';c.beginPath();c.arc(ax,top-25*s,5.5*s,0,Math.PI*2);c.fill();c.stroke();break;}
-    case 'mohawk':c.fillStyle=INK;for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(bx+k*5*s-3*s,top+3*s);c.lineTo(bx+k*5*s,top-15*s+Math.abs(k)*3*s);c.lineTo(bx+k*5*s+3*s,top+3*s);c.closePath();c.fill();}break;
+    case 'mohawk':c.fillStyle=HC||INK;for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(bx+k*5*s-3*s,top+3*s);c.lineTo(bx+k*5*s,top-15*s+Math.abs(k)*3*s);c.lineTo(bx+k*5*s+3*s,top+3*s);c.closePath();c.fill();}break;
     case 'cap':c.fillStyle='#4d9de0';c.beginPath();c.arc(bx,top+W*0.26,W*0.5,Math.PI,0);c.closePath();c.fill();c.stroke();c.beginPath();c.moveTo(bx+W*0.3,top+W*0.26);c.lineTo(bx+W*0.8,top+W*0.3);c.stroke();break;
-    case 'bun':c.fillStyle=p.col;c.beginPath();c.arc(bx,top-7*s,10*s,0,Math.PI*2);c.fill();c.stroke();break;
+    case 'bun':c.fillStyle=HC||p.col;c.beginPath();c.arc(bx,top-7*s,10*s,0,Math.PI*2);c.fill();c.stroke();break;
     case 'band':c.fillStyle='#fff';c.fillRect(bx-W*0.47,top+W*0.14,W*0.94,8*s);c.strokeRect(bx-W*0.47,top+W*0.14,W*0.94,8*s);break;
     case 'propeller':{c.fillStyle='#ef476f';c.beginPath();c.arc(bx,top+W*0.2,W*0.42,Math.PI,0);c.closePath();c.fill();c.stroke();c.beginPath();c.moveTo(bx,top+W*0.2-W*0.42);c.lineTo(bx,top-12*s);c.stroke();const a=t*14;c.fillStyle='#ffd23f';c.beginPath();c.ellipse(bx,top-13*s,Math.abs(Math.cos(a))*18*s+3*s,4*s,0,0,Math.PI*2);c.fill();c.stroke();break;}
     case 'cone':c.fillStyle='#ff9f1c';c.beginPath();c.moveTo(bx-13*s,top+5*s);c.lineTo(bx,top-30*s);c.lineTo(bx+13*s,top+5*s);c.closePath();c.fill();c.stroke();c.fillStyle='#fff';c.fillRect(bx-7*s,top-10*s,14*s,5*s);break;
@@ -710,6 +763,18 @@ function toppers(c,p,bx,top,W,s,t,lw){
     case 'sprout':c.beginPath();c.moveTo(bx,top+2*s);c.lineTo(bx,top-12*s);c.stroke();c.fillStyle='#6bcb77';for(const d of [-1,1]){c.beginPath();c.ellipse(bx+d*8*s,top-15*s,9*s,5*s,d*-0.5+Math.sin(t*2+p.ph)*0.1,0,Math.PI*2);c.fill();c.stroke();}break;
     case 'crown':c.fillStyle='#ffd23f';c.beginPath();c.moveTo(bx-14*s,top+4*s);c.lineTo(bx-16*s,top-14*s);c.lineTo(bx-7*s,top-5*s);c.lineTo(bx,top-18*s);c.lineTo(bx+7*s,top-5*s);c.lineTo(bx+16*s,top-14*s);c.lineTo(bx+14*s,top+4*s);c.closePath();c.fill();c.stroke();break;
     case 'pan':c.fillStyle='#8d99ae';c.beginPath();c.ellipse(bx,top+2*s,W*0.5,8*s,0,Math.PI,0);c.closePath();c.fill();c.stroke();c.lineWidth=lw*1.6;c.beginPath();c.moveTo(bx+W*0.5,top);c.lineTo(bx+W*0.5+20*s,top-6*s);c.stroke();c.lineWidth=lw;break;
+    // the hair and hats that came with the players update
+    case 'afro':c.fillStyle=HC||INK;for(const [u,v,r] of [[-0.34,0.06,0.26],[0.34,0.06,0.26],[-0.18,-0.1,0.27],[0.18,-0.1,0.27],[0,-0.16,0.28]]){c.beginPath();c.arc(bx+u*W,top+v*W,r*W,0,Math.PI*2);c.fill();c.stroke();}c.beginPath();c.arc(bx,top+W*0.02,W*0.3,0,Math.PI*2);c.fill();break;
+    case 'spikes':c.fillStyle=HC||INK;for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(bx+k*W*0.17-W*0.1,top+5*s);c.lineTo(bx+k*W*0.2,top-15*s+Math.abs(k)*2*s);c.lineTo(bx+k*W*0.17+W*0.1,top+5*s);c.closePath();c.fill();c.stroke();}break;
+    case 'ponytail':{c.fillStyle=HC||INK;const sw=Math.sin(t*3+p.ph)*3*s;c.beginPath();c.moveTo(bx+W*0.3,top+3*s);c.quadraticCurveTo(bx+W*0.62+sw,top-4*s,bx+W*0.6+sw,top+24*s);c.quadraticCurveTo(bx+W*0.48,top+12*s,bx+W*0.2,top+8*s);c.closePath();c.fill();c.stroke();c.beginPath();c.arc(bx+W*0.28,top+3*s,6*s,0,Math.PI*2);c.fill();c.stroke();break;}
+    case 'flat':c.fillStyle=HC||INK;c.beginPath();c.moveTo(bx-W*0.36,top+5*s);c.lineTo(bx-W*0.4,top-11*s);c.lineTo(bx+W*0.4,top-11*s);c.lineTo(bx+W*0.36,top+5*s);c.closePath();c.fill();c.stroke();break;
+    case 'beanie':c.fillStyle=KA;c.beginPath();c.arc(bx,top+W*0.27,W*0.5,Math.PI,0);c.closePath();c.fill();c.stroke();c.fillStyle=KB;c.fillRect(bx-W*0.5,top+W*0.27-6*s,W,7*s);c.strokeRect(bx-W*0.5,top+W*0.27-6*s,W,7*s);c.beginPath();c.arc(bx,top+W*0.27-W*0.5-3*s,6*s,0,Math.PI*2);c.fill();c.stroke();break;
+    case 'curls':c.fillStyle=HC||INK;for(let k=-2;k<=2;k++){c.beginPath();c.arc(bx+k*W*0.19,top+Math.abs(k)*Math.abs(k)*1.6*s-1*s,W*0.13,0,Math.PI*2);c.fill();c.stroke();}break;
+    case 'visor':c.fillStyle=KB;c.beginPath();c.ellipse(bx+W*0.3,top+W*0.24,W*0.42,5*s,0.08,0,Math.PI*2);c.fill();c.stroke();c.lineWidth=lw*1.5;c.strokeStyle=KB;c.beginPath();c.arc(bx,top+W*0.5,W*0.5,Math.PI*1.12,Math.PI*1.6);c.stroke();c.strokeStyle=INK;c.lineWidth=lw;break;
+    case 'bald':c.strokeStyle='rgba(255,255,255,.85)';c.lineWidth=lw*0.8;c.beginPath();c.arc(bx-W*0.12,top+W*0.26,W*0.18,Math.PI*1.1,Math.PI*1.5);c.stroke();c.strokeStyle=INK;c.lineWidth=lw;break;
+    case 'bow':c.fillStyle='#ff6fb5';for(const d of [-1,1]){c.beginPath();c.moveTo(bx+W*0.22,top);c.lineTo(bx+W*0.22+d*13*s,top-9*s);c.lineTo(bx+W*0.22+d*13*s,top+8*s);c.closePath();c.fill();c.stroke();}c.beginPath();c.arc(bx+W*0.22,top,4*s,0,Math.PI*2);c.fill();c.stroke();break;
+    case 'feather':c.fillStyle=KB;c.fillRect(bx-W*0.44,top+W*0.1,W*0.88,6*s);c.strokeRect(bx-W*0.44,top+W*0.1,W*0.88,6*s);c.fillStyle='#69db7c';c.save();c.translate(bx-W*0.26,top+W*0.1);c.rotate(-0.25+Math.sin(t*2+p.ph)*0.06);c.beginPath();c.ellipse(0,-14*s,5*s,14*s,0,0,Math.PI*2);c.fill();c.stroke();c.lineWidth=lw*0.5;c.beginPath();c.moveTo(0,0);c.lineTo(0,-26*s);c.stroke();c.restore();c.lineWidth=lw;break;
+    case 'sidepart':c.fillStyle=HC||INK;c.beginPath();c.moveTo(bx-W*0.46,top+W*0.3);c.quadraticCurveTo(bx-W*0.3,top-13*s,bx+W*0.2,top-5*s);c.quadraticCurveTo(bx+W*0.46,top+2*s,bx+W*0.45,top+W*0.26);c.quadraticCurveTo(bx+W*0.2,top+3*s,bx-W*0.12,top+7*s);c.quadraticCurveTo(bx-W*0.34,top+10*s,bx-W*0.46,top+W*0.3);c.closePath();c.fill();c.stroke();break;
   }
 }
 
@@ -832,7 +897,7 @@ function renderCard(){
   const me=S.me;let p=byId(me,S.sel);if(!p){p=me.players[0];S.sel=p.id;}
   const out=S.rule==='tall_out'&&tallestId(me)===p.id;const st=me.starters.includes(p.id),sb=me.subs.includes(p.id);
   const role=out?'sits out this '+DAY()+' (the rule)':st?'starts on '+DAY():sb?'is a substitute':'is not playing this '+DAY();
-  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${heightWord(p.h)[0].toUpperCase()+heightWord(p.h).slice(1)}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}${hasEnergy(p)?energyPips(p):''}</div>${hasEnergy(p)&&energyNote(p)?'<div class="small" style="margin:-4px 0 8px;color:#c2410c">'+energyNote(p)+'</div>':''}<div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
+  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${bodyLine(p)}</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}${hasEnergy(p)?energyPips(p):''}</div>${hasEnergy(p)&&energyNote(p)?'<div class="small" style="margin:-4px 0 8px;color:#c2410c">'+energyNote(p)+'</div>':''}<div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
   $('pcard').classList.remove('pop');void $('pcard').offsetWidth;$('pcard').classList.add('pop');
   $('bStart').onclick=()=>{if(st){me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else if(me.starters.length<3){me.starters.push(p.id);me.subs=me.subs.filter(id=>id!==p.id);}else toast('Three start. Take someone off first.');save();renderCard();renderPlan();};
   $('bSub').onclick=()=>{if(sb){me.subs=me.subs.filter(id=>id!==p.id);}else if(me.subs.length<2){me.subs.push(p.id);me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else toast('Two substitutes at most.');save();renderCard();renderPlan();};
@@ -1066,20 +1131,26 @@ function renderHelp(){
   <h2>How the game is played</h2>
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
   <h4><i>1</i>Pick your team</h4>
-  <p>Choose <b>7 players</b> out of 14 and give your team a name. The fourteen are offered once: reloading shows the same fourteen, and so does a new or cleared browser on the same connection until one of them joins, so nobody can fish for better players. Look at their stats and at their character.</p>
-  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and how tall the player is. <b>The dots count for a lot.</b> Attack decides the shots, defence what the other team makes against you, height the close shots and the rebounds, speed the fast breaks and the press. Choose with care: a squad with better dots wins more over a season, and the same goes for the one player you may change between leagues.</li>
+  <p>Choose <b>7 players</b> out of 14, give your team a name, and pick its two colours and its badge (you can change the colours and the badge later in the Table tab; they change nothing in a match). Look at the players' stats, their bodies and their character.</p>
+  <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and the player's body: how tall and how heavy (see 2). <b>The dots count for a lot.</b> Attack decides the shots, defence what the other team makes against you, height the close shots and the rebounds, speed the fast breaks and the press. Choose with care: a squad with better dots wins more over a season, and the same goes for the one player you may change between leagues.</li>
   <li><b>Form.</b> A partly filled dot is a stat between two numbers. Talks and matches move the stats in small steps. What a talk does stays until another talk moves it; what a match does is form, and it fades away over a few weeks, as a hot or a cold game does in real basketball. A stat never strays more than half a dot from the level the player was drafted with: good coaching gets the most out of a player, it does not turn a 2 into a 4. An arrow next to the dots marks a change made this week.</li>
   <li><b>Energy.</b> Every player also has four Energy dots, and starts with all four.</li>
   <li><b>Character</b>: tells you how the player takes being talked to, by you, by the other dugout and at half-time.</li></ul>
   <div class="two">${chars}</div>
-  <h4><i>2</i>What decides a match</h4>
+  <h4><i>2</i>Bodies: height and build</h4>
+  <p>Every player has one of four heights (<b>tiny, medium, tall, very tall</b>) and one of three builds (<b>slim, normal, fat</b>). You see both in the gym, and both matter.</p>
+  <ul><li><b>Height</b> wins the close shots and the rebounds, as before. But <b>the taller, the faster a player tires</b>, in a match and from match to match: a very tall player loses energy twice as fast as a tiny one.</li>
+  <li><b>Tiny players tend to be quick, tall and very tall ones slow.</b> It is a tendency, not a rule: a quick tall player exists, and is rare.</li>
+  <li><b>Fat players tire faster</b>, slim ones slower. In return a fat player takes more rebounds, gives the team more second shots, and is harder to score on close to the hoop.</li>
+  <li>So a very tall, fat player is a force under the hoop for one match and then needs a rest; a tiny, slim one can play match after match. The player's card says in words how fast they tire.</li></ul>
+  <h4><i>3</i>What decides a match</h4>
   <p>Roughly in this order:</p>
   <ul><li><b>The players.</b> Dots and height, and whether the three on the court are the right three for the week's rule.</li>
   <li><b>Their state.</b> Mood, trust and energy, which you set with your talks and your rotation. Over a season this is the biggest difference between managers.</li>
   <li><b>The plan.</b> Six dials, the star, the half-time orders and talk, and the trash talk, which tilt a close match one way or the other. No dial is good in itself: each pays against some teams and costs against others.</li>
   <li><b>Luck.</b> Every shot is a roll of the dice. A better team loses sometimes; over a league the better manager comes out on top.</li></ul>
-  <h4><i>3</i>Talk to your players</h4>
-  <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>, unless you are banned for trash talk (section 8). There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
+  <h4><i>4</i>Talk to your players</h4>
+  <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>, unless you are banned for trash talk (section 9). There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
   <ul><li>The same words do not work on everyone. Praise makes one player buzz and another anxious. Study each personality.</li>
   <li>Every player also has a secret <b>soft spot</b> (one talk that always works) and a <b>sore spot</b> (one that always backfires). You find them only by trying.</li>
   <li>The player's card remembers what you tried: ✓ worked, ✗ backfired, ~ nothing much.</li>
@@ -1087,13 +1158,13 @@ function renderHelp(){
   <li><b>Silence costs you.</b> A player you do not talk to for two matches in a row starts to feel ignored: they sulk or get angry, trust you less and play worse, and it gets worse every match. Old hands and fighters last a little longer, easy-going players longer still, and loners do not mind at all. A talk to the whole team counts for half.</li>
   <li>A talk changes the player's <b>mood</b>, how much they <b>trust</b> you, and moves one of their stats a little, up or down.</li>
   <li>A talk to the whole team reaches everybody, but more weakly. Some will like it and some will not.</li>
-  <li>There are two more moments to talk: the <b>half-time talk</b> (section 7) and the <b>trash talk</b> to the other team (section 8).</li></ul>
-  <h4><i>4</i>Moods, trust and form</h4>
+  <li>There are two more moments to talk: the <b>half-time talk</b> (section 8) and the <b>trash talk</b> to the other team (section 9).</li></ul>
+  <h4><i>5</i>Moods, trust and form</h4>
   <p>The mood decides how a player performs and which tactics suit them today.</p>
   <ul>${moods}</ul>
   <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like.</p>
   <p><b>After a win</b> the top scorer is buzzing and many others lift a step. <b>After a loss</b> most players are down: hot-tempered players and fighters fume, worriers and people-pleasers turn anxious, proud players and jokers sulk; old hands, loners and easy-going players shrug. A heavy loss, by 8 or more, hits nearly everyone. Your talks in the week are how you pick them up again. Stats also move after each match: a player who shot well is in form, one who never plays gets rusty, and a player you leave out completely may sulk or get angry. This match form fades by about a third every week, so a hot streak or a slump does not last for ever; what your talks did stays. All of it within half a dot of the drafted level, as said above.</p>
-  <h4><i>5</i>Energy: rotate your squad</h4>
+  <h4><i>6</i>Energy: rotate your squad</h4>
   <p>Every player has four <b>Energy</b> dots on their card. Four is fresh, one is worn out.</p>
   <ul><li><b>Playing costs energy.</b> A whole match costs about one dot. A fast tempo or a press costs more, a slow tempo less. A substitute who plays only part of the match pays less.</li>
   <li><b>A match off gives a dot and a half back.</b> And every player gets about a third of a dot back between two match days whatever they did, so a starter who plays every match in full goes 4, 3.3, 2.6, 1.9 over a week of three matches, and a team that shares the quarters barely tires.</li>
@@ -1102,7 +1173,7 @@ function renderHelp(){
   <li><b>Resting a tired player does not upset them</b> and costs them no form. Leaving out a fresh player still does.</li>
   <li>A small battery appears beside the name of a tired player in the gym, and your assistant warns you before the match.</li></ul>
   <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
-  <h4><i>6</i>Set the game plan</h4>
+  <h4><i>7</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>
   <li><b>Playing time.</b> Or share out the match yourself: give each of the five named players none, a quarter, a half, three quarters or all of the match, twelve quarters in all since three are on the court the whole time, and the coach rotates to those shares; when each player goes in and out is the coach's. Three starters at three quarters and two substitutes at half and a quarter means the substitutes play a third of the match between them, fresh. A half-time order that brings players on (fresh legs, everything through one player from the bench) outranks the plan for the rest of that match. No substitutions under "Iron legs". The box score shows the minutes each player got.</li>
@@ -1111,7 +1182,7 @@ function renderHelp(){
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
   <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
-  <h4><i>7</i>Half-time orders</h4>
+  <h4><i>8</i>Half-time orders</h4>
   <p>The match is played without you, so you leave orders for half-time. There are three cases: <b>behind</b> means you are 5 points or more down at half-time, <b>ahead</b> means 5 or more up, and <b>close</b> is anything less than 5 points apart, for example 10-6 or 8-12. For each you choose one order, or nothing. At half-time your team reads the score and follows the order for that case for the rest of the match.</p>
   <ul><li><b>Press them</b> and <b>Drop into a zone</b> change the defence. <b>Slow the game down</b> and <b>Speed the game up</b> change the tempo, and the second half gets shorter or longer with it. <b>Shoot from outside</b> goes for three-pointers.</li>
   <li><b>Fresh legs</b>: both substitutes come on for the two most tired players on the court. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan.</li>
@@ -1119,19 +1190,19 @@ function renderHelp(){
   <li><b>The half-time talk.</b> Next to each order you can choose what you say to the whole team in the locker room, in one of your nine tones. Every player reacts to it the way they react to that tone in the week, moods only: no trust and no form change at half-time. A sharp talk (be honest, challenge, demand more) also lifts the whole second half a little, as real half-time speeches do; shouting lifts it less and makes hot-tempered and proud players fume; a soft talk works only through the players it reaches.</li>
   <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
   <li>Orders and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week. A manager banned for trash talk gives no half-time talk that match.</li></ul>
-  <h4><i>8</i>Trash talk</h4>
+  <h4><i>9</i>Trash talk</h4>
   <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. Each of them takes it by character, moods only: worriers, people-pleasers, proud and hot-tempered players lose their heads; fighters and old hands get sharper; jokers and loners are put off half the time; easy-going players shrug. A line aimed at their star reaches the star for sure and the others less. A team that has heard you before is harder to rattle.</p>
   <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders. The ban ends when that match is played. Everybody sees it in the match reports.</li>
   <li>One line per match. Four of the six lines are aimed at the whole team, two at their star. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
   <li>Real research on trash talk says it mostly fires the target up and only sometimes rattles them. Look at who you are talking to before you send it.</li></ul>
-  <h4><i>9</i>The rule of the week</h4>
+  <h4><i>10</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most, so read it before you pick the starters.</p>
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
   <h4><i>11</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'two or three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
   <ul><li><b>Who you play.</b> Everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, and teams on similar points meet when there is a choice. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
   <li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
-  <h4><i>11</i>Match reports: scout the others</h4>
+  <h4><i>12</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
   <ul><li><b>Read your next opponent.</b> Their last report is also shown under your game plan, next to their name. A team that keeps losing the ball, shoots badly from long range or gets outrun tells you how to play them.</li>
   <li><b>Their league so far.</b> From an opponent's second match of the league on, you also see next to their name what they have done in the whole league: the plans they chose most often and their numbers per match (ball losses, fast breaks, second shots, how they shoot and how teams shoot against them).</li>
@@ -1141,7 +1212,7 @@ function renderHelp(){
   <p><b>The box score.</b> Under your result, and under every team in the match reports, a table gives each player's numbers from that match: <b>On</b> (the share of the match they were on the court), <b>Pts</b>, <b>Shots</b> made of taken, <b>3s</b> made of taken, <b>Reb</b> (rebounds: the tall take most, more if sent to crash), <b>Stl</b> (steals: only a press or the Defence rule steals the ball, other ball losses are the attacker's own), <b>Lost</b> (ball losses) and <b>Stops</b>: of the shots that player guarded, how many missed. A player with 2 of 9 stops is being hunted. A substitute who did not come on is marked "did not play".</p>
   <p><b>A league is wiped when it ends.</b> Scores, reports and box scores are kept only while the league runs. When it ends they are all deleted; what stays is every team with its players, the champion, and each team's record line (section 12).</p>
   <p>Match reports are part of the online league; the box score is also shown in practice.</p>
-  <h4><i>12</i>The league</h4>
+  <h4><i>13</i>The league</h4>
   <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 25 matches, two a week. The team with the most points wins the league. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
@@ -1223,10 +1294,10 @@ function roundHtml(){
   h+=`<div class="rdnav"><button id="rdPrev" ${RD.prev?'':'disabled'}>‹ Earlier</button><button id="rdNext" ${RD.next?'':'disabled'}>Later ›</button></div>`;
   const mine=S.me?S.me.id:null,next=S.opp?S.opp.id:null;
   const tag=id=>id===mine?' <span class="tagx">your team</span>':id===next?' <span class="tagx">your next opponent</span>':'';
-  const team=(id,name,won,r)=>`<div class="rdt"><div><b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}${halfWords(r.half)}</div>${r.trash?`<div class="small" style="margin-top:1px">Trash talk before the match: "${esc(r.trash.line)}"${r.trash.rattled.length?' Rattled: '+esc(r.trash.rattled.join(', '))+'.':''}${r.trash.fired.length?' Fired up: '+esc(r.trash.fired.join(', '))+'.':''}${!r.trash.rattled.length&&!r.trash.fired.length?' Nobody cared.':''}</div>`:''}${repLines(r)||'<div class="small">No report for this match.</div>'}</div>${r.box?boxHtml(r.box,'Players',true):''}`;
+  const team=(id,name,won,r)=>`<div class="rdt"><div>${kitChip(r.kit)}<b>${esc(name)}</b> ${won?'won':'lost'}${tag(id)}</div><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}${halfWords(r.half)}</div>${r.trash?`<div class="small" style="margin-top:1px">Trash talk before the match: "${esc(r.trash.line)}"${r.trash.rattled.length?' Rattled: '+esc(r.trash.rattled.join(', '))+'.':''}${r.trash.fired.length?' Fired up: '+esc(r.trash.fired.join(', '))+'.':''}${!r.trash.rattled.length&&!r.trash.fired.length?' Nobody cared.':''}</div>`:''}${repLines(r)||'<div class="small">No report for this match.</div>'}</div>${r.box?boxHtml(r.box,'Players',true):''}`;
   for(const m of RD.matches){
     const open=RD.matches.length<=3||[m.a,m.b].includes(mine)||[m.a,m.b].includes(next);
-    h+=`<details class="rd" ${open?'open':''}><summary><span>${esc(m.an)}</span><span class="scb">${m.sa}–${m.sb}</span><span>${esc(m.bn)}</span>${[m.a,m.b].includes(mine)?'<span class="tagx">your match</span>':[m.a,m.b].includes(next)?'<span class="tagx">your next opponent</span>':''}</summary>
+    h+=`<details class="rd" ${open?'open':''}><summary><span>${kitChip(m.ra.kit)}${esc(m.an)}</span><span class="scb">${m.sa}–${m.sb}</span><span>${kitChip(m.rb.kit)}${esc(m.bn)}</span>${[m.a,m.b].includes(mine)?'<span class="tagx">your match</span>':[m.a,m.b].includes(next)?'<span class="tagx">your next opponent</span>':''}</summary>
     <div class="rdg">${team(m.a,m.an,m.sa>m.sb,m.ra)}${team(m.b,m.bn,m.sb>m.sa,m.rb)}</div></details>`;
   }
   if(RD.more)h+=`<div class="small">Only the first ${RD.matches.length} matches of this match day are listed.</div>`;
@@ -1258,16 +1329,17 @@ function renderLeague(){
   }
   h+=roundHtml();
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
-  table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
+  table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
   if(ONLINE&&!table().length)h+=`<tr><td colspan="6" style="text-align:center;padding:14px 6px">No team has entered ${theName(LGS())} yet.</td></tr>`;
   h+=`</table>${ONLINE&&S.out?`<div class="note" style="margin-top:10px"><b>${S.me.name} is not in ${theName(LGS())} yet.</b> Every league starts with no teams. Go to the Locker room tab and press "Enter ${theName(LGS())}".</div>`:''}<div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+matchWhen()+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may change ${SWAP_WORDS} of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
   if(S.lastSheets){h+=`<table><tr><th>team</th><th>plan</th><th class="n">that day</th></tr>`;for(const t of [...S.lastSheets].sort((a,b)=>b.w-a.w))h+=`<tr class="${t.human?'me':''}"><td>${t.name}</td><td>${sheetWords(t.sheet)}</td><td class="n">${t.w}–${t.l}</td></tr>`;h+=`</table><div class="small">Plans become public after the games. See what worked under that rule. Your rivals read yours too, so do not play the same match twice.</div>`;}
   else h+=`<div class="small">Nothing yet. Plans become public after the first match.</div>`;
-  h+=`</div></div>`+archiveHtml()+hallHtml()+`<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
+  h+=`</div></div>`+`<div class="card" style="margin-top:16px"><h3>${kitChip(KIT())} ${S.me.name}: colours and badge</h3><div class="small" style="margin:0 0 8px">Your players wear them in the gym, and the badge stands next to your name in the table and in the match reports. Change them whenever you like: it changes nothing in a match.</div>${kitPickerHtml(KIT())}</div>`+archiveHtml()+hallHtml()+`<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">`+(ONLINE
     ?`<button id="toPractice" style="font-size:13px">Go to practice mode</button><button id="showKey" style="font-size:13px">Play this team on another device</button>`
     :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+installHtml()+`</div>`;
   $('league').innerHTML=h;
+  wireKitPicker($('league'),KIT,k=>{if(ONLINE)goOnline('kit',{kit:k});else{S.me.kit=k;save();renderLeague();}});
   if($('wipe'))$('wipe').onclick=()=>{if(confirm('Start over? Your team and league will be lost.')){localStorage.removeItem('sundayleague2');S.tab='room';newGame();}};
   if($('toPractice'))$('toPractice').onclick=()=>setMode('practice');
   if($('toOnline'))$('toOnline').onclick=()=>setMode('online');
@@ -1277,24 +1349,27 @@ function renderLeague(){
   if($('rdNext'))$('rdNext').onclick=()=>{if(RD&&RD.next)loadRound(RD.next);};
   if(ONLINE&&RD_KEY!==rdKey()&&!RD_BUSY)loadRound();   // first visit, or a new match day has been played since
 }
-function candHtml(p,cls,i){return `<div class="cand ${cls}" data-i="${i}"><canvas width="150" height="170" data-pid="${p.id}"></canvas><div class="nm">${p.n}</div>${chip(p)}<div class="h">${CHAR[p.temp][2]}</div><div class="pips">${pips(p.sh,'attack')}${pips(p.df,'defend')}${pips(p.sp,'speed')}</div></div>`;}
+function candHtml(p,cls,i){return `<div class="cand ${cls}" data-i="${i}"><canvas width="150" height="170" data-pid="${p.id}"></canvas><div class="nm">${p.n}</div>${chip(p)}${bodyOf(p)?'<div class="bdy">'+cap(bodyWords(p))+'</div>':''}<div class="h">${CHAR[p.temp][2]}</div><div class="pips">${pips(p.sh,'attack')}${pips(p.df,'defend')}${pips(p.sp,'speed')}</div></div>`;}
 let drawList=[];
 function renderDraft(){
-  const n=S.pool.filter(p=>p.picked).length;
+  const n=S.pool.filter(p=>p.picked).length;if(!cleanKit(S.draftKit))S.draftKit=randomKit();
   $('draft').innerHTML=`<div class="card"><h3>Pick your seven · ${n} of 7</h3><div class="pool">${S.pool.map((p,i)=>candHtml(p,p.picked?'in':'',i)).join('')}</div><div class="small">These fourteen are the players on offer. Each has a character, which tells you roughly how they take being talked to. Each also has a personal soft spot and a sore spot that you only find by talking to them.</div>
   <div style="display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap"><input type="text" id="tname" placeholder="Name your team" maxlength="22" value="${S.draftName||''}"></div>
+  <h3 style="margin:18px 0 6px">${kitChip(S.draftKit)} Your colours and badge</h3><div class="small" style="margin:0 0 6px">Your players wear them, and the badge stands next to your team's name. You can change them later in the Table tab.</div>${kitPickerHtml(S.draftKit)}
   ${ONLINE?'<div class="small" style="margin-top:12px">Already have a team on another phone or computer? <button id="haveTeam" style="font-size:13px;padding:5px 10px">Use that team here</button></div>':''}
   <button class="go" id="start" ${n===7?'':'disabled'}>${n===7?'To the locker room!':'Pick '+(7-n)+' more'}</button></div>`;
   drawList=S.pool.map(p=>p);
   $('draft').querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const p=S.pool[+d.dataset.i];S.draftName=$('tname').value;const k=S.pool.filter(x=>x.picked).length;if(p.picked)p.picked=false;else if(k<7)p.picked=true;renderDraft();});
   if($('haveTeam'))$('haveTeam').onclick=useTeamKey;
-  $('start').onclick=()=>{const nm=($('tname').value||'').trim();if(ONLINE){S.draftName=nm;goOnline('join',{name:nm,picks:S.pool.filter(p=>p.picked).map(p=>p.id)});}else startLeague(nm);};
+  wireKitPicker($('draft'),()=>S.draftKit,k=>{S.draftName=$('tname').value;S.draftKit=k;renderDraft();});
+  $('start').onclick=()=>{const nm=($('tname').value||'').trim();if(ONLINE){S.draftName=nm;goOnline('join',{name:nm,picks:S.pool.filter(p=>p.picked).map(p=>p.id),kit:S.draftKit});}else startLeague(nm);};
 }
 // Online, a league that ends leaves every team outside the next one. This screen shows how the last league ended
 // (if this team played it), offers the one player change, and has the button that enters the running league.
 function renderEnter(){
   const f=S.me.final,fresh=!!(f&&!f.seen),lf=V.league.final,n=V.league.no,won=fresh&&f.place===1;
-  const same=S.swapOut.length===S.swapIn.length,t=V.league.next_match_at;
+  const re=S.me.redraft||null;S.rePicks=(S.rePicks||[]).filter(id=>re&&re.some(p=>p.id===id));
+  const same=re?S.rePicks.length===7:S.swapOut.length===S.swapIn.length,t=V.league.next_match_at;
   const when=new Date(t).toLocaleString(undefined,{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
   let h='';
   if(fresh){
@@ -1306,22 +1381,30 @@ function renderEnter(){
     }
     h+=`</div>`;
   }
-  const btn=id=>`<button class="go" id="${id}" ${same?'':'disabled'}>${same?'Enter '+theName(LGS()):'Match the outs and ins'}</button>`;
+  const btn=id=>`<button class="go" id="${id}" ${same?'':'disabled'}>${same?'Enter '+theName(LGS()):re?(S.rePicks.length?'Pick '+(7-S.rePicks.length)+' more':'Pick your seven new players below'):'Match the outs and ins'}</button>`;
   h+=`<div class="card" style="margin-top:16px;text-align:center;background:#d3f5d6"><h3 style="margin:0 0 6px">${LG()} ${V.league.match_no===1?'starts':'is under way'}</h3>
   <div>Every league starts with no teams. <b>${S.me.name} is not in ${theName(LGS())} yet.</b> ${V.teams===0?'Nobody has entered so far: be the first.':V.teams+' team'+(V.teams===1?' has':'s have')+' entered so far.'}</div>
-  <div class="small" style="margin-top:6px;color:var(--ink)">${V.league.match_no===1?'The first match is on '+when+'.':'It is at match '+V.league.match_no+' of '+V.league.of+'. You would start from zero points. The next match is on '+when+'.'} Your players and your record stay with you.</div>${btn('newcup')}</div>`;
-  if(fresh&&S.agents.length){
+  <div class="small" style="margin-top:6px;color:var(--ink)">${V.league.match_no===1?'The first match is on '+when+'.':'It is at match '+V.league.match_no+' of '+V.league.of+'. You would start from zero points. The next match is on '+when+'.'} ${re?'Your team name, your titles and your record stay with you.':'Your players and your record stay with you.'}</div>${btn('newcup')}</div>`;
+  if(re){
+    h+=`<div class="card" style="margin-top:16px"><h3>New players for everyone: pick your seven · ${S.rePicks.length} of 7</h3><div class="small" style="margin:0 0 8px">From now on players come in four heights and three builds, and it matters: the tall and the fat tire faster, the tiny and the slim slower, tiny players tend to be quick and tall ones slow, and fat players are strong on rebounds and under the hoop (see "How to play"). So every team starts again, this once: your old squad leaves, and you pick seven of these fourteen. After this, it is the usual one change between leagues.</div><div class="pool">${re.map((p,i)=>candHtml(p,S.rePicks.includes(p.id)?'in':'',i)).join('')}</div>
+    <h3 style="margin:18px 0 6px">${kitChip(KIT())} Your colours and badge</h3><div class="small" style="margin:0 0 6px">New as well: your players wear your team's colours, and the badge stands next to your name. You can change them later in the Table tab.</div>${kitPickerHtml(KIT())}</div>`+btn('newcup2');
+  }
+  if(!re&&fresh&&S.agents.length){
     h+=`<div class="card" style="margin-top:16px"><h3>Before you enter: change ${SWAP_WORDS} player${MAX_SWAPS===1?'':'s'} · out ${S.swapOut.length}, in ${S.swapIn.length}</h3><div class="small" style="margin:0 0 8px">Tap one of yours to let go, and a free agent to bring in. Or change nobody and keep your seven. The free agents leave once you have entered.</div><div class="pool">${S.me.players.map((p,i)=>candHtml(p,S.swapOut.includes(p.id)?'out':'',i)).join('')}</div>
     <h3 style="margin-top:16px">Free agents</h3><div class="pool">${S.agents.map((p,i)=>candHtml(p,S.swapIn.includes(p.id)?'in':'',i)).join('')}</div></div>`+btn('newcup2');
   }
   $('resUI').innerHTML=h;
-  drawList=[...S.me.players,...S.agents];
+  drawList=re?[...re]:[...S.me.players,...S.agents];
   const pools=$('resUI').querySelectorAll('.pool');
+  if(re){
+    pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=re[+d.dataset.i].id;if(S.rePicks.includes(id))S.rePicks=S.rePicks.filter(x=>x!==id);else if(S.rePicks.length<7)S.rePicks.push(id);renderEnter();});
+    wireKitPicker($('resUI'),KIT,k=>{S.kitPreview=k;renderEnter();});
+  }
   if(pools.length===2){
     pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.me.players[+d.dataset.i].id;if(S.swapOut.includes(id))S.swapOut=S.swapOut.filter(x=>x!==id);else if(S.swapOut.length<MAX_SWAPS)S.swapOut.push(id);else if(MAX_SWAPS===1)S.swapOut=[id];renderEnter();});
     pools[1].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.agents[+d.dataset.i].id;if(S.swapIn.includes(id))S.swapIn=S.swapIn.filter(x=>x!==id);else if(S.swapIn.length<MAX_SWAPS)S.swapIn.push(id);else if(MAX_SWAPS===1)S.swapIn=[id];renderEnter();});
   }
-  for(const id of ['newcup','newcup2'])if($(id))$(id).onclick=()=>goOnline('enter',{outs:S.swapOut,ins:S.swapIn});
+  for(const id of ['newcup','newcup2'])if($(id))$(id).onclick=()=>goOnline('enter',re?{picks:S.rePicks,kit:S.kitPreview||undefined}:{outs:S.swapOut,ins:S.swapIn});
 }
 function renderCupEnd(){
   if(ONLINE){renderEnter();return;}
