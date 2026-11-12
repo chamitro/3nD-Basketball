@@ -11,6 +11,7 @@ const CFG={
   LEAGUE_MATCHES:13,      // length of the leagues before SEASONS_FROM: 13 match days, so that 13 or 14 teams all meet each other once (League 1: Sun 8 Nov - Sun 6 Dec 2026)
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
+  MID_AFTER:12,MID_DAYS:2,MID_SWAPS:2,MID_MIN:20,   // the mid-season window: opens after match 12 of a league of 20 matches or more, stays open for two match days, up to two changes under the window cap (Harry, 12 Nov 2026)
   REDRAFT_AFTER:[1],      // when one of these leagues ends, every team drafts seven new players from fourteen instead of changing one (League 1: the switch to the players with body types, Harry 12 Nov 2026)
   IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
@@ -92,6 +93,7 @@ function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replac
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
+const midOpen=(d,lg)=>!!(d.mid&&d.mid.league===lg.no&&lg.match_no<=d.mid.until&&d.mid.agents);
 function newTeamRow(hash,name,players,leagueNo,now,kit){
   const top=[...players].sort((a,b)=>rating(b)-rating(a));
   const data={name,players,starters:top.slice(0,3).map(p=>p.id),subs:top.slice(3,5).map(p=>p.id),
@@ -311,6 +313,12 @@ async function runMatchday(store,lg,now){
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}
     reset=true;lg.no++;lg.match_no=1;
   }else lg.match_no++;
+  // the mid-season window: after match MID_AFTER every team in the league gets seven free agents for MID_DAYS match days
+  if(!reset&&leagueLength(lg)>=CFG.MID_MIN){
+    if(lg.match_no===CFG.MID_AFTER+1){const taken=await takenNames(store,true);
+      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:CFG.MID_AFTER+CFG.MID_DAYS,agents:ps,used:0};}}
+    if(lg.match_no>CFG.MID_AFTER+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
+  }
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
   lg.next_match_at=nextMatchTime(lg.next_match_at,lg.no);lg.busy_until=null;   // lg.no is already the next league's number if one just ended
   // next pairings, among the managers who are still around
@@ -370,7 +378,7 @@ async function makeView(store,row,lg,now,extra){
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:capOf(d,true),out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
@@ -530,6 +538,21 @@ async function handle2(store,req,a,h,now){
   }else if(a==='vote'){
     if(![0,1,2].includes(req.i))return {error:'bad vote'};
     d.vote=req.i;dirty=true;
+  }else if(a==='mid'){   // the mid-season window: up to MID_SWAPS changes in all, one free agent in for each player out, under the window cap
+    if(!midOpen(d,lg))return {error:'The mid-season window is not open.'};
+    const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
+    if(!outs.length||outs.length!==ins.length)return {error:'One free agent in for each player out.'};
+    const left=CFG.MID_SWAPS-d.mid.used;if(outs.length>left)return {error:left>0?'You may change '+left+' more player'+(left===1?'':'s')+' in this window.':'You have made your two changes in this window.'};
+    if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!d.mid.agents.some(p=>p.id===id)))return {error:'bad swap'};
+    const after=d.players.filter(p=>!outs.includes(p.id)).concat(d.mid.agents.filter(p=>ins.includes(p.id)));
+    {const e=overCap(after,capOf(d,true));if(e)return {error:e};}
+    d.players=after;d.mid.agents=d.mid.agents.filter(p=>!ins.includes(p.id));d.mid.used+=outs.length;
+    // the line-up: whoever left is replaced by the best of the rest, so the team is never short
+    enforceRule(d,lg.rule);const avail=rule=>d.players.filter(p=>!(rule==='tall_out'&&tallestId(d)===p.id));
+    for(const p of [...avail(lg.rule)].sort((a,b)=>rating(b)-rating(a))){if(d.starters.length>=3)break;if(!d.starters.includes(p.id)&&!d.subs.includes(p.id))d.starters.push(p.id);}
+    for(const p of [...avail(lg.rule)].sort((a,b)=>rating(b)-rating(a))){if(d.subs.length>=2)break;if(!d.starters.includes(p.id)&&!d.subs.includes(p.id))d.subs.push(p.id);}
+    if(!d.ball||!d.starters.includes(d.ball))d.ball=d.starters.slice().map(id=>byId(d,id)).sort((a,b)=>b.sh-a.sh)[0].id;
+    cleanMins(d);row.pub={...row.pub,sv:squadValue(d.players)};dirty=true;
   }else if(a==='kit'){   // the team's two colours and its badge; may be changed at any time, it changes nothing in a match
     const k=cleanKit(req.kit);if(!k)return {error:'Pick two different colours and a badge.'};
     row.pub={...row.pub,kit:k};dirty=true;

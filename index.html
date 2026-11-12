@@ -265,6 +265,7 @@
         <div class="small" id="subNote" style="font-size:15px;color:var(--ink)"></div>
         <div id="minsUI"></div>
       </div>
+      <div id="midUI"></div>
       <div id="voteRoom"></div>
       <button class="go" id="play"></button>
       <div class="card hide" id="nextInfo" style="margin-top:16px;text-align:center;background:#d3f5d6"></div>
@@ -1120,6 +1121,21 @@ function wireMins(){const me=S.me;const on=$('minsOn'),off=$('minsOff');
   if(on)on.onclick=()=>{const m={};me.starters.forEach(id=>m[id]=30);me.subs.forEach((id,i)=>m[id]=i?10:20);me.mins=m;save();renderPlan();};
   if(off)off.onclick=()=>{me.mins=null;save();renderPlan();};
   $('minsUI').querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{const id=+b.dataset.m;me.mins[id]=(+b.dataset.q)*10;save();renderPlan();});}
+// the mid-season window: after match 12 of a season league, two match days to change up to two players under the window cap
+function midHtml(){const m=ONLINE&&S.me&&S.me.mid;if(!m||S.phase!=='week')return '';S.midOut=(S.midOut||[]).filter(id=>S.me.players.some(p=>p.id===id));S.midIn=(S.midIn||[]).filter(id=>m.agents.some(p=>p.id===id));
+  const myW=(V&&V.me&&V.me.capW)||CAP_WINDOW,after=S.me.players.filter(p=>!S.midOut.includes(p.id)).concat(m.agents.filter(p=>S.midIn.includes(p.id))),pv=squadValue(after),over=pv>myW;
+  const ready=S.midOut.length&&S.midOut.length===S.midIn.length&&!over;
+  return `<div class="card" style="margin-top:16px"><h3>Mid-season window · ${m.left} change${m.left===1?'':'s'} left, until match ${m.until} is played</h3>
+  <div class="small" style="margin:0 0 8px">Tap one of yours to let go and a free agent to bring in, up to ${m.left} of each, then press the button. Under the window cap. The free agents leave when the window closes.</div>
+  <div class="capline ${over?'over':''}">Squad value after the change ${money(pv)} of your ${money(myW)} window cap${over?': over, let a dearer player go':''}</div>
+  <div class="pool">${S.me.players.map((p,i)=>candHtml(p,S.midOut.includes(p.id)?'in':'',i)).join('')}</div>
+  <h3 style="margin-top:16px">Free agents</h3><div class="pool">${m.agents.map((p,i)=>candHtml(p,S.midIn.includes(p.id)?'in':'',i)).join('')}</div>
+  <button class="go" id="midGo" ${ready?'':'disabled'}>${over?'Over the cap by '+money(pv-myW):ready?'Make the change':S.midOut.length||S.midIn.length?'Match the outs and ins':'Pick who goes and who comes'}</button></div>`;}
+function wireMid(){const m=ONLINE&&S.me&&S.me.mid;if(!m||!$('midUI').firstChild)return;const pools=$('midUI').querySelectorAll('.pool');
+  pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.me.players[+d.dataset.i].id;if(S.midOut.includes(id))S.midOut=S.midOut.filter(x=>x!==id);else if(S.midOut.length<m.left)S.midOut.push(id);renderPlan();});
+  pools[1].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=m.agents[+d.dataset.i].id;if(S.midIn.includes(id))S.midIn=S.midIn.filter(x=>x!==id);else if(S.midIn.length<m.left)S.midIn.push(id);renderPlan();});
+  drawList=[...S.me.players,...m.agents];
+  $('midGo').onclick=()=>{const outs=S.midOut.slice(),ins=S.midIn.slice();S.midOut=[];S.midIn=[];goOnline('mid',{outs,ins});};}
 // the vote for the rule after the next match, also here: decide it after a look at your players
 function voteRoomHtml(){if(!S.vote||!S.vote.opts||S.phase!=='week'||(ONLINE&&S.out))return '';
   return `<div class="card" style="margin-top:16px"><h3>${ONLINE?'Vote for '+DAY2()+"'s rule":"Vote for next Sunday's rule"}</h3><div class="small" style="margin:0 0 8px">${DAY()}'s rule is already set: <b>${ruleOf(S.rule).txt}</b> The votes decide the rule of the match after it. ${S.myVote===null||S.myVote===undefined?'You have not voted yet.':'Your vote is marked; you can change it until the match is played.'}</div><div class="grid3">${S.vote.opts.map((k,i)=>`<div class="card vote ${S.myVote===i?'on':''}" data-v="${i}">${ruleOf(k).txt}<small>${ruleOf(k).why}</small></div>`).join('')}</div></div>`;}
@@ -1133,7 +1149,7 @@ function renderPlan(){
   document.querySelectorAll('.dial .d').forEach(d=>{d.textContent=DESC[d.dataset.d][sh[d.dataset.d]];});
   const sn=S.me.subs.map(id=>byId(S.me,id)).filter(Boolean).map(q=>q.n);
   const idle=S.me.players.filter(q=>!S.me.starters.includes(q.id)&&!S.me.subs.includes(q.id)).map(q=>q.n);
-  $('minsUI').innerHTML=minsHtml();wireMins();$('voteRoom').innerHTML=voteRoomHtml();wireVoteRoom();
+  $('minsUI').innerHTML=minsHtml();wireMins();$('midUI').innerHTML=midHtml();wireMid();$('voteRoom').innerHTML=voteRoomHtml();wireVoteRoom();
   {const myW=(ONLINE&&V&&V.me&&V.me.capW)||CAP_WINDOW,sv=squadValue(S.me.players);$('capNote').innerHTML=`Squad value <b>${money(sv)}</b>. Window cap <b>${money(myW)}</b>${myW>CAP_WINDOW?' ('+money(myW-CAP_WINDOW)+' extra for finishing in the lower half)':''}: ${sv>myW?'over it by '+money(sv-myW)+', so your next change must shed value':'room for '+money(myW-sv)+' at the next change'}.`;}
   $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires, if they are worth more on the court than the tired starter.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
   const op=nextOpp();if(op){const ov=oppView(op);
@@ -1252,6 +1268,7 @@ function renderHelp(){
   <ul><li><b>Every new league starts with no teams.</b> When a league ends, open the game: you see how it ended, and you press <b>Enter the league</b> to put your team in the next one. A team whose manager does not press the button is not in it.</li>
   <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name.</li>
   <li><b>One change.</b> Before you enter you may change <b>${SWAP_WORDS}</b> of your seven players for a free agent, as long as the squad stays under the wage cap: to sign a dearer player you let a good one go.</li>
+  <li><b>The mid-season window.</b> In a season league, once match 12 is played, every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave when match 14 is played.</li>
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)} at a draft, and a tighter ${money(CAP_WINDOW)} at the two windows (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
   <li><b>What a change means under the cap.</b> Say your seven are worth $118M and you want a $25M free agent at a window. Let a $14M player go and the squad becomes $129M: over the line, refused. Let a $23M player go instead and it becomes $120M: allowed, a good player traded for a slightly better one. With one change per window, the only question is which of your own must go to make room, and whether that trade is worth it. There is no saving up and no buying two.</li>
   <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the next league, so the league stays close. The locker room shows your squad value and your room under the game plan; the Table tab shows every squad's value.</li>
