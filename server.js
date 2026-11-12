@@ -295,6 +295,13 @@ function checkPlan(data,req,rule){
   if(sb.some(id=>st.includes(id)))return 'bad lineup';
   const ball=req.ball==null?null:req.ball;if(ball!==null&&!st.includes(ball))return 'bad star';
   const sh={};for(const k of Object.keys(DEF_SHEET)){const v=req.sheet&&req.sheet[k];if(![0,1,2].includes(v))return 'bad plan';sh[k]=v;}
+  // playing time: minutes of 40 for each of the five named players, 120 in all; null = the coach decides; absent = unchanged
+  let mins=data.mins||null;
+  if(req.mins!==undefined){
+    if(req.mins===null)mins=null;
+    else{if(typeof req.mins!=='object')return 'bad minutes';if(st.length!==3||sb.length!==2)return 'Name three starters and two substitutes before sharing out the minutes.';
+      mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game)return 'bad minutes';mins[id]=v;sum+=v;}
+      if(sum!==MINS.total)return 'Give '+MINS.total+' minutes in all: three players on the court for '+MINS.game+' minutes.';}}
   // half-time orders: one per case, each an order key, "star" with one of the manager's own players
   let orders=data.orders||null;
   if(req.orders!==undefined){
@@ -307,7 +314,7 @@ function checkPlan(data,req,rule){
         if(!orderOf(o.k))return 'bad orders';
         if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
   }
-  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;
+  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;data.mins=mins;cleanMins(data);
   return null;
 }
 
@@ -323,7 +330,7 @@ async function makeView(store,row,lg,now,extra){
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
