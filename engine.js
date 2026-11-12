@@ -185,13 +185,13 @@ const tall3=p=>p.ht===undefined?0:TALL3[p.ht];
 // most, then defence, then speed), their height and build, and a little from character; never from mood or form. The
 // cap binds every time a squad changes: the draft, the one change between leagues, the mid-season window. The lower half
 // of a table gets a little extra room for the next league. Values are shown as millions.
-const CAP=130,CAP_BONUS=8;   // seven average players are worth about 122: the cap leaves room for one dear player, not for seven
+const CAP=130,CAP_WINDOW=125,CAP_BONUS=8;   // seven average players are worth about 122: the draft cap leaves room for one dear player, not for seven; at the two windows (between leagues, mid-season) the cap is tighter, so a change is a trade (Harry, 12 Nov 2026)
 const CHAR_VALUE={veteran:1,easygoing:0.5,hothead:-1,worrier:-0.5};
 function valueOf(p){const b=p.base||p;const dots=(b.sh||p.sh)*1.2+(b.df||p.df)+(b.sp||p.sp)*0.6;
   return Math.max(6,Math.round(dots*2.2+p.h*4+(p.bd===2?1:0)+(CHAR_VALUE[p.temp]||0)));}
 const squadValue=ps=>(ps||[]).reduce((s,p)=>s+valueOf(p),0);
 const money=v=>'$'+v+'M';
-const capOf=d=>CAP+((d&&d.capBonus)||0);   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
+const capOf=(d,window)=>(window?CAP_WINDOW:CAP)+((d&&d.capBonus)||0);   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
 const bodyOf=p=>p.ht===undefined||p.bd===undefined?null:{ht:p.ht,bd:p.bd};
 const tireOf=p=>{const b=bodyOf(p);return b?TIRE_HT[b.ht]*TIRE_BD[b.bd]:1;};
 const isFat=p=>p.bd===2&&p.ht!==undefined;

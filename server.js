@@ -370,7 +370,7 @@ async function makeView(store,row,lg,now,extra){
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:capOf(d,true),out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
@@ -548,7 +548,7 @@ async function handle2(store,req,a,h,now){
       if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
       const agents=d.agents||[];
       if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
-      {const after=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));const e=overCap(after,capOf(d));if(e)return {error:e};}
+      {const after=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));const e=overCap(after,capOf(d,true));if(e)return {error:e};}   // the window cap
       d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
     }
     d.agents=[];if(d.final)d.final.seen=true;row.pub={...row.pub,sv:squadValue(d.players)};
