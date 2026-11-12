@@ -58,6 +58,15 @@ function leagueName(no,at,short){
 }
 // what the browser is told about the running league
 function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at),short:leagueName(lg.no,lg.next_match_at,true),match_no:lg.match_no,of:leagueLength(lg),next_match_at:lg.next_match_at,rule:lg.rule,days:matchDays(lg.no),hour:CFG.MATCH_HOUR_UTC};}
+// Every player in the league is one of a kind (Harry, 12 Nov 2026): no two players, on any team or in any draft pool
+// still open, share a name. `taken` is every name in use; a pool or a squad is made against it.
+async function takenNames(store,withPools){
+  const names=new Set();const add=ps=>{for(const p of ps||[])if(p&&p.n)names.add(p.n);};
+  for(const t of await store.allTeams()){add(t.data.players);add(t.data.agents);if(t.data.redraft)add(t.data.redraft.pool);}
+  const house=await store.house();if(house)add(house.data.players);
+  if(withPools&&store.poolNames)for(const n of await store.poolNames())names.add(n);
+  return names;
+}
 function newPlayers(n,avoid){
   usedNames.clear();for(const x of avoid||[])usedNames.add(x);
   const out=[],ids=new Set();
@@ -267,19 +276,20 @@ async function runMatchday(store,lg,now){
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
     for(const t of away){rows.push(t);map.set(t.id,t);}
     const redraft=CFG.REDRAFT_AFTER.includes(lg.no);
+    const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
       t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,seen:false};
       t.data.played=(t.data.played||0)+1;if(place===1)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
-      t.data.agents=redraft?[]:newPlayers(7,t.data.players.map(p=>p.n));
+      t.data.agents=redraft?[]:fresh(7);
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.
     if(redraft)for(const t of [...all,...rows.filter(t=>t.is_house)]){   // `all` is every manager's team; the computer team is among the rows in play
-      if(t.is_house){t.data.players=newPlayers(7);firstLineup(t.data);t.data.orders=null;continue;}
+      if(t.is_house){t.data.players=fresh(7);firstLineup(t.data);t.data.orders=null;continue;}
       if(!map.has(t.id)){rows.push(t);map.set(t.id,t);}
-      t.data.redraft={after:lg.no,pool:newPlayers(14)};
+      t.data.redraft={after:lg.no,pool:fresh(14)};
     }
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
@@ -445,7 +455,7 @@ async function handle2(store,req,a,h,now){
         // sees what the first one saw (Harry, 14 Nov 2026: refreshing for better players is unfair)
         const ipHash=req._ip?await hash('ip:'+req._ip):null;const shared=ipHash?await store.pool(ipHash):null;
         if(shared&&Array.isArray(shared.players)&&shared.players.length===14)pool={players:shared.players,rerolls:0};
-        else{pool={players:newPlayers(14),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
+        else{pool={players:newPlayers(14,[...await takenNames(store,true)]),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
         await store.savePool(h,pool);}
       return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:leagueInfo(lg)};
     }
@@ -456,6 +466,9 @@ async function handle2(store,req,a,h,now){
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
+      // a name taken by a team that joined in the meantime is changed for a fresh one (looks and dots stay); the other
+      // open pools do not count here, they were made to avoid this one
+      {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);}}
       const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);
       try{row=await store.insertTeam(fresh);}
       catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once

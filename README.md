@@ -108,6 +108,9 @@ free plan allows; the scheduled job fails loudly from 350 on).
   very tall player's side wins about 55% of the matches they play in, a tiny one's about 45% (the same spread as before
   the update, 54 to 44), fat about 1.5 points more than slim; tall and fat players start a match with about 0.6 energy
   dots less than tiny ones.
+- Every player is one of a kind: `takenNames` collects every name on every team, in free agents, in fresh-draft pools and in the
+  draft pools still open; new pools and new players are made against it, and at `join` a name taken in the meantime is swapped
+  for a fresh one (Harry, 12 Nov 2026).
 - Looks: `hair`, `beard`, `specs`, `acc` (sweatbands), `socks`, `shoe`, `cheek` are numbers into lists in `engine.js`,
   drawn by `toon` in `index.html`; they change nothing in a match.
 - Team kit: two colours and a badge (`KIT_COLS`, `BADGES`, `cleanKit`), kept in `pub.kit`; a team without one gets a kit

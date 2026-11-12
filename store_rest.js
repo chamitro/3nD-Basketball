@@ -60,6 +60,7 @@ function restStore(base,keys,prefix){
     pool:h=>one('b3_pools?key_hash=eq.'+h+'&select=players,rerolls'),
     savePool:(h,p)=>q('b3_pools?on_conflict=key_hash',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:{key_hash:h,players:p.players,rerolls:p.rerolls}}),
     dropPool:h=>q('b3_pools?key_hash=eq.'+h,{method:'DELETE',prefer:'return=minimal'}),
+    poolNames:async()=>(await pages('b3_pools?select=players',200)).flatMap(x=>(x.players||[]).map(p=>p.n)),   // names in the draft pools still open
     lock:async now=>{
       const a=await q('b3_league?id=eq.1&next_match_at=lte.'+now+'&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
         {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});
