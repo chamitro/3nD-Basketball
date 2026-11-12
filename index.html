@@ -648,7 +648,7 @@ function toon(c,p,x,y,s,t,o){
   o=o||{};
   const H=(58+p.h*78)*s,W=(44+p.bulk*44)*s,leg=20*s,lw=4*s;   // height and build are drawn for real: tiny to very tall, slim to fat
   const K=o.kit||KIT(),KA=KIT_COLS[K.a],KB=KIT_COLS[K.b],HC=p.hair===undefined?null:HAIRS[p.hair];
-  const mood=o.mood||p.mood;
+  const mood=o.mood||p.mood;const face=o.cheer===true?'happy':o.cheer===false?'sad':mood;
   let bob=Math.sin(t*3+p.ph)*2.5*s,shake=0,sq=1+Math.sin(t*3+p.ph)*0.02,wob=0.25;
   if(mood==='happy'){bob=-Math.abs(Math.sin(t*5+p.ph))*11*s;sq=1+Math.sin(t*10+p.ph*2)*0.04;wob=0.5;}
   if(mood==='angry'){shake=Math.sin(t*38)*1.7*s;wob=0.45;}
@@ -656,8 +656,29 @@ function toon(c,p,x,y,s,t,o){
   if(mood==='sad'){bob=3*s;sq=0.97;}
   if(o.sel){bob-=Math.abs(Math.sin(t*6))*5*s;}
   const yawn=(mood==='ok'||mood==='cool')&&((t*0.6+p.ph*1.3)%9)<0.9;
-  const lean=p.shape==='bean'?Math.sin(t*1.5+p.ph)*0.05-0.07:0;
-  const bx=x+shake,top=y-leg-H*sq+bob,bot=top+H*sq;
+  let lean=p.shape==='bean'?Math.sin(t*1.5+p.ph)*0.05-0.07:0,xoff=0,lookOff=0,aL=null,aR=null,juggle=-1;   // aL/aR: an arm pose [angle, length factor] from an act
+  // Every few seconds a player does something that fits their character: the show-off flexes, the joker juggles, the
+  // old hand stretches, the worrier paces, the hot-head stomps, the fighter shadow-boxes, the pleaser waves at you, the
+  // loner turns away, the easy-going one sways. Only when nothing else is going on.
+  const tp=p.temp,idle=(mood==='ok'||mood==='cool')&&!o.sel&&!yawn&&o.cheer===undefined&&!(o.poke<0.7);
+  const cyc=(t*0.5+p.ph*1.7)%10,act=idle&&cyc<1.6?cyc/1.6:-1;
+  if(act>=0){const w=Math.sin(act*Math.PI);
+    if(tp==='showoff'){bob-=w*6*s;sq=1+w*0.04;aL=[-1.5+w*0.3,0.9];aR=[-1.5-w*0.3,0.9];}
+    else if(tp==='veteran'){aL=[1.2-2.6*w,1];aR=[1.2-2.6*w,1];sq=1+w*0.03;}
+    else if(tp==='worrier'){xoff=Math.sin(act*Math.PI*2)*10*s;wob=0.9;lookOff=Math.sin(act*Math.PI*4)*0.5;}
+    else if(tp==='hothead'){bob+=act<0.35?-w*9*s:w*4*s;sq=act<0.35?1.02:0.97;}
+    else if(tp==='fighter'){const j=Math.sin(act*Math.PI*6);aL=[0.15,0.55+Math.max(0,j)*0.6];aR=[0.15,0.55+Math.max(0,-j)*0.6];xoff=Math.sin(act*Math.PI*12)*1.5*s;}
+    else if(tp==='pleaser'){aR=[-1.35+Math.sin(t*14)*0.35,1];lookOff=0.25;}
+    else if(tp==='loner'){lean+=w*0.12;lookOff=-0.6*w;}
+    else if(tp==='easygoing'){sq=1+Math.sin(act*Math.PI*2)*0.03;bob+=Math.sin(act*Math.PI*2)*2.5*s;lean+=Math.sin(act*Math.PI*2)*0.05;}
+    else if(tp==='joker'){juggle=act;aL=[-0.95,0.95];aR=[-0.95,0.95];lookOff=0;}}
+  // a tap: a hop and an exclamation; the result: a cheer (arms up, jumping) or a slump; tired legs: a slouch and sweat
+  if(o.poke<0.7){const k=Math.sin(o.poke/0.7*Math.PI);bob-=k*22*s;sq=1+k*0.06;wob=0;}
+  if(o.cheer===true){bob=-Math.abs(Math.sin(t*6+p.ph))*16*s;sq=1+Math.sin(t*12+p.ph)*0.04;aL=[-1.4+Math.sin(t*12+p.ph)*0.3,1];aR=[-1.4-Math.sin(t*12+p.ph)*0.3,1];}
+  else if(o.cheer===false){bob=4*s;sq=0.95;aL=[1.5,1];aR=[1.5,1];lookOff=0;}
+  const tired=typeof hasEnergy==='function'&&hasEnergy(p)&&energyOf(p)<=2&&o.cheer===undefined;
+  if(tired){sq*=0.985;bob*=0.6;}
+  const bx=x+shake+xoff,top=y-leg-H*sq+bob,bot=top+H*sq;
   c.save();c.lineJoin='round';c.lineCap='round';c.strokeStyle=INK;c.lineWidth=lw;
   c.fillStyle='rgba(43,34,51,.18)';c.beginPath();c.ellipse(x,y+3*s,Math.max(8,W*0.62+bob*0.3),7*s,0,0,Math.PI*2);c.fill();
   // legs + big sneakers
@@ -673,6 +694,8 @@ function toon(c,p,x,y,s,t,o){
   else if(mood==='angry'){arm(-1,0.9,L*0.7);arm(1,0.9,L*0.7);}
   else if(mood==='sad'){arm(-1,1.45,L);arm(1,1.45,L);}
   else if(yawn){arm(-1,1.2,L);arm(1,-1.2,L);}
+  else if(aL||aR){arm(-1,aL?aL[0]:1.2,L*(aL?aL[1]:1));arm(1,aR?aR[0]:1.2,L*(aR?aR[1]:1));
+    if(juggle>=0){c.fillStyle='#ff8c2a';for(let i=0;i<3;i++){const ph=juggle*Math.PI*3+i*Math.PI*2/3,jx=bx+Math.sin(ph)*W*0.3,jy=top-10*s-Math.abs(Math.cos(ph))*34*s;c.beginPath();c.arc(jx,jy,6.5*s,0,Math.PI*2);c.fill();c.stroke();}}}
   else{arm(-1,1.2+Math.sin(t*3+p.ph)*0.1,L);const h=arm(1,hasBall?0.5:1.2-Math.sin(t*3+p.ph)*0.1,L);
     if(hasBall){const bb=Math.abs(Math.sin(t*4+p.ph));const by=lerp(y-9*s,h[1]+10*s,bb);c.fillStyle='#ff8c2a';c.beginPath();c.arc(h[0]+4*s,by,9*s,0,Math.PI*2);c.fill();c.stroke();c.lineWidth=lw*0.5;c.beginPath();c.moveTo(h[0]-5*s,by);c.lineTo(h[0]+13*s,by);c.stroke();c.lineWidth=lw;}}
   // body, then the team's kit: shirt in the first colour with a trim in the second, shorts in the second, the badge and the number
@@ -690,22 +713,24 @@ function toon(c,p,x,y,s,t,o){
     c.font=`${(fs*0.86).toFixed(1)}px ${EMOJI}`;c.fillStyle=INK;c.fillText(BADGES[K.g],bx-W*0.26,ny-fs*0.04);}
   // head gear
   toppers(c,p,bx,top,tw,s,t,lw,KA,KB,HC);
+  if(o.poke<0.7){c.fillStyle='#ffd23f';c.font=`900 ${Math.round(22*s)}px system-ui`;c.textAlign='center';c.lineWidth=lw*0.8;c.strokeText('!',bx+tw*0.55,top-14*s);c.fillText('!',bx+tw*0.55,top-14*s);c.lineWidth=lw;}
+  if(tired&&mood!=='nervous'){const k=(t*0.3+p.ph)%1;if(k<0.3){const kk=k/0.3,dx=bx-tw*0.46,dy=top+tw*0.28+kk*22*s;c.fillStyle='#6ec6ff';c.beginPath();c.moveTo(dx,dy-6*s);c.quadraticCurveTo(dx+5*s,dy+3*s,dx,dy+5*s);c.quadraticCurveTo(dx-5*s,dy+3*s,dx,dy-6*s);c.globalAlpha=1-kk*0.7;c.fill();c.stroke();c.globalAlpha=1;}}
   // googly eyes
   const fy=top+fw*0.5,ex=fw*0.21,erB=fw*0.17;
   const blink=((t+p.ph*3)%3.6)<0.12||yawn;
-  const look=Math.sin(t*0.7+p.ph)*0.3;
+  const look=Math.sin(t*0.7+p.ph)*0.3+lookOff;
   for(const d of [-1,1]){
     const er=erB*(1+d*p.eye);
     if(blink){c.beginPath();c.arc(bx+d*ex,fy,er*0.8,0.1*Math.PI,0.9*Math.PI);c.stroke();}
     else{c.fillStyle='#fff';c.beginPath();c.arc(bx+d*ex,fy,er,0,Math.PI*2);c.fill();c.stroke();
       let px=look*er+Math.sin(t*7+p.ph+d)*er*wob*0.5,py=Math.cos(t*5.3+p.ph+d*2)*er*wob*0.5;
-      if(mood==='sad'){py=er*0.4;px*=0.3;}
+      if(face==='sad'){py=er*0.4;px*=0.3;}
       c.fillStyle=INK;c.beginPath();c.arc(bx+d*ex+px,fy+py,er*0.42,0,Math.PI*2);c.fill();
       c.fillStyle='#fff';c.beginPath();c.arc(bx+d*ex+px-er*0.12,fy+py-er*0.14,er*0.12,0,Math.PI*2);c.fill();}
     c.beginPath();
-    if(mood==='angry'){c.moveTo(bx+d*(ex+er),fy-er*1.55);c.lineTo(bx+d*(ex-er*0.8),fy-er*0.75);c.stroke();}
-    else if(mood==='sad'||mood==='nervous'){c.moveTo(bx+d*(ex+er),fy-er*0.9);c.lineTo(bx+d*(ex-er*0.7),fy-er*1.55);c.stroke();}
-    else if(mood==='cool'&&!yawn){c.moveTo(bx+d*(ex-er),fy-er*1.3);c.lineTo(bx+d*(ex+er),fy-er*1.3);c.stroke();}
+    if(face==='angry'){c.moveTo(bx+d*(ex+er),fy-er*1.55);c.lineTo(bx+d*(ex-er*0.8),fy-er*0.75);c.stroke();}
+    else if(face==='sad'||face==='nervous'){c.moveTo(bx+d*(ex+er),fy-er*0.9);c.lineTo(bx+d*(ex-er*0.7),fy-er*1.55);c.stroke();}
+    else if(face==='cool'&&!yawn){c.moveTo(bx+d*(ex-er),fy-er*1.3);c.lineTo(bx+d*(ex+er),fy-er*1.3);c.stroke();}
   }
   // cheeks: freckles, a blush, a plaster, a mole
   if(p.cheek){const cy=fy+erB*1.15,cx=fw*0.36;
@@ -727,11 +752,11 @@ function toon(c,p,x,y,s,t,o){
   const er=erB,my=fy+er*1.9;
   c.beginPath();
   if(yawn){c.fillStyle='#7a2233';c.ellipse(bx,my,er*0.7,er*0.95,0,0,Math.PI*2);c.fill();c.stroke();}
-  else if(mood==='happy'){c.fillStyle='#7a2233';c.arc(bx,my-er*0.3,er*1.15,0,Math.PI);c.closePath();c.fill();c.stroke();if(p.temp==='joker'||p.teeth){c.fillStyle='#ff8fa3';c.beginPath();c.ellipse(bx+er*0.2,my+er*0.55,er*0.5,er*0.6,0,0,Math.PI*2);c.fill();c.stroke();}c.fillStyle='#ffb3c1';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*fw*0.36,fy+er*1.1,er*0.5,0,Math.PI*2);c.fill();}}
-  else if(mood==='angry'){c.fillStyle='#fff';c.rect(bx-er*1.1,my-er*0.5,er*2.2,er*0.9);c.fill();c.stroke();c.beginPath();for(let k=-1;k<=1;k++){c.moveTo(bx+k*er*0.55,my-er*0.5);c.lineTo(bx+k*er*0.55,my+er*0.4);}c.stroke();}
-  else if(mood==='sad'){c.arc(bx,my+er*0.9,er*0.9,Math.PI*1.2,Math.PI*1.8);c.stroke();}
-  else if(mood==='nervous'){c.moveTo(bx-er,my);for(let k=0;k<=6;k++)c.lineTo(bx-er+k*er/3,my+(k%2?-1:1)*er*0.22);c.stroke();}
-  else if(mood==='cool'){c.moveTo(bx-er*0.8,my);c.lineTo(bx+er*0.8,my);c.stroke();}
+  else if(face==='happy'){c.fillStyle='#7a2233';c.arc(bx,my-er*0.3,er*1.15,0,Math.PI);c.closePath();c.fill();c.stroke();if(p.temp==='joker'||p.teeth){c.fillStyle='#ff8fa3';c.beginPath();c.ellipse(bx+er*0.2,my+er*0.55,er*0.5,er*0.6,0,0,Math.PI*2);c.fill();c.stroke();}c.fillStyle='#ffb3c1';for(const d of [-1,1]){c.beginPath();c.arc(bx+d*fw*0.36,fy+er*1.1,er*0.5,0,Math.PI*2);c.fill();}}
+  else if(face==='angry'){c.fillStyle='#fff';c.rect(bx-er*1.1,my-er*0.5,er*2.2,er*0.9);c.fill();c.stroke();c.beginPath();for(let k=-1;k<=1;k++){c.moveTo(bx+k*er*0.55,my-er*0.5);c.lineTo(bx+k*er*0.55,my+er*0.4);}c.stroke();}
+  else if(face==='sad'){c.arc(bx,my+er*0.9,er*0.9,Math.PI*1.2,Math.PI*1.8);c.stroke();}
+  else if(face==='nervous'){c.moveTo(bx-er,my);for(let k=0;k<=6;k++)c.lineTo(bx-er+k*er/3,my+(k%2?-1:1)*er*0.22);c.stroke();}
+  else if(face==='cool'){c.moveTo(bx-er*0.8,my);c.lineTo(bx+er*0.8,my);c.stroke();}
   else{c.arc(bx,my-er*0.5,er*0.9,Math.PI*0.15,Math.PI*0.85);c.stroke();if(p.teeth){c.fillStyle='#fff';c.fillRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.strokeRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.beginPath();c.moveTo(bx,my+er*0.2);c.lineTo(bx,my+er*0.75);c.stroke();}}
   // moustache, goatee, stubble
   if(p.beard===1){c.fillStyle=HC||INK;c.lineWidth=lw*0.5;for(const d of [-1,1]){c.beginPath();c.ellipse(bx+d*er*0.5,my-er*0.62,er*0.62,er*0.27,d*0.35,0,Math.PI*2);c.fill();c.stroke();}c.lineWidth=lw;}
@@ -819,10 +844,13 @@ function drawGym(t,dt){
   const nb=Math.max(4,bench.length);
   bench.forEach((p,i)=>order.push(N?[p,16+(i+0.5)*(W-32)/nb,BY,Math.min(0.8,3.3/nb),false]:[p,SLOT(Math.max(3,starters.length)+i-(Math.max(3,starters.length)-3)),300,0.86,false]));
   const boxes={};
+  // after the match the whole team cheers or slumps with the result; a win rains confetti
+  const cheer=S.phase==='results'&&S.results&&S.results.list&&S.results.list.length?!!S.results.list[0].won:undefined;
+  if(cheer===true&&parts.filter(q=>q.kind==='conf').length<60&&R()<dt*14)parts.push({x:R()*W,y:-8,life:2.6+R()*1.5,kind:'conf',col:pick(['#ff5d8f','#ffd23f','#2ec4b6','#4d9de0','#6bcb77','#ff9f1c']),spin:R()*6});
   for(const [p,tx,ty,ts,st] of [...order].sort((a,b)=>a[2]-b[2])){
     if(p.x===null||p.x===undefined){p.x=tx;p.y=ty;p.s=ts;}
     p.x=lerp(p.x,tx,Math.min(1,dt*7));p.y=lerp(p.y,ty,Math.min(1,dt*7));p.s=lerp(p.s,ts,Math.min(1,dt*7));
-    const b=toon(g,p,p.x,p.y,p.s,t,{sel:p.id===S.sel,ball:me.ball===p.id});boxes[p.id]={x:p.x,y:p.y,top:b.top};
+    const b=toon(g,p,p.x,p.y,p.s,t,{sel:p.id===S.sel,ball:me.ball===p.id,poke:t-(p.pokeAt===undefined?-9:p.pokeAt),cheer});boxes[p.id]={x:p.x,y:p.y,top:b.top};
     g.font=`800 ${N&&!st?13:15}px system-ui`;const tw=g.measureText(p.n).width+(N&&!st?16:22);g.lineWidth=3;g.strokeStyle=INK;g.fillStyle=p.id===S.sel?'#ffd23f':'#fff';pillH(g,p.x-tw/2,p.y+10,tw,24);g.fill();g.stroke();g.fillStyle=INK;g.textAlign='center';g.fillText(p.n,p.x,p.y+27);
     if(st){g.fillStyle='#6bcb77';g.font='900 11px system-ui';pillH(g,p.x-26,p.y+38,52,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('STARTS',p.x,p.y+51);}
     else if(me.subs.includes(p.id)){g.fillStyle='#74c0fc';g.font='900 11px system-ui';pillH(g,p.x-20,p.y+38,40,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SUB',p.x,p.y+51);}
@@ -831,7 +859,8 @@ function drawGym(t,dt){
     if(p.talked){g.fillStyle='#4d9de0';g.beginPath();g.arc(p.x+tw/2+2,p.y+12,9,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#fff';g.font='900 12px system-ui';g.fillText('✓',p.x+tw/2+2,p.y+16);}
   }
   parts=parts.filter(q=>q.life>0);
-  for(const q of parts){q.y-=(q.kind==='txt'?16:40)*dt;if(q.kind!=='txt')q.x+=Math.sin(q.life*8)*0.6;q.life-=dt;g.globalAlpha=Math.min(1,q.life*1.5);g.lineWidth=3;g.strokeStyle=INK;
+  for(const q of parts){if(q.kind==='conf'){q.y+=95*dt;q.x+=Math.sin(q.life*4+q.spin)*1.4;}else{q.y-=(q.kind==='txt'?16:40)*dt;if(q.kind!=='txt')q.x+=Math.sin(q.life*8)*0.6;}q.life-=dt;g.globalAlpha=Math.min(1,q.life*1.5);g.lineWidth=3;g.strokeStyle=INK;
+    if(q.kind==='conf'){g.save();g.translate(q.x,q.y);g.rotate(q.life*5+q.spin);g.fillStyle=q.col;g.fillRect(-6,-3.5,12,7);g.lineWidth=1.5;g.strokeRect(-6,-3.5,12,7);g.restore();g.globalAlpha=1;continue;}
     if(q.kind==='heart'){g.fillStyle='#ff5d8f';g.beginPath();g.moveTo(q.x,q.y+6);g.bezierCurveTo(q.x-14,q.y-6,q.x-6,q.y-16,q.x,q.y-6);g.bezierCurveTo(q.x+6,q.y-16,q.x+14,q.y-6,q.x,q.y+6);g.fill();g.stroke();}
     else if(q.kind==='bolt'){g.fillStyle='#ef476f';g.beginPath();g.moveTo(q.x-3,q.y-10);g.lineTo(q.x+6,q.y-10);g.lineTo(q.x+1,q.y-2);g.lineTo(q.x+7,q.y-2);g.lineTo(q.x-5,q.y+10);g.lineTo(q.x-1,q.y+1);g.lineTo(q.x-7,q.y+1);g.closePath();g.fill();g.stroke();}
     else if(q.kind==='txt'){g.font='900 18px system-ui';g.textAlign='center';g.lineWidth=5;g.strokeStyle='#fff';g.strokeText(q.txt,q.x,q.y);g.fillStyle=q.col;g.fillText(q.txt,q.x,q.y);g.strokeStyle=INK;}
@@ -850,7 +879,7 @@ function drawGym(t,dt){
     g.restore();
   }
 }
-gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRect();const mx=(e.clientX-r.left)*GL.W/r.width,my=(e.clientY-r.top)*GL.H/r.height;let best=null,bd=1e9;for(const p of S.me.players){const d=Math.hypot((p.x||0)-mx,((p.y||0)-55*(p.s||1)-my)*(GL.narrow?1:0.01));if(d<bd){bd=d;best=p;}}if(best){S.sel=best.id;renderCard();if(GL.narrow)$('pcard').scrollIntoView({behavior:'smooth',block:'nearest'});}});
+gym.addEventListener('click',e=>{if(!S.me)return;const r=gym.getBoundingClientRect();const mx=(e.clientX-r.left)*GL.W/r.width,my=(e.clientY-r.top)*GL.H/r.height;let best=null,bd=1e9;for(const p of S.me.players){const d=Math.hypot((p.x||0)-mx,((p.y||0)-55*(p.s||1)-my)*(GL.narrow?1:0.01));if(d<bd){bd=d;best=p;}}if(best){S.sel=best.id;best.pokeAt=T;renderCard();if(GL.narrow)$('pcard').scrollIntoView({behavior:'smooth',block:'nearest'});}});
 
 // ───────────────────────── screens ─────────────────────────
 const hasEnergy=p=>!ONLINE||p.en!==undefined;
