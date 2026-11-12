@@ -78,6 +78,8 @@ function capSeven(pool,cap){const ps=[...pool].sort((a,b)=>rating(b)-rating(a));
   for(const p of ps){if(out.length<7&&v+valueOf(p)<=cap){out.push(p);v+=valueOf(p);}}
   if(out.length===7)return out;
   const cheap=[...pool].sort((a,b)=>valueOf(a)-valueOf(b)).slice(0,7);return squadValue(cheap)<=cap?cheap:null;}
+// a pool of fourteen a manager can always draft from: its cheapest seven leave room under the cap, its dearest seven do not fit
+function fairPool(avoid,cap){let pool=null;for(let t=0;t<40;t++){pool=newPlayers(14,avoid);const byV=[...pool].sort((a,b)=>valueOf(a)-valueOf(b));if(squadValue(byV.slice(0,7))<=cap-10&&squadValue(byV.slice(7))>cap)return pool;}return pool;}
 function houseSeven(avoid){for(let t=0;t<30;t++){const s=capSeven(newPlayers(14,avoid),CAP);if(s)return s;}return newPlayers(7,avoid);}
 const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+money(squadValue(ps))+' and the cap is '+money(cap)+'. Let a dearer player go.':null;
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
@@ -283,7 +285,7 @@ async function runMatchday(store,lg,now){
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
     for(const t of away){rows.push(t);map.set(t.id,t);}
     const redraft=CFG.REDRAFT_AFTER.includes(lg.no);
-    const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league
+    const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=n===14?fairPool([...taken,...(avoid||[])],CAP):newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league; a pool of fourteen is always draftable under the cap
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
       t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,seen:false};
@@ -464,7 +466,7 @@ async function handle2(store,req,a,h,now){
         // sees what the first one saw (Harry, 14 Nov 2026: refreshing for better players is unfair)
         const ipHash=req._ip?await hash('ip:'+req._ip):null;const shared=ipHash?await store.pool(ipHash):null;
         if(shared&&Array.isArray(shared.players)&&shared.players.length===14)pool={players:shared.players,rerolls:0};
-        else{pool={players:newPlayers(14,[...await takenNames(store,true)]),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
+        else{pool={players:fairPool([...await takenNames(store,true)],CAP),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
         await store.savePool(h,pool);}
       return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:leagueInfo(lg)};
     }
