@@ -300,8 +300,8 @@ function checkPlan(data,req,rule){
   if(req.mins!==undefined){
     if(req.mins===null)mins=null;
     else{if(typeof req.mins!=='object')return 'bad minutes';if(st.length!==3||sb.length!==2)return 'Name three starters and two substitutes before sharing out the minutes.';
-      mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game)return 'bad minutes';mins[id]=v;sum+=v;}
-      if(sum!==MINS.total)return 'Give '+MINS.total+' minutes in all: three players on the court for '+MINS.game+' minutes.';}}
+      mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step)return 'bad minutes';mins[id]=v;sum+=v;}
+      if(sum!==MINS.total)return 'Give twelve quarters in all: three players on the court for the whole match.';}}
   // half-time orders: one per case, each an order key, "star" with one of the manager's own players
   let orders=data.orders||null;
   if(req.orders!==undefined){

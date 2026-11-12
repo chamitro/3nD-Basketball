@@ -181,13 +181,14 @@ function fadeForm(p){if(!p.fm||!p.base)return;for(const k of ['sh','df','sp']){i
 function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 // ───────────────────────── playing time ─────────────────────────
-// A manager may give each of the five named players minutes of a 40-minute match, 120 in all (three on the court
-// the whole time), and the coach rotates to those minutes; who goes in and out when is the computer's. Without a
-// plan the bench works as described in `subs` (idea of a friend of Harry's, 12 Nov 2026).
-const MINS={game:40,total:120,step:5};
+// A manager may give each of the five named players a share of the match in quarters (none, a quarter, a half, three
+// quarters, the whole match), twelve quarters in all since three are on the court the whole time, and the coach rotates
+// to those shares; who goes in and out when is the computer's. Kept as minutes of 40 in steps of 10. Without a plan
+// the bench works as described in `subs` (idea of a friend of Harry's, 12 Nov 2026; quarters: Harry, same day).
+const MINS={game:40,total:120,step:10};
 function cleanMins(team){const m=team.mins;if(!m||typeof m!=='object'){team.mins=null;return null;}
   const ids=[...(team.starters||[]),...(team.subs||[])];if(ids.length!==5){team.mins=null;return null;}
-  const out={};let sum=0;for(const id of ids){const v=m[id];if(!Number.isInteger(v)||v<0||v>MINS.game){team.mins=null;return null;}out[id]=v;sum+=v;}
+  const out={};let sum=0;for(const id of ids){const v=m[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step){team.mins=null;return null;}out[id]=v;sum+=v;}
   if(sum!==MINS.total){team.mins=null;return null;}team.mins=out;return out;}
 function tallestId(team){return team.players.reduce((a,b)=>a.h>b.h?a:b).id;}
 function enforceRule(team,rule){
