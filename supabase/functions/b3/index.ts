@@ -183,12 +183,22 @@ function bump(p,k,d,kind){
 function fadeForm(p){if(!p.fm||!p.base)return;for(const k of ['sh','df','sp']){if(!p.fm[k])continue;p.fm[k]*=1-FORM_FADE;if(Math.abs(p.fm[k])<0.01)p.fm[k]=0;p[k]=clamp(clamp(p.base[k]+(p.tk&&p.tk[k]||0)+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);}}
 function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
+// ───────────────────────── playing time ─────────────────────────
+// A manager may give each of the five named players a share of the match in quarters (none, a quarter, a half, three
+// quarters, the whole match), twelve quarters in all since three are on the court the whole time, and the coach rotates
+// to those shares; who goes in and out when is the computer's. Kept as minutes of 40 in steps of 10. Without a plan
+// the bench works as described in `subs` (idea of a friend of Harry's, 12 Nov 2026; quarters: Harry, same day).
+const MINS={game:40,total:120,step:10};
+function cleanMins(team){const m=team.mins;if(!m||typeof m!=='object'){team.mins=null;return null;}
+  const ids=[...(team.starters||[]),...(team.subs||[])];if(ids.length!==5){team.mins=null;return null;}
+  const out={};let sum=0;for(const id of ids){const v=m[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step){team.mins=null;return null;}out[id]=v;sum+=v;}
+  if(sum!==MINS.total){team.mins=null;return null;}team.mins=out;return out;}
 function tallestId(team){return team.players.reduce((a,b)=>a.h>b.h?a:b).id;}
 function enforceRule(team,rule){
   if(rule==='tall_out'){const t=tallestId(team);team.starters=team.starters.filter(id=>id!==t);team.subs=team.subs.filter(id=>id!==t);if(team.ball===t)team.ball=null;}
   team.starters=team.starters.filter(id=>byId(team,id));
   team.subs=team.subs.filter(id=>byId(team,id)&&!team.starters.includes(id)).slice(0,2);
-  cleanOrders(team,rule);
+  cleanOrders(team,rule);cleanMins(team);
   if(team.ball&&!team.starters.includes(team.ball))team.ball=null;
 }
 function weekReset(team,first){for(const p of team.players){p.talked=false;p.lastRes='';if(!first)fadeForm(p);if(!first&&R()<0.3&&p.mood!=='ok'&&!p.ignored)p.mood='ok';}team.teamTalked=false;}
@@ -276,7 +286,9 @@ function playMatch(A,B,ruleKey){
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0,reb:0,stl:0,dg:0,da:0};
-    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0};
+    // the playing-time plan, as shares of the match, when it is whole and the rules allow substitutions
+    const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
+    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
   };
   const a=mk(A),b=mk(B);
   let P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
@@ -386,6 +398,13 @@ function playMatch(A,B,ruleKey){
     const tired=[...X.court].sort((p,q)=>worth(X,p)-worth(X,q))[0];
     const fresh=[...X.bench].sort((p,q)=>worth(X,q)-worth(X,p))[0];
     if(tired&&fresh&&X.st[fresh.id].f<X.st[tired.id].f-0.07&&worth(X,fresh)>worth(X,tired)+0.1){X.court[X.court.indexOf(tired)]=fresh;X.bench[X.bench.indexOf(fresh)]=tired;}}
+  // the playing-time plan: after every possession the three most owed minutes are on the court (one change at a time,
+  // and only for a whole possession's difference, so nobody yo-yos); a bench player's legs recover meanwhile
+  function rotate(X,i){if(!X.plan||X.planOff)return;
+    for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.04);
+    const owed=p=>(X.plan[p.id]||0)*(i+1)-X.st[p.id].min;
+    const c=[...X.court].sort((p,q)=>owed(p)-owed(q))[0],b=[...X.bench].filter(p=>X.plan[p.id]!==undefined).sort((p,q)=>owed(q)-owed(p))[0];
+    if(c&&b&&owed(b)-owed(c)>=1){X.court[X.court.indexOf(c)]=b;X.bench[X.bench.indexOf(b)]=c;}}
   // half-time: each side reads the score and follows the order left for that case
   const bringOn=(X,p)=>{   // a bench player comes on for the most tired player on the court
     if(!X.bench.includes(p))return false;const tired=[...X.court].sort((u,v)=>X.st[v.id].f-X.st[u.id].f)[0];
@@ -403,10 +422,10 @@ function playMatch(A,B,ruleKey){
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
       if(!orderOf(o.k))continue;
       if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
-      else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);}
+      else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);X.planOff=true;}   // the order outranks the playing-time plan
       else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
         if(!p){X.half.failed='that player is not available';continue;}
-        if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);}
+        if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);X.planOff=true;}
         X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;}
       X.half.order=o.k;
     }
@@ -415,11 +434,11 @@ function playMatch(A,B,ruleKey){
   for(let i=0;i<P;i++){
     if(i===half)halfTime();
     const late=i>=P*0.8&&Math.abs(a.score-b.score)<=5;
-    possession(a,b,late);tire(a);
+    possession(a,b,late);tire(a);rotate(a,i);
     if(rule==='first11'&&a.score>=11)break;
-    possession(b,a,late);tire(b);
+    possession(b,a,late);tire(b);rotate(b,i);
     if(rule==='first11'&&b.score>=11)break;
-    if(rule!=='first11'&&rule!=='iron'&&(i+1)%Math.ceil(P/4)===0&&i<P-1){subs(a);subs(b);}
+    if(rule!=='first11'&&rule!=='iron'&&(i+1)%Math.ceil(P/4)===0&&i<P-1){if(!a.plan||a.planOff)subs(a);if(!b.plan||b.planOff)subs(b);}
     if(rule==='first11'&&(i+1)%5===0){subs(a);subs(b);}
   }
   let guard=0;while(a.score===b.score&&guard++<40){possession(a,b,true);if(a.score!==b.score)break;possession(b,a,true);}
@@ -798,7 +817,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='2939d6c7';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='b6f182e6';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -1076,6 +1095,13 @@ function checkPlan(data,req,rule){
   if(sb.some(id=>st.includes(id)))return 'bad lineup';
   const ball=req.ball==null?null:req.ball;if(ball!==null&&!st.includes(ball))return 'bad star';
   const sh={};for(const k of Object.keys(DEF_SHEET)){const v=req.sheet&&req.sheet[k];if(![0,1,2].includes(v))return 'bad plan';sh[k]=v;}
+  // playing time: minutes of 40 for each of the five named players, 120 in all; null = the coach decides; absent = unchanged
+  let mins=data.mins||null;
+  if(req.mins!==undefined){
+    if(req.mins===null)mins=null;
+    else{if(typeof req.mins!=='object')return 'bad minutes';if(st.length!==3||sb.length!==2)return 'Name three starters and two substitutes before sharing out the minutes.';
+      mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step)return 'bad minutes';mins[id]=v;sum+=v;}
+      if(sum!==MINS.total)return 'Give twelve quarters in all: three players on the court for the whole match.';}}
   // half-time orders: one per case, each an order key, "star" with one of the manager's own players
   let orders=data.orders||null;
   if(req.orders!==undefined){
@@ -1088,7 +1114,7 @@ function checkPlan(data,req,rule){
         if(!orderOf(o.k))return 'bad orders';
         if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
   }
-  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;
+  data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;data.mins=mins;cleanMins(data);
   return null;
 }
 
@@ -1104,7 +1130,7 @@ async function makeView(store,row,lg,now,extra){
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,
+    me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
