@@ -13,7 +13,7 @@ const CFG={
   MAX_SWAPS:1,            // players a manager may change between leagues
   MID_AFTER:12,MID_DAYS:2,MID_SWAPS:2,MID_MIN:20,   // the mid-season window: opens after match 12 of a league of 20 matches or more, stays open for two match days, up to two changes under the window cap (Harry, 12 Nov 2026)
   REDRAFT_AFTER:[1],      // when one of these leagues ends, every team drafts seven new players from fourteen instead of changing one (League 1: the switch to the players with body types, Harry 12 Nov 2026)
-  IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
+  IDLE_DAYS:0,            // 0: an absent manager's team keeps playing with its last line-up and plan until the league ends (Harry, 13 Nov 2026); before, 21 days of silence left a team out until its manager returned
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
@@ -324,7 +324,7 @@ async function runMatchday(store,lg,now){
   // next pairings, among the managers who are still around
   if(reset){for(const t of rows)t.next_opp=null;}   // the new league starts empty
   else{
-    const active=humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS);
+    const active=CFG.IDLE_DAYS>0?humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS):humans.slice();   // everybody in the league plays every match day
     for(const t of humans)if(!active.includes(t))t.next_opp=null;
     pairUp(active,house,await meetings(store,lg.no,matches),leagueLength(lg)-lg.match_no+1);
   }
