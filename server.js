@@ -190,11 +190,19 @@ async function runMatchday(store,lg,now){
   const map=new Map(rows.map(r=>[r.id,r]));
   const house=rows.find(r=>r.is_house);
   const rule=lg.rule,matches=[],done=new Set(),playedLeague=lg.no,playedMatch=lg.match_no;
+  // the pairings first: a broken one (the opponent was deleted or re-paired in the week) does not cost a match any more:
+  // orphans play each other, the last orphan plays the computer team if it is free (13 Nov 2026: Sisa sat out a match
+  // after a deleted team's pairing had pointed at them)
+  const pairs=[],orphans=[];
   for(const A of rows){
     if(done.has(A.id)||!A.next_opp)continue;
     const B=map.get(A.next_opp);
-    if(!B||B.next_opp!==A.id||done.has(B.id)){A.next_opp=null;continue;}   // a broken pairing: no match, re-paired below
-    done.add(A.id);done.add(B.id);
+    if(!B||B.next_opp!==A.id||done.has(B.id)){A.next_opp=null;if(!A.is_house)orphans.push(A);continue;}
+    done.add(A.id);done.add(B.id);pairs.push([A,B]);
+  }
+  while(orphans.length>=2){const A=orphans.shift(),B=orphans.shift();done.add(A.id);done.add(B.id);pairs.push([A,B]);}
+  if(orphans.length&&house&&!done.has(house.id)){const A=orphans.shift();done.add(A.id);done.add(house.id);pairs.push([A,house]);}
+  for(const [A,B] of pairs){
     if(A.is_house)botPrepare(A.data,B.data,rule,B.pub.ls||null);
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
     const ordersOf=T=>{const o=T.data.orders||{};return ORDER_KEYS.some(w=>o[w])?{behind:o.behind||null,close:o.close||null,ahead:o.ahead||null}:null;};
