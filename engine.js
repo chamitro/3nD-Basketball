@@ -185,7 +185,7 @@ const tall3=p=>p.ht===undefined?0:TALL3[p.ht];
 // most, then defence, then speed), their height and build, and a little from character; never from mood or form. The
 // cap binds every time a squad changes: the draft, the one change between leagues, the mid-season window. The lower half
 // of a table gets a little extra room for the next league. Values are shown as millions.
-const CAP=125,CAP_WINDOW=120,CAP_BONUS=8;   // measured 12 Nov 2026: at 125 the free best seven of a pool fit in 3% of pools and a drafter gives up about one good player's worth to fit; at 130 it was 11% and little sacrifice (Harry: too easy);   // seven average players are worth about 122: the draft cap leaves room for one dear player, not for seven; at the two windows (between leagues, mid-season) the cap is tighter, so a change is a trade (Harry, 12 Nov 2026)
+const CAP=125,CAP_WINDOW=125,CAP_BONUS=8;   // the same line at the windows (Harry, 13 Nov 2026: "make the market cap 125M");   // measured 12 Nov 2026: at 125 the free best seven of a pool fit in 3% of pools and a drafter gives up about one good player's worth to fit; at 130 it was 11% and little sacrifice (Harry: too easy);   // seven average players are worth about 122: the draft cap leaves room for one dear player, not for seven; at the two windows (between leagues, mid-season) the cap is tighter, so a change is a trade (Harry, 12 Nov 2026)
 const CHAR_VALUE={veteran:1,easygoing:0.5,hothead:-1,worrier:-0.5};
 function valueOf(p){const b=p.base||p;const dots=(b.sh||p.sh)*1.2+(b.df||p.df)+(b.sp||p.sp)*0.6;
   return Math.max(6,Math.round(dots*2.2+p.h*4+(p.bd===2?1:0)+(CHAR_VALUE[p.temp]||0)));}
