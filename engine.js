@@ -113,7 +113,7 @@ const TRASH=[
   {txt:'Your star could not hit the sea from the beach.',at:'star'},
   {txt:'Everybody knows your star folds when it matters.',at:'star'},
 ];
-const TRASH_REACH={rattle:0.7,fire:0.6};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (a line aimed at the star: the star 0.95, the others 0.3). Measured 10 Nov 2026: about +2.5 points of win chance against a court that rattles, -4 against one that fires up, +1 on average.
+const TRASH_REACH={rattle:0.7,fire:0.45};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (fire 0.6 until 14 Nov 2026: a line at three fighters cost the sender 7 points, at three old hands 8; now about 5 and 6, Harry: the risk should sting, not decide the match) (a line aimed at the star: the star 0.95, the others 0.3). Measured 10 Nov 2026: about +2.5 points of win chance against a court that rattles, -4 against one that fires up, +1 on average.
 // what a character does with an insult from the other dugout: [mood, fired up?]
 const TRASH_FX={showoff:['angry',false],worrier:['nervous',false],pleaser:['nervous',false],hothead:['angry',false],
   fighter:['angry',true],veteran:['cool',true],joker:['sad',false],loner:['nervous',false],easygoing:['ok',false]};
