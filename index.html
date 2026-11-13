@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>3nD Basketball</title>
-<meta name="description" content="3nD Basketball: a cartoon basketball manager. Pick seven players, learn how to talk to each of them, set the tactics. Matches on fixed evenings, two or three a week, and you do not need to be online when they are played.">
+<meta name="description" content="3nD Basketball: a cartoon basketball manager. Pick seven players, learn how to talk to each of them, set the tactics. Matches on fixed evenings, three a weekhree a week, and you do not need to be online when they are played.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="3nD Basketball">
 <meta property="og:description" content="You are the coach. Talk to your players, set the tactics, matches on fixed evenings.">
@@ -390,7 +390,7 @@ const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
 // when the matches are played: the server says which days of the week (League 1: Sunday, Wednesday and Friday; the seasonal leagues: Sunday and Wednesday)
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function matchWhen(){
-  const lg=ONLINE&&V&&V.league;if(!lg||!lg.days)return 'on fixed evenings at 18:00 UTC, two or three a week';
+  const lg=ONLINE&&V&&V.league;if(!lg||!lg.days)return 'on fixed evenings at 18:00 UTC, three a week';
   const d=lg.days.map(i=>DAY_NAMES[i]),list=d.length>1?d.slice(0,-1).join(', ')+' and '+d[d.length-1]:d.join('');
   return 'every '+list+' at '+String(lg.hour===undefined?18:lg.hour).padStart(2,'0')+':00 UTC';
 }
@@ -1163,7 +1163,7 @@ function wireMins(){const me=S.me;const on=$('minsOn'),off=$('minsOff');
   if(on)on.onclick=()=>{const m={};me.starters.forEach(id=>m[id]=30);me.subs.forEach((id,i)=>m[id]=i?10:20);me.mins=m;save();renderPlan();};
   if(off)off.onclick=()=>{me.mins=null;save();renderPlan();};
   $('minsUI').querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{const id=+b.dataset.m;me.mins[id]=(+b.dataset.q)*10;save();renderPlan();});}
-// the mid-season window: after match 12 of a season league, two match days to change up to two players under the window cap
+// the mid-season window: once half the matches of a season league are played, two match days to change up to two players under the window cap
 function midHtml(){const m=ONLINE&&S.me&&S.me.mid;if(!m||S.phase!=='week')return '';S.midOut=(S.midOut||[]).filter(id=>S.me.players.some(p=>p.id===id));S.midIn=(S.midIn||[]).filter(id=>m.agents.some(p=>p.id===id));
   const myW=(V&&V.me&&V.me.capW)||CAP_WINDOW,after=S.me.players.filter(p=>!S.midOut.includes(p.id)).concat(m.agents.filter(p=>S.midIn.includes(p.id))),pv=squadValue(after),over=pv>myW;
   const ready=S.midOut.length&&S.midOut.length===S.midIn.length&&!over;
@@ -1290,7 +1290,7 @@ function renderHelp(){
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most, so read it before you pick the starters.</p>
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
   <h4><i>11</i>The match</h4>
-  <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'two or three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
+  <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
   <ul><li><b>Who you play.</b> Everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, and teams on similar points meet when there is a choice. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
   <li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>12</i>Match reports: scout the others</h4>
@@ -1305,13 +1305,13 @@ function renderHelp(){
   <p><b>A league is wiped when it ends.</b> Scores, reports and box scores are kept only while the league runs. When it ends they are all deleted; what stays is every team with its players, the champion, and each team's record line (section 12).</p>
   <p>Match reports are part of the online league; the box score is also shown in practice.</p>
   <h4><i>13</i>The league</h4>
-  <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 25 matches, two a week. The team with the most points wins the league. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
+  <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 38 matches, three a week: Sunday, Wednesday and Friday. The team with the most points wins the league. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
   <ul><li><b>Every new league starts with no teams.</b> When a league ends, open the game: you see how it ended, and you press <b>Enter the league</b> to put your team in the next one. A team whose manager does not press the button is not in it.</li>
   <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name.</li>
   <li><b>One change.</b> Before you enter you may change <b>${SWAP_WORDS}</b> of your seven players for a free agent, as long as the squad stays under the wage cap: to sign a dearer player you let a good one go.</li>
-  <li><b>The mid-season window.</b> In a season league, once match 12 is played, every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave when match 14 is played.</li>
+  <li><b>The mid-season window.</b> In a season league, once half the matches are played (around match 19 of 38), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)}, at a draft and at the two windows alike (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
   <li><b>What a change means under the cap.</b> Say your seven are worth $118M and you want a $25M free agent at a window. Let a $14M player go and the squad becomes $129M: over the line, refused. Let a $18M player go instead and it becomes $125M: allowed, a good player traded for a better one. With one change per window, the only question is which of your own must go to make room, and whether that trade is worth it. There is no saving up and no buying two.</li>
   <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the next league, so the league stays close. The locker room shows your squad value and your room under the game plan; the Table tab shows every squad's value.</li>

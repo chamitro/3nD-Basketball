@@ -6,12 +6,12 @@
 
 const CFG={
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
-  MATCH_DAYS:[0,3],       // the seasonal leagues: Sunday and Wednesday
+  MATCH_DAYS:[0,3,5],     // the seasonal leagues: Sunday, Wednesday and Friday (Harry, 14 Nov 2026: three matches a week in every league)
   TEST_DAYS:[0,3,5],      // the leagues before SEASONS_FROM: Sunday, Wednesday and Friday
   LEAGUE_MATCHES:13,      // length of the leagues before SEASONS_FROM: 13 match days, so that 13 or 14 teams all meet each other once (League 1: Sun 8 Nov - Sun 6 Dec 2026)
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
-  MID_AFTER:12,MID_DAYS:2,MID_SWAPS:2,MID_MIN:20,   // the mid-season window: opens after match 12 of a league of 20 matches or more, stays open for two match days, up to two changes under the window cap (Harry, 12 Nov 2026)
+  MID_DAYS:2,MID_SWAPS:2,MID_MIN:20,   // the mid-season window: opens once half the matches of a league of 20 or more are played, stays open for two match days, up to two changes under the window cap (Harry, 12 Nov 2026)
   REDRAFT_AFTER:[1],      // when one of these leagues ends, every team drafts seven new players from fourteen instead of changing one (League 1: the switch to the players with body types, Harry 12 Nov 2026)
   IDLE_DAYS:0,            // 0: an absent manager's team keeps playing with its last line-up and plan until the league ends (Harry, 13 Nov 2026); before, 21 days of silence left a team out until its manager returned
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
@@ -22,6 +22,7 @@ const DAY_MS=86400000;
 const SERVER_BUILD='dev';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
+const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
 // the next match day of league `no` at the match hour, strictly after the given moment
 function nextMatchTime(afterMs,no){
@@ -313,11 +314,11 @@ async function runMatchday(store,lg,now){
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}
     reset=true;lg.no++;lg.match_no=1;
   }else lg.match_no++;
-  // the mid-season window: after match MID_AFTER every team in the league gets seven free agents for MID_DAYS match days
-  if(!reset&&leagueLength(lg)>=CFG.MID_MIN){
-    if(lg.match_no===CFG.MID_AFTER+1){const taken=await takenNames(store,true);
-      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:CFG.MID_AFTER+CFG.MID_DAYS,agents:ps,used:0};}}
-    if(lg.match_no>CFG.MID_AFTER+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
+  // the mid-season window: once half the matches are played every team in the league gets seven free agents for MID_DAYS match days
+  if(!reset&&leagueLength(lg)>=CFG.MID_MIN){const midAt=midAfter(lg);
+    if(lg.match_no===midAt+1){const taken=await takenNames(store,true);
+      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:midAt+CFG.MID_DAYS,agents:ps,used:0};}}
+    if(lg.match_no>midAt+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
   }
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
   lg.next_match_at=nextMatchTime(lg.next_match_at,lg.no);lg.busy_until=null;   // lg.no is already the next league's number if one just ended

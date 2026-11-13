@@ -3,7 +3,7 @@
 A cartoon basketball manager. You are the coach: you pick seven players, learn how to talk to each of them,
 and choose the tactics. The match plays by itself.
 
-- **Online league**: a match against another manager on fixed evenings (League 1: Sunday, Wednesday and Friday; the seasonal leagues: Sunday and Wednesday). You do not need to be online
+- **Online league**: a match against another manager on fixed evenings (Sunday, Wednesday and Friday in every league, since 14 Nov 2026; the seasonal leagues had been planned with two a week). You do not need to be online
   when it is played. A win is 3 points.
   There are four leagues a year, one per season: the Winter League (December to February), Spring (March to May),
   Summer (June to August) and Autumn (September to November), about 26 matches each. A league ends on the last
