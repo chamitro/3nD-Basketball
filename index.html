@@ -667,20 +667,56 @@ function toon(c,p,x,y,s,t,o){
   // loner turns away, the easy-going one sways. Only when nothing else is going on.
   const tp=p.temp,idle=(mood==='ok'||mood==='cool')&&!o.sel&&!yawn&&o.cheer===undefined&&!(o.poke<0.7);
   const cyc=(t*0.5+p.ph*1.7)%10,act=idle&&cyc<1.6?cyc/1.6:-1;
-  if(act>=0){const w=Math.sin(act*Math.PI);
-    if(tp==='showoff'){bob-=w*6*s;sq=1+w*0.04;aL=[-1.5+w*0.3,0.9];aR=[-1.5-w*0.3,0.9];}
-    else if(tp==='veteran'){aL=[1.2-2.6*w,1];aR=[1.2-2.6*w,1];sq=1+w*0.03;}
-    else if(tp==='worrier'){xoff=Math.sin(act*Math.PI*2)*10*s;wob=0.9;lookOff=Math.sin(act*Math.PI*4)*0.5;}
-    else if(tp==='hothead'){bob+=act<0.35?-w*9*s:w*4*s;sq=act<0.35?1.02:0.97;}
-    else if(tp==='fighter'){const j=Math.sin(act*Math.PI*6);aL=[0.15,0.55+Math.max(0,j)*0.6];aR=[0.15,0.55+Math.max(0,-j)*0.6];xoff=Math.sin(act*Math.PI*12)*1.5*s;}
-    else if(tp==='pleaser'){aR=[-1.35+Math.sin(t*14)*0.35,1];lookOff=0.25;}
-    else if(tp==='loner'){lean+=w*0.12;lookOff=-0.6*w;}
-    else if(tp==='easygoing'){sq=1+Math.sin(act*Math.PI*2)*0.03;bob+=Math.sin(act*Math.PI*2)*2.5*s;lean+=Math.sin(act*Math.PI*2)*0.05;}
-    else if(tp==='joker'){juggle=act;aL=[-0.95,0.95];aR=[-0.95,0.95];lookOff=0;}}
-  // a tap: a hop and an exclamation; the result: a cheer (arms up, jumping) or a slump; tired legs: a slouch and sweat
-  if(o.poke<0.7){const k=Math.sin(o.poke/0.7*Math.PI);bob-=k*22*s;sq=1+k*0.06;wob=0;}
-  if(o.cheer===true){bob=-Math.abs(Math.sin(t*6+p.ph))*16*s;sq=1+Math.sin(t*12+p.ph)*0.04;aL=[-1.4+Math.sin(t*12+p.ph)*0.3,1];aR=[-1.4-Math.sin(t*12+p.ph)*0.3,1];}
-  else if(o.cheer===false){bob=4*s;sq=0.95;aL=[1.5,1];aR=[1.5,1];lookOff=0;}
+  // which act this time: three per character and three basketball moves everyone does now and then (dribble, spin
+  // the ball on a finger, a jump shot), chosen by the cycle and the player's own rhythm, so it varies
+  const cycleNo=Math.floor((t*0.5+p.ph*1.7)/10),variant=(cycleNo+Math.floor(p.ph*10))%5,ballAct=variant>=3?(cycleNo+Math.floor(p.ph*3))%3:-1;
+  let prop=null,tongue=false,lookDown=0;   // prop: a ball to draw after the arms, {kind,phase}
+  if(act>=0){const w=Math.sin(act*Math.PI),w2=Math.sin(act*Math.PI*2),w4=Math.sin(act*Math.PI*4);
+    if(ballAct===0){prop={kind:'dribble',k:act};aR=[0.75,0.85];aL=[1.1,0.9];bob+=Math.abs(w4)*2*s;lookDown=0.5;}
+    else if(ballAct===1){prop={kind:'spin',k:act};aR=[-1.45,1];lookOff=0.2;}
+    else if(ballAct===2){prop={kind:'shot',k:act};bob-=w*14*s;sq=1+w*0.04;aL=[-1.5,1];aR=[-1.55,1];}
+    else if(tp==='showoff'){if(variant===0){bob-=w*6*s;sq=1+w*0.04;aL=[-1.5+w*0.3,0.9];aR=[-1.5-w*0.3,0.9];}   // flexes
+      else if(variant===1){lean+=w2*0.12;aR=[-0.6,0.8];aL=[1.3,0.9];lookOff=0.5;}   // strikes a pose, looks away
+      else{aR=[-2.4,0.6];aL=[-2.4,0.6];bob-=w*3*s;}}   // points at himself with both thumbs
+    else if(tp==='veteran'){if(variant===0){aL=[1.2-2.6*w,1];aR=[1.2-2.6*w,1];sq=1+w*0.03;}   // a slow stretch
+      else if(variant===1){aL=[0.4,0.55];aR=[0.4,0.55];lean+=w4*0.08;}   // hands on hips, cracks the neck
+      else{aL=[1.2,1];aR=[1.2,1];lean+=w2*0.06;lookOff=-0.3;}}   // looks around, unhurried
+    else if(tp==='worrier'){if(variant===0){xoff=w2*10*s;wob=0.9;lookOff=w4*0.5;}   // paces
+      else if(variant===1){aR=[-1.15,0.62];shake=Math.sin(t*30)*0.8*s;wob=0.8;}   // bites the nails
+      else{lookOff=w4*0.6;lookDown=0.3;sq=0.99;}}   // looks about, shrinks a little
+    else if(tp==='hothead'){if(variant===0){bob+=act<0.35?-w*9*s:w*4*s;sq=act<0.35?1.02:0.97;}   // a stomp
+      else if(variant===1){aL=[-0.5+w4*0.25,0.75];aR=[-0.5-w4*0.25,0.75];shake=Math.sin(t*40)*1.2*s;}   // shakes both fists
+      else{lean+=w*0.1;aR=[0.2,1];xoff=w*3*s;}}   // leans in, arm out, as if to argue
+    else if(tp==='fighter'){const j=Math.sin(act*Math.PI*6);if(variant===0){aL=[0.15,0.55+Math.max(0,j)*0.6];aR=[0.15,0.55+Math.max(0,-j)*0.6];xoff=Math.sin(act*Math.PI*12)*1.5*s;}   // jabs
+      else if(variant===1){bob-=Math.abs(Math.sin(act*Math.PI*8))*5*s;aL=[-0.2,0.6];aR=[-0.2,0.6];}   // bounces on the toes, guard up
+      else{aL=[-2.6,0.5];aR=[-2.6+Math.abs(w4)*0.3,0.5];bob-=Math.abs(w4)*2*s;}}   // thumps the chest
+    else if(tp==='pleaser'){if(variant===0){aR=[-1.35+Math.sin(t*14)*0.35,1];lookOff=0.25;}   // waves at you
+      else if(variant===1){aR=[-1.3,0.8];bob-=w*4*s;lookOff=0.25;}   // thumbs up
+      else{const cl=0.55+Math.abs(w4)*0.3;aL=[2.95,cl];aR=[2.95,cl];}}   // claps
+    else if(tp==='loner'){if(variant===0){lean+=w*0.12;lookOff=-0.6*w;}   // turns away
+      else if(variant===1){aL=[-2.8,0.55];aR=[-2.8,0.55];lookOff=-0.4;}   // arms crossed
+      else{lookDown=0.6*w;sq=0.99;}}   // looks at the floor
+    else if(tp==='easygoing'){if(variant===0){sq=1+w2*0.03;bob+=w2*2.5*s;lean+=w2*0.05;}   // sways
+      else if(variant===1){aL=[-0.35,0.7];aR=[-0.35,0.7];sq=1+w*0.03;bob-=w*2*s;}   // shrugs
+      else{aL=[1.2,1];aR=[1.2,1];lean+=w*0.04;lookOff=0.3;}}   // just stands and watches
+    else if(tp==='joker'){if(variant===0){juggle=act;aL=[-0.95,0.95];aR=[-0.95,0.95];lookOff=0;}   // juggles
+      else if(variant===1){xoff=w4*6*s;lean+=w4*0.1;aL=[-1.2+w4*0.5,0.9];aR=[-1.2-w4*0.5,0.9];bob-=Math.abs(w4)*3*s;}   // dances
+      else{tongue=true;lookOff=w4*0.5;sq=1+w*0.03;}}}   // pulls a face
+  // a tap: a hop and an exclamation (a joker twirls, a hot-head shakes); the result: a cheer or a slump, each by
+  // character; tired legs: a slouch and sweat
+  if(o.poke<0.7){const k=Math.sin(o.poke/0.7*Math.PI),kk=o.poke/0.7;bob-=k*22*s;sq=1+k*0.06;wob=0;
+    if(tp==='joker')lean+=kk*Math.PI*2;else if(tp==='hothead')shake=Math.sin(t*45)*2*s;else if(tp==='showoff'){aL=[-1.5,0.9];aR=[-1.5,0.9];}}
+  if(o.cheer===true){const u=Math.sin(t*12+p.ph);bob=-Math.abs(Math.sin(t*6+p.ph))*16*s;sq=1+u*0.04;
+    if(tp==='fighter'){aL=[-2.6,0.5];aR=[-2.6+Math.abs(u)*0.3,0.5];}   // thumps the chest
+    else if(tp==='joker'){xoff=u*6*s;lean=u*0.12;aL=[-1.2+u*0.5,0.9];aR=[-1.2-u*0.5,0.9];}   // dances
+    else if(tp==='showoff'){bob=-6*s;aL=[-1.5,0.9];aR=[-1.5,0.9];lean=u*0.05;}   // poses for the crowd
+    else if(tp==='veteran'){bob=-Math.abs(Math.sin(t*4+p.ph))*6*s;aR=[-1.4,1];aL=[1.2,1];}   // one fist up, calm
+    else{aL=[-1.4+u*0.3,1];aR=[-1.4-u*0.3,1];}}
+  else if(o.cheer===false){bob=4*s;sq=0.95;lookOff=0;
+    if(tp==='worrier'||tp==='pleaser'){aR=[-1.2,0.6];aL=[1.5,1];lookDown=0.6;}   // a hand over the face
+    else if(tp==='hothead'){aL=[-0.5,0.75];aR=[-0.5,0.75];shake=Math.sin(t*30)*1.2*s;}   // fists, fuming
+    else if(tp==='joker'||tp==='showoff'){aL=[1.5,1];aR=[1.5,1];lean=0.1;lookDown=0.5;}   // slumps sideways
+    else{aL=[1.5,1];aR=[1.5,1];lookDown=0.4;}}
   const tired=typeof hasEnergy==='function'&&hasEnergy(p)&&energyOf(p)<=2&&o.cheer===undefined;
   if(tired){sq*=0.985;bob*=0.6;}
   const bx=x+shake+xoff,top=y-leg-H*sq+bob,bot=top+H*sq;
@@ -699,7 +735,11 @@ function toon(c,p,x,y,s,t,o){
   else if(mood==='angry'){arm(-1,0.9,L*0.7);arm(1,0.9,L*0.7);}
   else if(mood==='sad'){arm(-1,1.45,L);arm(1,1.45,L);}
   else if(yawn){arm(-1,1.2,L);arm(1,-1.2,L);}
-  else if(aL||aR){arm(-1,aL?aL[0]:1.2,L*(aL?aL[1]:1));arm(1,aR?aR[0]:1.2,L*(aR?aR[1]:1));
+  else if(aL||aR){const hL=arm(-1,aL?aL[0]:1.2,L*(aL?aL[1]:1)),hR=arm(1,aR?aR[0]:1.2,L*(aR?aR[1]:1));
+    const ball=(x,y,r,spin)=>{c.fillStyle='#ff8c2a';c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.save();c.translate(x,y);c.rotate(spin||0);c.lineWidth=lw*0.5;c.beginPath();c.moveTo(-r,0);c.lineTo(r,0);c.moveTo(0,-r);c.lineTo(0,r);c.stroke();c.restore();c.lineWidth=lw;};
+    if(prop&&prop.kind==='dribble'){const k=Math.abs(Math.sin(prop.k*Math.PI*4));ball(hR[0]+3*s,lerp(hR[1]+9*s,y-8*s,k),8*s,t*6);}
+    else if(prop&&prop.kind==='spin'){ball(hR[0],hR[1]-13*s,9*s,t*14);}
+    else if(prop&&prop.kind==='shot'){const k=prop.k;const by=k<0.5?top-16*s:top-16*s-(k-0.5)*2*60*s;const bxx=k<0.5?bx:bx+(k-0.5)*2*20*s;c.globalAlpha=k<0.5?1:Math.max(0,1-(k-0.5)*2);ball(bxx,by,8*s,t*8);c.globalAlpha=1;}
     if(juggle>=0){c.fillStyle='#ff8c2a';for(let i=0;i<3;i++){const ph=juggle*Math.PI*3+i*Math.PI*2/3,jx=bx+Math.sin(ph)*W*0.3,jy=top-10*s-Math.abs(Math.cos(ph))*34*s;c.beginPath();c.arc(jx,jy,6.5*s,0,Math.PI*2);c.fill();c.stroke();}}}
   else{arm(-1,1.2+Math.sin(t*3+p.ph)*0.1,L);const h=arm(1,hasBall?0.5:1.2-Math.sin(t*3+p.ph)*0.1,L);
     if(hasBall){const bb=Math.abs(Math.sin(t*4+p.ph));const by=lerp(y-9*s,h[1]+10*s,bb);c.fillStyle='#ff8c2a';c.beginPath();c.arc(h[0]+4*s,by,9*s,0,Math.PI*2);c.fill();c.stroke();c.lineWidth=lw*0.5;c.beginPath();c.moveTo(h[0]-5*s,by);c.lineTo(h[0]+13*s,by);c.stroke();c.lineWidth=lw;}}
@@ -728,7 +768,7 @@ function toon(c,p,x,y,s,t,o){
     const er=erB*(1+d*p.eye);
     if(blink){c.beginPath();c.arc(bx+d*ex,fy,er*0.8,0.1*Math.PI,0.9*Math.PI);c.stroke();}
     else{c.fillStyle='#fff';c.beginPath();c.arc(bx+d*ex,fy,er,0,Math.PI*2);c.fill();c.stroke();
-      let px=look*er+Math.sin(t*7+p.ph+d)*er*wob*0.5,py=Math.cos(t*5.3+p.ph+d*2)*er*wob*0.5;
+      let px=look*er+Math.sin(t*7+p.ph+d)*er*wob*0.5,py=Math.cos(t*5.3+p.ph+d*2)*er*wob*0.5+lookDown*er*0.45;
       if(face==='sad'){py=er*0.4;px*=0.3;}
       c.fillStyle=INK;c.beginPath();c.arc(bx+d*ex+px,fy+py,er*0.42,0,Math.PI*2);c.fill();
       c.fillStyle='#fff';c.beginPath();c.arc(bx+d*ex+px-er*0.12,fy+py-er*0.14,er*0.12,0,Math.PI*2);c.fill();}
@@ -763,6 +803,7 @@ function toon(c,p,x,y,s,t,o){
   else if(face==='nervous'){c.moveTo(bx-er,my);for(let k=0;k<=6;k++)c.lineTo(bx-er+k*er/3,my+(k%2?-1:1)*er*0.22);c.stroke();}
   else if(face==='cool'){c.moveTo(bx-er*0.8,my);c.lineTo(bx+er*0.8,my);c.stroke();}
   else{c.arc(bx,my-er*0.5,er*0.9,Math.PI*0.15,Math.PI*0.85);c.stroke();if(p.teeth){c.fillStyle='#fff';c.fillRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.strokeRect(bx-er*0.4,my+er*0.2,er*0.8,er*0.55);c.beginPath();c.moveTo(bx,my+er*0.2);c.lineTo(bx,my+er*0.75);c.stroke();}}
+  if(tongue){c.fillStyle='#ff6b8a';c.beginPath();c.ellipse(bx+er*0.2,my+er*0.85,er*0.5,er*0.7,0.2,0,Math.PI*2);c.fill();c.stroke();}
   // moustache, goatee, stubble
   if(p.beard===1){c.fillStyle=HC||INK;c.lineWidth=lw*0.5;for(const d of [-1,1]){c.beginPath();c.ellipse(bx+d*er*0.5,my-er*0.62,er*0.62,er*0.27,d*0.35,0,Math.PI*2);c.fill();c.stroke();}c.lineWidth=lw;}
   else if(p.beard===2){c.fillStyle=HC||INK;c.lineWidth=lw*0.5;c.beginPath();c.moveTo(bx-er*0.42,my+er*0.75);c.lineTo(bx+er*0.42,my+er*0.75);c.lineTo(bx,my+er*1.55);c.closePath();c.fill();c.stroke();c.lineWidth=lw;}
