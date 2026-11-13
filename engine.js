@@ -163,7 +163,7 @@ const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
 const energyOf=p=>p.en===undefined?4:p.en;
 const tiredOf=p=>(4-energyOf(p))/3;      // 0 = fresh, 1 = worn out
-const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5};   // a whole match played; a whole match off; the bench time of someone who played part of it
+const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5,NIGHT:0.3};   // a whole match played; a whole match off; the bench time of someone who played part of it; what everybody gets back between two match days whatever they did (Harry, 14 Nov 2026: three matches a week left too many at two dots)
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
 const nrm=v=>(v-2.5)/1.5; // a stat of 1..4 as -1..1
 // nudge a stat; returns +1/-1 when a whole dot is gained or lost
@@ -654,12 +654,12 @@ function teamTalkTo(team,tone){
 // What a match costs in energy and what a match off gives back. X is the team's side of playMatch's result.
 // A fast tempo, a press and crashing the hoop cost more; a slow tempo costs less.
 function energyAfter(team,X){
-  const tot=Math.max(1,...Object.values(X.st).map(z=>z.min));const sh=team.sheet||{};
+  const tot=Math.max(1,Object.values(X.st).reduce((s,z)=>s+z.min,0)/3);const sh=team.sheet||{};   // the match length: three on the court at every possession (until 14 Nov 2026 this was the most-used player's minutes, which charged a shared rotation as if everybody had played the whole match)
   const hard=1+(sh.tempo===2?0.2:sh.tempo===0?-0.15:0)+(sh.def===2?0.2:0)+(sh.boards===2?0.08:0);
   for(const p of team.players){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
-    p.en=clamp(p.enWas-ENERGY.COST*hard*share+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST),1,4);
+    p.en=clamp(p.enWas-ENERGY.COST*hard*share+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);
   }
 }
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)
@@ -667,7 +667,7 @@ const QUIET_LIMIT={showoff:2,pleaser:2,joker:2,worrier:2,hothead:2,veteran:3,fig
 // how a match leaves one team: moods, then form (stats drift). X is that team's side of playMatch's result.
 function aftermath(team,X,won,conceded){
   const moves=[],usage={};
-  const tot=Math.max(0,...Object.values(X.st).map(z=>z.min));
+  const tot=Math.max(1,Object.values(X.st).reduce((s,z)=>s+z.min,0)/3);   // the match length, as in energyAfter
   for(const p of team.players){const s=X.st[p.id];if(s)usage[p.id]={pts:s.pts,fga:s.fga,fgm:s.fgm,min:s.min,tot};}
   energyAfter(team,X);
   const wins=won?1:0;
