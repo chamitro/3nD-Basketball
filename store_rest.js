@@ -31,6 +31,7 @@ function restStore(base,keys,prefix){
     // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
     leaguePairs:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=a,b&order=id',1000),   // who met whom in one league
     roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
+    teamMatches:(L,id)=>q('b3_matches?league_no=eq.'+(+L)+'&or=(a.eq.'+encodeURIComponent(id)+',b.eq.'+encodeURIComponent(id)+')&select=id,league_no,match_no,a,b,a_name,b_name,score_a,score_b,rule,detail&order=match_no&limit=60'),   // one team's matches of a league, the season view
     roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')
       +'&order=league_no.'+(dir<0?'desc':'asc')+',match_no.'+(dir<0?'desc':'asc')+'&limit=1'),
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],

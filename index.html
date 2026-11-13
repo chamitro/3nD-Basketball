@@ -163,6 +163,7 @@
   .box td.dnp{color:var(--soft);font-weight:500}
   .boxd summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--soft);margin-top:4px}
   .rdt{min-width:0}.rdt .chk{font-size:13px;padding:2px 0}.rdt .chk i{flex:0 0 18px;height:18px;border-width:2px;font-size:12px}
+  .tlink{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
   .tagx{font-size:11px;font-weight:800;border:2px solid var(--ink);border-radius:999px;padding:0 7px;background:#fff1a8;white-space:nowrap}
   .rdnav{display:flex;gap:8px;justify-content:space-between;margin:6px 0 2px}.rdnav button{font-size:13px;padding:5px 12px}
   @media(max-width:700px){.rdg{grid-template-columns:1fr;gap:10px}.box{font-size:12px}.box th,.box td{padding:2px 2px}.box th{font-size:10px;letter-spacing:0}.box td:first-child,.box th:first-child{max-width:70px}}
@@ -1257,7 +1258,8 @@ function renderHelp(){
   <li><b>Their league so far.</b> From an opponent's second match of the league on, you also see next to their name what they have done in the whole league: the plans they chose most often and their numbers per match (ball losses, fast breaks, second shots, how they shoot and how teams shoot against them).</li>
   <li><b>The reading is yours.</b> Your assistant does not judge these numbers for you. It knows your own players and what the opponent did last time; what an opponent's history means for your plan is your decision.</li>
   <li><b>Yours is public too.</b> Every manager can read your strong and weak points, so fix what they will aim at.</li>
-  <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of the earlier match days of this league.</li></ul>
+  <li><b>Look back.</b> With "Earlier" and "Later" you can read the reports of the earlier match days of this league.</li>
+  <li><b>A team's season.</b> Tap a team's name in the table to see every match it played in this league in one list, latest first, with its plan, half-time, trash talk, strong and weak points and box score each time, and its league so far in numbers. The best way to spot what a team keeps doing.</li></ul>
   <p><b>The box score.</b> Under your result, and under every team in the match reports, a table gives each player's numbers from that match: <b>On</b> (the share of the match they were on the court), <b>Pts</b>, <b>Shots</b> made of taken, <b>3s</b> made of taken, <b>Reb</b> (rebounds: the tall take most, more if sent to crash), <b>Stl</b> (steals: only a press or the Defence rule steals the ball, other ball losses are the attacker's own), <b>Lost</b> (ball losses) and <b>Stops</b>: of the shots that player guarded, how many missed. A player with 2 of 9 stops is being hunted. A substitute who did not come on is marked "did not play".</p>
   <p><b>A league is wiped when it ends.</b> Scores, reports and box scores are kept only while the league runs. When it ends they are all deleted; what stays is every team with its players, the champion, and each team's record line (section 12).</p>
   <p>Match reports are part of the online league; the box score is also shown in practice.</p>
@@ -1318,6 +1320,19 @@ function archiveHtml(){
 // ── match reports: one match day as everybody may read it (every score, and three strong and three weak points per team)
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let RD=null,RD_KEY='',RD_BUSY=false;
+// one team's season: every match of this league in one list (tap a team in the table)
+let TV=null,TV_BUSY=false;
+async function loadTeam(id){if(TV_BUSY||!ONLINE)return;TV_BUSY=true;try{const v=await api('team',{id});TV=v.team&&!v.team.error?v.team:{error:(v.team&&v.team.error)||'could not load'};}catch(e){TV={error:e.message};}TV_BUSY=false;if(SCREEN==='game'&&S.tab==='league')renderLeague();}
+function teamSeasonHtml(){
+  if(!TV)return '';
+  if(TV.error)return `<div class="card" style="margin-bottom:16px"><h3>A team's season</h3><div class="small" style="margin:0">${esc(TV.error)}</div><button id="tvClose" style="margin-top:8px;font-size:14px;padding:6px 12px">Close</button></div>`;
+  const mine=S.me?S.me.id:null;
+  let h=`<div class="card" style="margin-bottom:16px"><h3>${kitChip(TV.kit)} ${esc(TV.name)} · ${esc(TV.lname)}</h3><div class="small" style="margin:0 0 6px">${TV.w} won, ${TV.l} lost, ${TV.pf}–${TV.pa} in points · squad value ${money(TV.sv)}${TV.id===mine?' · your team':''}${TV.house?' · the computer team':''}. ${TV.matches.length?'Every match of this league, latest first.':'No match played yet in this league.'}</div>`;
+  if(TV.sc&&TV.sc.n>=2)h+=leagueSoFarHtml(TV.sc);
+  for(const m of [...TV.matches].reverse()){const won=m.us>m.them,r=m.side;
+    h+=`<details class="rd" open><summary><span>Match ${m.match}</span><span class="scb">${m.us}–${m.them}</span><span>${won?'beat':'lost to'} ${kitChip(m.theirs.kit)}${esc(m.opp)}</span><span class="small" style="margin:0">${esc(ruleOf(m.rule).txt)}</span></summary>
+    <div class="rdt" style="margin-top:6px"><div class="small" style="margin-top:1px">${r.sheet?sheetWords(r.sheet):''}${halfWords(r.half)}${m.theirs.sheet?' They played '+sheetWords(m.theirs.sheet)+'.':''}</div>${r.trash?`<div class="small" style="margin-top:1px">Trash talk before the match: "${esc(r.trash.line)}"${r.trash.rattled.length?' Rattled: '+esc(r.trash.rattled.join(', '))+'.':''}${r.trash.fired.length?' Fired up: '+esc(r.trash.fired.join(', '))+'.':''}${!r.trash.rattled.length&&!r.trash.fired.length?' Nobody cared.':''}</div>`:''}${repLines(r)}${r.box?boxHtml(r.box,'Players',true):''}</div></details>`;}
+  return h+`<button id="tvClose" style="margin-top:10px;font-size:14px;padding:6px 12px">Close</button></div>`;}
 const rdKey=()=>V?V.league.no+'/'+V.league.match_no:'';
 // the box score of one side: a row per player. Columns: share of the match on the court, points, shots made of taken,
 // threes made of taken, rebounds, steals, ball losses, stops (shots guarded that missed, of shots guarded)
@@ -1376,13 +1391,13 @@ function hallHtml(){
   return h+`</table><div class="small">Counted each time a league ends. A team keeps its record from league to league.</div></div>`;
 }
 function renderLeague(){
-  let h='';
+  let h=teamSeasonHtml();
   if(S.lastResults){
     {h+=`<div class="card" style="margin-bottom:16px"><h3>${ONLINE?'Last match':'Last Sunday'} · ${ruleOf(S.lastResults.rule).txt}</h3>`;for(const m of S.lastResults.list)h+=`<div class="res"><div class="sc ${m.won?'w':'l'}">${m.us}–${m.them}</div><div><div>${m.won?'beat':'lost to'} ${m.opp} <span class="small">(${sheetWords(m.oppSheet)})</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;h+=`</div>`;}
   }
   h+=roundHtml();
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th><th class="n" title="squad value under the wage cap">Value</th></tr>`;
-  table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${t.name}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td><td class="n">${t.human&&S.me?money(squadValue(S.me.players)):t.sv?money(t.sv):t.players&&t.players.length?money(squadValue(t.players)):'–'}</td></tr>`;});
+  table().forEach((t,i)=>{h+=`<tr class="${t.human?'me':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${ONLINE&&t.id?`<span class="tlink" data-team="${t.id}">${esc(t.name)}</span>`:esc(t.name)}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td><td class="n">${t.human&&S.me?money(squadValue(S.me.players)):t.sv?money(t.sv):t.players&&t.players.length?money(squadValue(t.players)):'–'}</td></tr>`;});
   if(ONLINE&&!table().length)h+=`<tr><td colspan="7" style="text-align:center;padding:14px 6px">No team has entered ${theName(LGS())} yet.</td></tr>`;
   h+=`</table>${ONLINE&&S.out?`<div class="note" style="margin-top:10px"><b>${S.me.name} is not in ${theName(LGS())} yet.</b> Every league starts with no teams. Go to the Locker room tab and press "Enter ${theName(LGS())}".</div>`:''}<div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+matchWhen()+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may change ${SWAP_WORDS} of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
@@ -1392,6 +1407,7 @@ function renderLeague(){
     ?`<button id="toPractice" style="font-size:13px">Go to practice mode</button><button id="showKey" style="font-size:13px">Play this team on another device</button>`
     :`<button id="toOnline" style="font-size:13px">Go to the online league</button><button id="wipe" style="font-size:13px;opacity:.7">Start a new practice game (wipes this one)</button>`)+installHtml()+`</div>`;
   $('league').innerHTML=h;
+  $('league').querySelectorAll('.tlink').forEach(e=>e.onclick=()=>loadTeam(e.dataset.team));if($('tvClose'))$('tvClose').onclick=()=>{TV=null;renderLeague();};
   wireKitPicker($('league'),KIT,k=>{if(ONLINE)goOnline('kit',{kit:k});else{S.me.kit=k;save();renderLeague();}});
   if($('wipe'))$('wipe').onclick=()=>{if(confirm('Start over? Your team and league will be lost.')){localStorage.removeItem('sundayleague2');S.tab='room';newGame();}};
   if($('toPractice'))$('toPractice').onclick=()=>setMode('practice');

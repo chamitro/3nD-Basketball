@@ -388,6 +388,15 @@ async function makeView(store,row,lg,now,extra){
 // One match day as everybody may read it: every score, each side's plan, three strong and three weak points.
 // What a manager was told in private about their own match (the "lines") is never part of it.
 const ROUND_MAX=60;   // matches sent for one match day
+// one team's season: every match it played in the running league, with its side of each report (the season view, 13 Nov 2026)
+async function teamView(store,lg,req){
+  const id=req.id;if(typeof id!=='string'&&typeof id!=='number')return {error:'bad team'};
+  const t=await store.teamById(id);if(!t||(t.league_no!==lg.no&&!t.is_house))return {error:'No such team in this league.'};
+  const side=d=>({kit:(d&&d.kit)||null,sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
+  const rows=await store.teamMatches(lg.no,t.id);
+  const matches=rows.map(m=>{const mine=m.a===t.id;const d=(m.detail||{});return {match:m.match_no,opp:mine?m.b_name:m.a_name,oppId:mine?m.b:m.a,us:mine?m.score_a:m.score_b,them:mine?m.score_b:m.score_a,rule:m.rule,side:side(mine?d.a:d.b),theirs:{sheet:((mine?d.b:d.a)||{}).sheet||null,kit:((mine?d.b:d.a)||{}).kit||null}};});
+  return {id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),house:t.is_house,w:t.w,l:t.l,pf:t.pf,pa:t.pa,sv:squadValue(t.data.players),sc:t.pub.sc&&t.pub.sc.lg===lg.no?t.pub.sc:null,league:lg.no,lname:leagueName(lg.no,lg.next_match_at),matches};
+}
 async function roundView(store,req){
   let L=Number.isInteger(req.league)&&req.league>0?req.league:null,M=Number.isInteger(req.match)&&req.match>0?req.match:null;
   if(L===null||M===null){const last=await store.roundNear(null,null,-1);if(!last)return {none:true};L=last.league_no;M=last.match_no;}
@@ -582,6 +591,8 @@ async function handle2(store,req,a,h,now){
     return makeView(store,row,lg,now,{entered:out});
   }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
     extra={round:await roundView(store,req)};
+  }else if(a==='team'){            // one team's season: all its matches of this league
+    extra={team:await teamView(store,lg,req)};
   }else if(a==='push'){            // this device wants result notifications
     const s=req.sub||{},k=s.keys||{};
     if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};
