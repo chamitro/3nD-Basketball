@@ -133,6 +133,7 @@
   .sheet p{margin:6px 0}
   .sheet ul{margin:6px 0;padding-left:22px}
   .sheet li{margin:3px 0}
+  .sheet table.ht{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0 10px;line-height:1.3}.sheet table.ht th,.sheet table.ht td{border-bottom:1px solid #e8dcc0;padding:4px 6px;text-align:left;vertical-align:top}.sheet table.ht th{font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.3px}.sheet .qs{background:#fff6d6;border:3px solid var(--ink);border-radius:14px;padding:8px 12px;margin:8px 0 4px}.sheet .qs ol{margin:4px 0 0 18px;padding:0}
   .sheet .hrow{display:flex;gap:10px;align-items:baseline;margin:4px 0}
   .sheet .hrow .chr{flex:0 0 122px;text-align:center}
   .sheet .dl{margin:6px 0 8px}.sheet .dl>b{font-size:16px}.sheet .dl div{display:flex;gap:8px;margin:2px 0;font-size:14px}.sheet .dl span{flex:0 0 78px;font-weight:800;color:var(--red)}
@@ -208,6 +209,7 @@
     .modal{padding:8px 6px}
     .sheet h2{font-size:23px;padding-right:90px}
     .sheet h4{font-size:17px}
+    .sheet table.ht{font-size:12px}.sheet table.ht th,.sheet table.ht td{padding:3px 4px}
     .sheet .hrow .chr{flex:0 0 104px}
     .mode{padding:18px 12px}
     .mode h3{font-size:23px}
@@ -1221,6 +1223,7 @@ function renderHelp(){
   $('helpBody').innerHTML=`<button class="x" id="helpX">Close ✕</button>
   <h2>How the game is played</h2>
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
+  <div class="qs"><b>Before every match, in this order</b><ol><li>Look at your players: energy, mood, who is in form.</li><li>Talk to each of them in the tone their character wants, and once to the team.</li><li>Read the next opponent under the game plan: their last plan, their star, their numbers.</li><li>Set the line-up and the playing time, the six dials, the star, the half-time orders and talk.</li><li>Vote for the rule after the next match, and decide whether a trash talk is worth the ban.</li></ol>Everything is saved as you set it. Open the game after the match for the result, the box score and the reports.</div>
   <h4><i>1</i>Pick your team</h4>
   <p>Choose <b>7 players</b> out of 14 (every player in the league is one of a kind: no two share a name) <b>under the wage cap</b>: every player has a value in millions, from the dots they were drafted with, their height and build and a little from character (never from mood or form), and the <b>sum</b> of your seven may not pass ${money(CAP)}. It is not money you spend, only a line the squad's total stays under. Seven stars do not fit; who you take is the first real decision (see section 13). Then give your team a name, and pick its two colours and its badge (you can change the colours and the badge later in the Table tab; they change nothing in a match). Look at the players' stats, their bodies and their character.</p>
   <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and the player's body: how tall and how heavy (see 2). <b>The dots count for a lot.</b> Attack decides the shots, defence what the other team makes against you, height the close shots and the rebounds, speed the fast breaks and the press. Choose with care: a squad with better dots wins more over a season, and the same goes for the one player you may change between leagues.</li>
@@ -1228,12 +1231,28 @@ function renderHelp(){
   <li><b>Energy.</b> Every player also has four Energy dots, and starts with all four.</li>
   <li><b>Character</b>: tells you how the player takes being talked to, by you, by the other dugout and at half-time.</li></ul>
   <div class="two">${chars}</div>
+  <p><b>The characters at a glance.</b> Every character has a talk that is worth about the same, and one that hurts about as much; what differs is how much care they need.</p>
+  <table class="ht"><tr><th>Character</th><th>Right talk</th><th>Needs</th><th>Weak spot</th></tr>
+  <tr><td>Old hand</td><td>challenge, demand, honest</td><td>little: three quiet matches before sulking</td><td>praise after a bad game</td></tr>
+  <tr><td>Easy-going</td><td>honest, joke</td><td>almost nothing: four quiet matches</td><td>talks move them less</td></tr>
+  <tr><td>Loner</td><td>honest, challenge</td><td>nothing: never minds silence</td><td>praise; half the time put off by trash talk</td></tr>
+  <tr><td>Fighter</td><td>challenge, demand, shout</td><td>the right tone: comfort and praise backfire</td><td>ignores the plan when angry</td></tr>
+  <tr><td>Worrier</td><td>comfort, calm, honest</td><td>a talk every week</td><td>trash talk, shouting, the last minutes of a close game</td></tr>
+  <tr><td>People-pleaser</td><td>praise, comfort, calm</td><td>a talk every week</td><td>the same, and demands</td></tr>
+  <tr><td>Proud (show-off)</td><td>praise, challenge</td><td>a start: sulks on the bench</td><td>shouting, being ignored</td></tr>
+  <tr><td>Hot-tempered</td><td>comfort, joke</td><td>calm handling</td><td>challenge, demand, shout, "calm down"</td></tr>
+  <tr><td>Joker</td><td>joke, praise, comfort</td><td>fun</td><td>demands, shouting; half the time put off by trash talk</td></tr></table>
   <h4><i>2</i>Bodies: height and build</h4>
   <p>Every player has one of four heights (<b>tiny, medium, tall, very tall</b>) and one of three builds (<b>slim, normal, fat</b>). You see both in the gym, and both matter.</p>
   <ul><li><b>Height</b> wins the close shots and the rebounds, as before. But <b>the taller, the faster a player tires</b>, in a match and from match to match: a very tall player tires about a third faster than a tiny one, as real centres play about a quarter fewer minutes than guards. And <b>tall and very tall players shoot worse from long range</b>, as real centres do: give them the close shots.</li>
   <li><b>Tiny players tend to be quick, tall and very tall ones slow.</b> It is a tendency, not a rule: a quick tall player exists, and is rare.</li>
   <li><b>Fat players tire faster</b>, slim ones slower, and weight slows a little. In return a fat player takes more rebounds, gives the team more second shots, and is harder to score on close to the hoop. Very tall and fat against tiny and slim tires almost twice as fast.</li>
   <li>So a very tall, fat player is a force under the hoop for one match and then needs a rest; a tiny, slim one can play match after match. The player's card says in words how fast they tire.</li></ul>
+  <table class="ht"><tr><th>Body</th><th>Gives</th><th>Costs</th></tr>
+  <tr><td>Tiny, slim</td><td>stamina (tires half as fast as very tall and fat), tends to be quick: fast breaks, a hard ball to steal, a good press; no long-shot penalty; cheap</td><td>no close shots, no rebounds: needs a plan built around speed and the outside</td></tr>
+  <tr><td>Medium, normal</td><td>the reference: tires at the standard rate, no tendencies, no penalties, no body money</td><td>nothing to build around, nothing to hide</td></tr>
+  <tr><td>Very tall, slim</td><td>close shots and rebounds, the biggest edge in the game; about average stamina; a little quicker than the fat version</td><td>worst from long range; dear</td></tr>
+  <tr><td>Very tall, fat</td><td>the wall: the most rebounds, more second shots for the team, tough inside defence</td><td>tires almost twice as fast as tiny and slim; slow; worst from long range; dearest</td></tr></table>
   <h4><i>3</i>What decides a match</h4>
   <p>Roughly in this order:</p>
   <ul><li><b>The players.</b> Dots and height, and whether the three on the court are the right three for the week's rule.</li>
@@ -1253,6 +1272,10 @@ function renderHelp(){
   <h4><i>5</i>Moods, trust and form</h4>
   <p>The mood decides how a player performs and which tactics suit them today.</p>
   <ul>${moods}</ul>
+  <p><b>What a mood does in numbers</b>, for that match: points off or on every shot (a close shot goes in about half the time, a long one a third), points on the chance of losing the ball, how often the player follows the plan instead of going alone, and the defence.</p>
+  <table class="ht"><tr><th>Mood</th><th>Shots</th><th>Lost balls</th><th>Plan</th><th>Defence</th></tr>
+  <tr><td>fine</td><td>0</td><td>0</td><td>95%</td><td>0</td></tr><tr><td>buzzing</td><td>+4</td><td>0</td><td>100%</td><td>0</td></tr><tr><td>locked in</td><td>+1</td><td>-3</td><td>100%</td><td>+3</td></tr>
+  <tr><td>anxious</td><td>-3 (-8 late in a close game)</td><td>+5</td><td>90%</td><td>0</td></tr><tr><td>fuming</td><td>-2 (a fighter +6)</td><td>+3</td><td>55%</td><td>+5 (wanders out of a zone)</td></tr><tr><td>sulking</td><td>-6</td><td>0</td><td>80%</td><td>-4 (slower, fewer rebounds)</td></tr></table>
   <p>Players who trust you follow the plan. Players who do not, ignore it and shoot whenever they like.</p>
   <p><b>After a win</b> the top scorer is buzzing and many others lift a step. <b>After a loss</b> most players are down: hot-tempered players and fighters fume, worriers and people-pleasers turn anxious, proud players and jokers sulk; old hands, loners and easy-going players shrug. A heavy loss, by 8 or more, hits nearly everyone. Your talks in the week are how you pick them up again. Stats also move after each match: a player who shot well is in form, one who never plays gets rusty, and a player you leave out completely may sulk or get angry. This match form fades by about a third every week, so a hot streak or a slump does not last for ever; what your talks did stays. All of it within half a dot of the drafted level, as said above.</p>
   <h4><i>6</i>Energy: rotate your squad</h4>
@@ -1269,6 +1292,8 @@ function renderHelp(){
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>
   <li><b>Playing time.</b> Or share out the match yourself: give each of the five named players none, a quarter, a half, three quarters or all of the match, twelve quarters in all since three are on the court the whole time, and the coach rotates to those shares; when each player goes in and out is the coach's. Three starters at three quarters and two substitutes at half and a quarter means the substitutes play a third of the match between them, fresh. A half-time order that brings players on (fresh legs, everything through one player from the bench) outranks the plan for the rest of that match. No substitutions under "Iron legs". The box score shows the minutes each player got.</li>
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game. Star ball is as good as your star's mood today: a buzzing or locked-in star pays, an anxious or sulking one sinks you. A double team on your star is answered by sharing the ball, so look at what the opponent did last time. While the star sits on the bench the attack simply shares the ball; nobody else becomes the star, and the ball goes back through them when they return.</li>
+  <li><b>When star ball pays</b>: the star is buzzing or locked in (a sulking or anxious star with the ball costs you about as much as a happy one gains), the star is clearly the best shooter, the opponent did not double last time, and the star is fresh, because the ball carrier tires faster. If one of those fails, share, and let the star take the last shots anyway: in the final stretch of a close match 60% of your shots go to the named star whatever the dial says.</li>
+  <li><b>The double team is a bet</b>: against star ball it is worth about +20 points of win chance to the doubler, against a sharing team it costs them 3 to 12, because one of your other two is always open. Nobody can double every week: plans are public.</li>
   <li>Everything is saved the moment you set it, and stays from match to match until you change it. <b>Name three starters before every match:</b> a team without a line-up plays its three weakest players.</li>
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
@@ -1286,6 +1311,16 @@ function renderHelp(){
   <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders. The ban ends when that match is played. Everybody sees it in the match reports.</li>
   <li>One line per match. Four of the six lines are aimed at the whole team, two at their star. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
   <li>Real research on trash talk says it mostly fires the target up and only sometimes rattles them. Look at who you are talking to before you send it.</li></ul>
+  <p><b>What a line does to each character</b>, moods only, for that match (see the mood table in section 5). Each player is reached by chance: those who lose their heads about 70 times in 100, those who get sharper about 45; a line at the star reaches the star almost surely.</p>
+  <table class="ht"><tr><th>Character</th><th>Turns</th><th>Which means</th></tr>
+  <tr><td>Worrier, people-pleaser</td><td>anxious</td><td>shoots worse, loses the ball more, misses late in a close game</td></tr>
+  <tr><td>Proud, hot-tempered</td><td>fuming</td><td>shoots a bit worse and goes alone half the time</td></tr>
+  <tr><td>Fighter</td><td>fuming, and for a fighter that is fuel</td><td>shoots better, hounds the ball on a press: fired up</td></tr>
+  <tr><td>Old hand</td><td>locked in</td><td>better defence, fewer ball losses, total obedience: fired up</td></tr>
+  <tr><td>Joker (half the time)</td><td>sulking</td><td>the worst shooting mood, slower, fewer rebounds</td></tr>
+  <tr><td>Loner (half the time)</td><td>anxious</td><td>as the worrier</td></tr>
+  <tr><td>Easy-going</td><td>nothing</td><td>shrugs</td></tr></table>
+  <p>Measured: a line at a court of worriers and pleasers is worth about +10 points of win chance to the sender, at a court of fighters or old hands about -5. Then comes the ban.</p>
   <h4><i>10</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most, so read it before you pick the starters.</p>
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
@@ -1315,6 +1350,7 @@ function renderHelp(){
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)}, at a draft and at the two windows alike (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
   <li><b>What a change means under the cap.</b> Say your seven are worth $118M and you want a $25M free agent at a window. Let a $14M player go and the squad becomes $129M: over the line, refused. Let a $18M player go instead and it becomes $125M: allowed, a good player traded for a better one. With one change per window, the only question is which of your own must go to make room, and whether that trade is worth it. There is no saving up and no buying two.</li>
   <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the next league, so the league stays close. The locker room shows your squad value and your room under the game plan; the Table tab shows every squad's value.</li>
+  <li><b>What a value is made of</b>: the dots a player was drafted with (attack counts most, then defence, then speed), up to $4M for height, $1M for a fat build, and the character: old hand +$1M, easy-going +$0.5M, worrier -$0.5M, hot-tempered -$1M. Never mood or form. The median player is worth about $18M; a player worth $23M or more is one in thirty, about one in every two pools of fourteen, and the same odds for everyone.</li>
   <li><b>Late is allowed.</b> You can enter a league that is already running. You start from zero points.</li>
   <li><b>Away is allowed too.</b> A team whose manager stops opening the game keeps playing every match until the league ends, with its last line-up, plan and orders, tiring and sulking like any team nobody talks to. It is not left out and not drafted for; the manager picks up where they left.</li>
   <li><b>The record.</b> The Table tab keeps every league your team finished ("1st once, 4th three times") and a list of <b>leagues won</b> by every team.</li></ul>
