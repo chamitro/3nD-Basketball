@@ -817,7 +817,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='7beda674';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='33c0a5fd';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -1229,7 +1229,13 @@ async function handle2(store,req,a,h,now){
     if(a==='view'){
       // fourteen players are offered once; the manager picks seven of those and cannot ask for others
       let pool=await store.pool(h);
-      if(!pool){pool={players:newPlayers(14),rerolls:0};await store.savePool(h,pool);}
+      if(!pool){
+        // the same connection keeps the same fourteen until somebody joins from it: a new browser or a cleared one
+        // sees what the first one saw (Harry, 14 Nov 2026: refreshing for better players is unfair)
+        const ipHash=req._ip?await hash('ip:'+req._ip):null;const shared=ipHash?await store.pool(ipHash):null;
+        if(shared&&Array.isArray(shared.players)&&shared.players.length===14)pool={players:shared.players,rerolls:0};
+        else{pool={players:newPlayers(14),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
+        await store.savePool(h,pool);}
       return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:leagueInfo(lg)};
     }
     if(a==='join'){
@@ -1245,7 +1251,7 @@ async function handle2(store,req,a,h,now){
         row=await store.teamByKey(h);
         if(!row){if(await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};throw e;}
       }
-      await store.attach(row.id,now);await store.dropPool(h);
+      await store.attach(row.id,now);await store.dropPool(h);if(req._ip)await store.dropPool(await hash('ip:'+req._ip));   // the next browser on that connection gets a fresh pool
       row=await store.teamByKey(h);
       return makeView(store,row,lg,now,{joined:true});
     }
@@ -1422,6 +1428,9 @@ Deno.serve(async req=>{
   let out;
   try{
     const body=await req.json();
+    // where the request comes from, for one thing only: a new browser on the same connection is offered the same fourteen
+    // players until one of them joins (14 Nov 2026), so nobody fishes for a better pool. Never stored, only hashed.
+    if(body&&typeof body==='object')body._ip=String(req.headers.get('x-forwarded-for')||req.headers.get('cf-connecting-ip')||'').split(',')[0].trim();
     out=await handle(STORE,body,Date.now(),sha256hex);
   }catch(e){
     console.error(e);
