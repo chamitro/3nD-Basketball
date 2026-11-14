@@ -429,7 +429,13 @@ async function handle2(store,req,a,h,now){
     if(a==='view'){
       // fourteen players are offered once; the manager picks seven of those and cannot ask for others
       let pool=await store.pool(h);
-      if(!pool){pool={players:newPlayers(14),rerolls:0};await store.savePool(h,pool);}
+      if(!pool){
+        // the same connection keeps the same fourteen until somebody joins from it: a new browser or a cleared one
+        // sees what the first one saw (Harry, 14 Nov 2026: refreshing for better players is unfair)
+        const ipHash=req._ip?await hash('ip:'+req._ip):null;const shared=ipHash?await store.pool(ipHash):null;
+        if(shared&&Array.isArray(shared.players)&&shared.players.length===14)pool={players:shared.players,rerolls:0};
+        else{pool={players:newPlayers(14),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
+        await store.savePool(h,pool);}
       return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:leagueInfo(lg)};
     }
     if(a==='join'){
@@ -445,7 +451,7 @@ async function handle2(store,req,a,h,now){
         row=await store.teamByKey(h);
         if(!row){if(await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};throw e;}
       }
-      await store.attach(row.id,now);await store.dropPool(h);
+      await store.attach(row.id,now);await store.dropPool(h);if(req._ip)await store.dropPool(await hash('ip:'+req._ip));   // the next browser on that connection gets a fresh pool
       row=await store.teamByKey(h);
       return makeView(store,row,lg,now,{joined:true});
     }

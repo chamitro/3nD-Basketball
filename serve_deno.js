@@ -16,6 +16,9 @@ Deno.serve(async req=>{
   let out;
   try{
     const body=await req.json();
+    // where the request comes from, for one thing only: a new browser on the same connection is offered the same fourteen
+    // players until one of them joins (14 Nov 2026), so nobody fishes for a better pool. Never stored, only hashed.
+    if(body&&typeof body==='object')body._ip=String(req.headers.get('x-forwarded-for')||req.headers.get('cf-connecting-ip')||'').split(',')[0].trim();
     out=await handle(STORE,body,Date.now(),sha256hex);
   }catch(e){
     console.error(e);
