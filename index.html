@@ -600,6 +600,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ONLINE&&S
 
 // ───────────────────────── talking ─────────────────────────
 let bubble=null,parts=[],T=0,SAYDEF='';
+let PAIR=null,ROLL={t0:-99,len:0,y:0,dir:1};   // two players doing something together; a loose ball rolling across the floor
 // what a reaction looks like in the gym
 function reactFx(p,before,strength){
   if(p.fx)parts.push({x:clamp(p.x||160,60,GL.W-60),y:(p.y||300)-170*(p.s||1),life:2.4,kind:'txt',txt:(p.fx[1]>0?'+ ':'− ')+STATNAME[p.fx[0]],col:p.fx[1]>0?'#2f9e44':'#e03131'});
@@ -668,13 +669,17 @@ function toon(c,p,x,y,s,t,o){
   // old hand stretches, the worrier paces, the hot-head stomps, the fighter shadow-boxes, the pleaser waves at you, the
   // loner turns away, the easy-going one sways. Only when nothing else is going on.
   const tp=p.temp,idle=(mood==='ok'||mood==='cool')&&!o.sel&&!yawn&&o.cheer===undefined&&!(o.poke<0.7);
-  const cyc=(t*0.5+p.ph*1.7)%10,act=idle&&cyc<1.6?cyc/1.6:-1;
-  // which act this time: three per character and three basketball moves everyone does now and then (dribble, spin
-  // the ball on a finger, a jump shot), chosen by the cycle and the player's own rhythm, so it varies
-  const cycleNo=Math.floor((t*0.5+p.ph*1.7)/10),variant=(cycleNo+Math.floor(p.ph*10))%5,ballAct=variant>=3?(cycleNo+Math.floor(p.ph*3))%3:-1;
+  // every 8 to 12 seconds (each player on their own rhythm) a moment of 1.6 seconds: one of three acts of the character, a
+  // basketball move (dribble, spin the ball on a finger, a jump shot) or a small fidget anyone does, chosen by the cycle
+  const cycLen=8+(Math.floor(p.ph*3)%5),cyc=(t+p.ph*7)%cycLen,act=idle&&cyc<1.6?cyc/1.6:-1;
+  const cycleNo=Math.floor((t+p.ph*7)/cycLen),variant=(cycleNo*7+Math.floor(p.ph*10))%8,ballAct=variant>=3&&variant<=5?variant-3:-1,fidget=variant>=6?(cycleNo+Math.floor(p.ph*10))%4:-1;
   let prop=null,tongue=false,lookDown=0;   // prop: a ball to draw after the arms, {kind,phase}
   if(act>=0){const w=Math.sin(act*Math.PI),w2=Math.sin(act*Math.PI*2),w4=Math.sin(act*Math.PI*4);
-    if(ballAct===0){prop={kind:'dribble',k:act};aR=[0.75,0.85];aL=[1.1,0.9];bob+=Math.abs(w4)*2*s;lookDown=0.5;}
+    if(fidget===0){aR=[-1.95+w4*0.08,0.95];lookOff=-0.3;}   // scratches the head
+    else if(fidget===1){sq=1-w*0.14;bob+=w*H*0.1;aL=[1.3,0.9];aR=[1.3,0.9];lookDown=w;}   // crouches to tie a shoe
+    else if(fidget===2){aR=[-1.75+act*0.5,0.8];}   // wipes the brow
+    else if(fidget===3){bob-=Math.abs(w2)*5*s;lookOff=0;wob=0;}   // two little hops, looking at you
+    else if(ballAct===0){prop={kind:'dribble',k:act};aR=[0.75,0.85];aL=[1.1,0.9];bob+=Math.abs(w4)*2*s;lookDown=0.5;}
     else if(ballAct===1){prop={kind:'spin',k:act};aR=[-1.45,1];lookOff=0.2;}
     else if(ballAct===2){prop={kind:'shot',k:act};bob-=w*14*s;sq=1+w*0.04;aL=[-1.5,1];aR=[-1.55,1];}
     else if(tp==='showoff'){if(variant===0){bob-=w*6*s;sq=1+w*0.04;aL=[-1.5+w*0.3,0.9];aR=[-1.5-w*0.3,0.9];}   // flexes
@@ -719,6 +724,11 @@ function toon(c,p,x,y,s,t,o){
     else if(tp==='hothead'){aL=[-0.5,0.75];aR=[-0.5,0.75];shake=Math.sin(t*30)*1.2*s;}   // fists, fuming
     else if(tp==='joker'||tp==='showoff'){aL=[1.5,1];aR=[1.5,1];lean=0.1;lookDown=0.5;}   // slumps sideways
     else{aL=[1.5,1];aR=[1.5,1];lookDown=0.4;}}
+  if(o.glance&&act<0&&o.cheer===undefined)lookOff=o.glance*0.55;   // looks at the player who was just tapped
+  if(o.pair&&o.cheer===undefined){const k=o.pair.k,d=o.pair.dir,w=Math.sin(Math.min(1,k)*Math.PI);   // something with the neighbour: d is the side the neighbour is on
+    if(o.pair.kind==='five'){if(d>0)aR=[-0.95,1];else aL=[-0.95,1];bob-=w*9*s;lookOff=d*0.5;}
+    else if(o.pair.kind==='chat'){lean+=d*0.07;lookOff=d*0.6;if(o.pair.talker){if(d>0)aR=[0.4,0.65];else aL=[0.4,0.65];}}
+    else if(o.pair.kind==='pass'){if(d>0)aR=[-0.35,1];else aL=[-0.35,1];lookOff=d*0.55;}}
   const tired=typeof hasEnergy==='function'&&hasEnergy(p)&&energyOf(p)<=2&&o.cheer===undefined;
   if(tired){sq*=0.985;bob*=0.6;}
   const bx=x+shake+xoff,top=y-leg-H*sq+bob,bot=top+H*sq;
@@ -892,13 +902,24 @@ function drawGym(t,dt){
   const nb=Math.max(4,bench.length);
   bench.forEach((p,i)=>order.push(N?[p,16+(i+0.5)*(W-32)/nb,BY,Math.min(0.8,3.3/nb),false]:[p,SLOT(Math.max(3,starters.length)+i-(Math.max(3,starters.length)-3)),300,0.86,false]));
   const boxes={};
+  // two players do something together now and then: a pass, a high five, a chat; the rest stroll a little and glance
+  // at whoever is tapped; once in a while a loose ball rolls across the floor
+  const idleP=p=>p.id!==S.sel&&(p.mood==='ok'||p.mood==='cool')&&!(t-(p.pokeAt===undefined?-9:p.pokeAt)<1);
+  if(PAIR&&t-PAIR.t0>PAIR.len)PAIR=null;
+  if(!PAIR&&S.phase==='week'&&R()<dt*0.11){const rows=[...order].sort((a,b)=>a[2]-b[2]||a[1]-b[1]);const cands=[];for(let i=1;i<rows.length;i++)if(rows[i][2]===rows[i-1][2]&&idleP(rows[i][0])&&idleP(rows[i-1][0]))cands.push([rows[i-1][0],rows[i][0]]);
+    if(cands.length){const [a,b]=pick(cands);const kind=pick(['pass','five','chat','chat']);PAIR={a:a.id,b:b.id,kind,t0:t,len:kind==='chat'?2.6:kind==='pass'?1.3:1.1};}}
+  const poked=me.players.find(q=>q.pokeAt!==undefined&&t-q.pokeAt<1.4);
+  if(t-ROLL.t0>ROLL.len&&S.phase==='week'&&R()<dt*0.03)ROLL={t0:t,len:5+R()*2,y:N?SY+40:H-18,dir:R()<0.5?1:-1};
   // after the match the whole team cheers or slumps with the result; a win rains confetti
   const cheer=S.phase==='results'&&S.results&&S.results.list&&S.results.list.length?!!S.results.list[0].won:undefined;
   if(cheer===true&&parts.filter(q=>q.kind==='conf').length<60&&R()<dt*14)parts.push({x:R()*W,y:-8,life:2.6+R()*1.5,kind:'conf',col:pick(['#ff5d8f','#ffd23f','#2ec4b6','#4d9de0','#6bcb77','#ff9f1c']),spin:R()*6});
   for(const [p,tx,ty,ts,st] of [...order].sort((a,b)=>a[2]-b[2])){
     if(p.x===null||p.x===undefined){p.x=tx;p.y=ty;p.s=ts;}
-    p.x=lerp(p.x,tx,Math.min(1,dt*7));p.y=lerp(p.y,ty,Math.min(1,dt*7));p.s=lerp(p.s,ts,Math.min(1,dt*7));
-    const b=toon(g,p,p.x,p.y,p.s,t,{sel:p.id===S.sel,ball:me.ball===p.id,poke:t-(p.pokeAt===undefined?-9:p.pokeAt),cheer});boxes[p.id]={x:p.x,y:p.y,top:b.top};
+    const wander=cheer===undefined&&idleP(p)&&!(PAIR&&(PAIR.a===p.id||PAIR.b===p.id))?Math.sin((t+p.ph*13)*0.3)*(N?7:12):0;   // strolls a little
+    p.x=lerp(p.x,tx+wander,Math.min(1,dt*7));p.y=lerp(p.y,ty,Math.min(1,dt*7));p.s=lerp(p.s,ts,Math.min(1,dt*7));
+    const pr=PAIR&&(PAIR.a===p.id||PAIR.b===p.id)?{kind:PAIR.kind,k:(t-PAIR.t0)/PAIR.len,dir:PAIR.a===p.id?1:-1,talker:PAIR.kind==='chat'&&((Math.floor((t-PAIR.t0)/0.65)%2===0)===(PAIR.a===p.id))}:null;
+    const glance=poked&&poked!==p?Math.sign((poked.x||0)-(p.x||0)):0;
+    const b=toon(g,p,p.x,p.y,p.s,t,{sel:p.id===S.sel,ball:me.ball===p.id,poke:t-(p.pokeAt===undefined?-9:p.pokeAt),cheer,pair:pr,glance});boxes[p.id]={x:p.x,y:p.y,top:b.top,s:p.s};
     g.font=`800 ${N&&!st?13:15}px system-ui`;const tw=g.measureText(p.n).width+(N&&!st?16:22);g.lineWidth=3;g.strokeStyle=INK;g.fillStyle=p.id===S.sel?'#ffd23f':'#fff';pillH(g,p.x-tw/2,p.y+10,tw,24);g.fill();g.stroke();g.fillStyle=INK;g.textAlign='center';g.fillText(p.n,p.x,p.y+27);
     if(st){g.fillStyle='#6bcb77';g.font='900 11px system-ui';pillH(g,p.x-26,p.y+38,52,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('STARTS',p.x,p.y+51);}
     else if(me.subs.includes(p.id)){g.fillStyle='#74c0fc';g.font='900 11px system-ui';pillH(g,p.x-20,p.y+38,40,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SUB',p.x,p.y+51);}
@@ -906,6 +927,12 @@ function drawGym(t,dt){
     if(hasEnergy(p)&&energyOf(p)<=2.5){const lvl=energyOf(p)<=1.5?1:2,bx=p.x-tw/2-22,by=p.y+15;g.lineWidth=2.5;g.strokeStyle=INK;g.fillStyle='#fff';g.fillRect(bx,by,17,11);g.strokeRect(bx,by,17,11);g.fillStyle=INK;g.fillRect(bx+17,by+3,3,5);g.fillStyle=lvl===1?'#ef476f':'#ff9f1c';g.fillRect(bx+2,by+2,lvl===1?4:8,7);g.lineWidth=3;}
     if(p.talked){g.fillStyle='#4d9de0';g.beginPath();g.arc(p.x+tw/2+2,p.y+12,9,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#fff';g.font='900 12px system-ui';g.fillText('✓',p.x+tw/2+2,p.y+16);}
   }
+  // the pass and the chat between two players, and the loose ball
+  if(PAIR&&boxes[PAIR.a]&&boxes[PAIR.b]){const A=boxes[PAIR.a],B=boxes[PAIR.b],k=Math.min(1,(t-PAIR.t0)/PAIR.len);
+    if(PAIR.kind==='pass'){const ax=A.x+36*A.s,ay=A.top+40*A.s,bx=B.x-36*B.s,by=B.top+40*B.s;const kk=clamp((k-0.25)/0.5,0,1);const x=lerp(ax,bx,kk),y=lerp(ay,by,kk)-Math.sin(kk*Math.PI)*40;
+      g.fillStyle='#ff8c2a';g.lineWidth=3;g.strokeStyle=INK;g.beginPath();g.arc(x,y,8,0,Math.PI*2);g.fill();g.stroke();g.save();g.translate(x,y);g.rotate(kk*8);g.lineWidth=1.5;g.beginPath();g.moveTo(-8,0);g.lineTo(8,0);g.moveTo(0,-8);g.lineTo(0,8);g.stroke();g.restore();}
+    else if(PAIR.kind==='chat'){const who=(Math.floor((t-PAIR.t0)/0.65)%2===0)?A:B;const x=who.x,y=who.top-16;g.fillStyle='#fff';g.strokeStyle=INK;g.lineWidth=3;pillH(g,x-20,y-14,40,22);g.fill();g.stroke();g.fillStyle=INK;for(let i=-1;i<=1;i++){g.beginPath();g.arc(x+i*9,y-3+(Math.sin(t*9+i)*1.5),2.6,0,Math.PI*2);g.fill();}}}
+  if(t-ROLL.t0<ROLL.len){const k=(t-ROLL.t0)/ROLL.len,x=ROLL.dir>0?-12+k*(W+24):W+12-k*(W+24);g.fillStyle='#ff8c2a';g.lineWidth=3;g.strokeStyle=INK;g.beginPath();g.arc(x,ROLL.y,9,0,Math.PI*2);g.fill();g.stroke();g.save();g.translate(x,ROLL.y);g.rotate(ROLL.dir*k*18);g.lineWidth=1.5;g.beginPath();g.moveTo(-9,0);g.lineTo(9,0);g.moveTo(0,-9);g.lineTo(0,9);g.stroke();g.restore();}
   parts=parts.filter(q=>q.life>0);
   for(const q of parts){if(q.kind==='conf'){q.y+=95*dt;q.x+=Math.sin(q.life*4+q.spin)*1.4;}else{q.y-=(q.kind==='txt'?16:40)*dt;if(q.kind!=='txt')q.x+=Math.sin(q.life*8)*0.6;}q.life-=dt;g.globalAlpha=Math.min(1,q.life*1.5);g.lineWidth=3;g.strokeStyle=INK;
     if(q.kind==='conf'){g.save();g.translate(q.x,q.y);g.rotate(q.life*5+q.spin);g.fillStyle=q.col;g.fillRect(-6,-3.5,12,7);g.lineWidth=1.5;g.strokeRect(-6,-3.5,12,7);g.restore();g.globalAlpha=1;continue;}
