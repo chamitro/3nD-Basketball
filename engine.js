@@ -134,7 +134,11 @@ function trashTeam(team,line,starId,heard){
 const TALK_REACH=0.45;   // chance that a player is moved by the half-time talk (a short moment in a locker room; 0.6 made "be honest" worth +5 points when close)
 const TALK_LIFT=[0,0.02,0.008];   // shot quality for the rest of the match, by sharpness (0.03 made "be honest" worth +5 points of win chance when close: too much of a default)
 const ORDER_KEYS=['behind','close','ahead'];
-const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
+const ORDER_MARGIN=8;   // behind or ahead from this many points on (5 with the ten-minute match, Harry, 9 Nov 2026; 8 since the twenty-minute match, 14 Nov 2026); anything less than that apart is "close"
+// A match is twenty minutes of three-on-three: about 38 possessions a side (30 slow, 46 fast), twice the ten-minute
+// match of before (Harry, 14 Nov 2026: scores were too small for the friends). In-match tiring per possession is halved
+// to keep a whole match worth the same.
+const POSS=[30,38,46],POSS_SCALE=0.5;
 const orderOf=k=>ORDERS.find(o=>o.k===k);
 // orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
 function cleanOrders(team,rule){
@@ -348,7 +352,7 @@ function playMatch(A,B,ruleKey){
     return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
   };
   const a=mk(A),b=mk(B);
-  let P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
+  let P=rule==='first11'?60:Math.round((POSS[A.sheet.tempo]+POSS[B.sheet.tempo])/2);
   const half=rule==='first11'?-1:Math.floor(P/2);
   const noRun=rule==='no_dribble'||rule==='tiny_court';
   const hMul=rule==='tiny_court'?3.5:rule==='paint'?1.8:1;
@@ -444,7 +448,7 @@ function playMatch(A,B,ruleKey){
     }
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+tireOf(p)*(0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)));}}   // big and heavy bodies tire faster
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+POSS_SCALE*tireOf(p)*(0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)));}}   // big and heavy bodies tire faster
   // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
   // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
   // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
@@ -458,7 +462,7 @@ function playMatch(A,B,ruleKey){
   // the playing-time plan: after every possession the three most owed minutes are on the court (one change at a time,
   // and only for a whole possession's difference, so nobody yo-yos); a bench player's legs recover meanwhile
   function rotate(X,i){if(!X.plan||X.planOff)return;
-    for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.04);
+    for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.04*POSS_SCALE);
     const owed=p=>(X.plan[p.id]||0)*(i+1)-X.st[p.id].min;
     const c=[...X.court].sort((p,q)=>owed(p)-owed(q))[0],b=[...X.bench].filter(p=>X.plan[p.id]!==undefined).sort((p,q)=>owed(q)-owed(p))[0];
     if(c&&b&&owed(b)-owed(c)>=1){X.court[X.court.indexOf(c)]=b;X.bench[X.bench.indexOf(b)]=c;}}
@@ -486,11 +490,11 @@ function playMatch(A,B,ruleKey){
         X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;}
       X.half.order=o.k;
     }
-    P=half+Math.round(([15,19,23][a.sheet.tempo]+[15,19,23][b.sheet.tempo])/4);   // the second half is as long as the new tempos say
+    P=half+Math.round((POSS[a.sheet.tempo]+POSS[b.sheet.tempo])/4);   // the second half is as long as the new tempos say
   };
   for(let i=0;i<P;i++){
     if(i===half)halfTime();
-    const late=i>=P*0.8&&Math.abs(a.score-b.score)<=5;
+    const late=i>=P*0.8&&Math.abs(a.score-b.score)<=ORDER_MARGIN;
     possession(a,b,late);tire(a);rotate(a,i);
     if(rule==='first11'&&a.score>=11)break;
     possession(b,a,late);tire(b);rotate(b,i);
@@ -509,14 +513,14 @@ function reportLines(X,Y,won,rule){
   const top=[...ps].sort((p,q)=>st(q).pts-st(p).pts)[0];
   const cold=[...ps].filter(p=>st(p).fga>=5&&st(p).fgm/st(p).fga<0.3).sort((p,q)=>st(q).fga-st(p).fga)[0];
   const hog=[...ps].filter(p=>st(p).free>=3).sort((p,q)=>st(q).free-st(p).free)[0];
-  const benchHero=[...ps].filter(p=>st(p).bench&&st(p).pts>=6).sort((p,q)=>st(q).pts-st(p).pts)[0];
+  const benchHero=[...ps].filter(p=>st(p).bench&&st(p).pts>=12).sort((p,q)=>st(q).pts-st(p).pts)[0];
   const my3=ps.reduce((s,p)=>s+st(p).m3,0);
   const their3=Y.T.players.filter(p=>Y.st[p.id]).reduce((s,p)=>s+Y.st[p.id].m3,0);
   const tiredAvg=X.court.reduce((s,p)=>s+st(p).f,0)/X.court.length;
   const bonus=ps.reduce((s,p)=>s+st(p).bonus,0);
   const moodWhy=p=>p.mood==='sad'?'still sulking':p.mood==='nervous'?'a bundle of nerves':p.mood==='angry'&&p.temp!=='fighter'?'too angry to think':st(p).f>0.6?'running on fumes':'ice cold';
   const good=[],bad=[];
-  if(top&&st(top).pts>=7)good.push([st(top).pts,`${top.n}${top.mood==='happy'?', buzzing,':top.mood==='cool'?', locked in,':top.mood==='angry'&&top.temp==='fighter'?', furious and loving it,':''} scored ${st(top).pts}.`]);
+  if(top&&st(top).pts>=14)good.push([st(top).pts,`${top.n}${top.mood==='happy'?', buzzing,':top.mood==='cool'?', locked in,':top.mood==='angry'&&top.temp==='fighter'?', furious and loving it,':''} scored ${st(top).pts}.`]);
   if(benchHero&&benchHero!==top)good.push([st(benchHero).pts+2,`${benchHero.n} came off the bench with ${st(benchHero).pts}.`]);
   if(X.sheet.def===2&&X.steals>=4)good.push([X.steals+2,`Your press stole the ball ${X.steals} times.`]);
   if(Y.sheet.def===1&&my3>=4)good.push([my3+1,`Their zone left your shooters open outside.`]);
@@ -594,7 +598,7 @@ function scoutReport(X,Y,rule){
   if(Y.fast===0&&ys.tempo===2&&rule!=='no_dribble'&&rule!=='tiny_court')add(0.7,`Got back in time: ${them} played fast and never got a fast break.`);
   // who scored
   const top=[...ps].sort((p,q)=>st(q).pts-st(p).pts)[0];
-  if(top&&st(top).pts>=7)add((st(top).pts-6)/4,`${top.n} scored ${st(top).pts} (${st(top).fgm} of ${st(top).fga} shots).`);
+  if(top&&st(top).pts>=14)add((st(top).pts-12)/8,`${top.n} scored ${st(top).pts} (${st(top).fgm} of ${st(top).fga} shots).`);
   else if(top&&st(top).pts>=4)add(0.15,`${top.n} led the scoring with ${st(top).pts}.`);
   const cold=[...ps].filter(p=>st(p).fga>=5&&st(p).fgm/st(p).fga<0.3).sort((p,q)=>st(q).fga-st(p).fga)[0];
   if(cold)add(-(0.4+0.18*(st(cold).fga-st(cold).fgm)),`${cold.n} missed ${st(cold).fga-st(cold).fgm} of ${st(cold).fga} shots.`);
@@ -606,8 +610,8 @@ function scoutReport(X,Y,rule){
   if(hungry&&fga>=12&&st(hungry).fga/fga>=0.5&&scorers<3)add(-(0.45+2*(st(hungry).fga/fga-0.5)),`${hungry.n} took ${st(hungry).fga} of the team's ${fga} shots.`);
   // the substitutes
   const cameOn=ps.filter(p=>st(p).bench&&st(p).min>0),benchPts=cameOn.reduce((s,p)=>s+st(p).pts,0);
-  if(cameOn.length&&benchPts>=7)add((benchPts-4)/5,`The substitutes scored ${benchPts}.`);
-  else if(cameOn.length&&benchPts>=4)add(0.2,`The substitutes scored ${benchPts}.`);
+  if(cameOn.length&&benchPts>=14)add((benchPts-8)/10,`The substitutes scored ${benchPts}.`);
+  else if(cameOn.length&&benchPts>=8)add(0.2,`The substitutes scored ${benchPts}.`);
   else if(cameOn.length&&benchPts>0)add(-0.15,`The substitutes scored only ${benchPts}.`);
   if(cameOn.length&&benchPts===0)add(-0.55,'The substitutes scored nothing.');
   // legs
@@ -639,7 +643,7 @@ function scoutReport(X,Y,rule){
     if(Math.abs(dh)>=0.07)add(dh/0.23*0.6,dh>0?`The taller team on the floor.`:`The smaller team on the floor.`);
     if(Math.abs(ds)>=0.3)add(ds/0.88*0.6,ds>0?`The quicker team on the floor.`:`The slower team on the floor.`);}
   // the score itself, when little else stands out
-  {const v=(X.score-19)/8;if(rule!=='first11'&&Math.abs(v)>=0.5)add(v*0.3,v>0?`Scored ${X.score} points.`:`Scored only ${X.score} points.`);}
+  {const v=(X.score-38)/16;if(rule!=='first11'&&Math.abs(v)>=0.5)add(v*0.3,v>0?`Scored ${X.score} points.`:`Scored only ${X.score} points.`);}
   {const d=fga-ofga;if(d>=2)add(0.1,`Got more shots away than ${them}: ${fga} to ${ofga}.`);if(d<=-2)add(-0.1,`Got fewer shots away than ${them}: ${fga} to ${ofga}.`);
     const oto=osum(z=>z.to);if(to<oto&&to>1)add(0.08,`Lost the ball less often than ${them}: ${to} to ${oto}.`);if(to>oto&&to<5&&to!==4)add(-0.08,`Lost the ball more often than ${them}: ${to} to ${oto}.`);}
   if(X.noLineup)add(-9,'Nobody set the line-up: the three weakest players started.');
@@ -735,12 +739,12 @@ function aftermath(team,X,won,conceded){
   for(const p of team.players){
     const u=usage[p.id],started=team.starters.includes(p.id);const before=p.mood;
     p.cold=!!(u&&u.fga>=4&&u.fgm/u.fga<0.25);
-    if(p===best&&u.pts>=7)p.mood='happy';
+    if(p===best&&u.pts>=14)p.mood='happy';
     else if(u&&u.fga>=5&&u.fgm/u.fga<0.25)p.mood=(p.temp==='hothead'||p.temp==='fighter')?'angry':(p.temp==='veteran'||p.temp==='loner'||p.temp==='easygoing')?'ok':'nervous';
     else if(!started&&p.temp==='showoff'){p.mood='sad';p.trust=clamp(p.trust-1,-2,2);}
     else if(wins===1&&R()<0.4&&p.mood!=='angry')p.mood=p.mood==='sad'?'ok':'happy';
     // a loss leaves most players down, a heavy one (8 or more) nearly everyone; old hands, loners and easy-going players shrug (Harry, 11 Nov 2026: losses should hurt a little more)
-    else if(wins===0&&R()<(conceded-X.score>=8?0.8:0.6))p.mood=p.temp==='hothead'||p.temp==='fighter'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.temp==='showoff'||p.temp==='joker'?'sad':p.mood;
+    else if(wins===0&&R()<(conceded-X.score>=16?0.8:0.6))p.mood=p.temp==='hothead'||p.temp==='fighter'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.temp==='showoff'||p.temp==='joker'?'sad':p.mood;
     // left out completely: some take it personally
     const played=u&&u.min>0;
     if(!played&&p.enWas<3.5){/* a tired player is glad of the rest */}
@@ -788,8 +792,8 @@ function aftermath(team,X,won,conceded){
       if(u.fga>=4&&u.fgm/u.fga>=0.5)ch.push(['sh',0.2]);
       if(u.fga>=4&&u.fgm/u.fga<0.25&&p.temp!=='veteran')ch.push(['sh',-0.15]);
       if(u.min>=u.tot*0.6)ch.push(['sp',0.1]);
-      if(u.min>=u.tot*0.5&&conceded<=17)ch.push(['df',0.15]);
-      if(u.min>=u.tot*0.5&&conceded>=26)ch.push(['df',-0.1]);
+      if(u.min>=u.tot*0.5&&conceded<=34)ch.push(['df',0.15]);
+      if(u.min>=u.tot*0.5&&conceded>=52)ch.push(['df',-0.1]);
     }else if(!(p.enWas<3.5)){ch.push(['sp',-0.12]);ch.push(['sh',-0.06]);}   // sitting out when fresh costs form; a needed rest does not
     for(const [k,d] of ch){const r=bump(p,k,d);if(r>0)ups.push(`${p.n}'s ${STATNAME[k]} went up`);if(r<0)ups.push(`${p.n}'s ${STATNAME[k]} went down`);}
   }
