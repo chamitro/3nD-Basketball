@@ -546,7 +546,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.15-2024';   // stamped by build.py
+const APP_VERSION='2026.11.15-2027';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1266,8 +1266,8 @@ function renderHelp(){
   <tr><td>Fighter</td><td>challenge, demand, shout</td><td>the right tone: comfort and praise backfire</td><td>ignores the plan when angry</td></tr>
   <tr><td>Worrier</td><td>comfort, calm, honest</td><td>a talk every week</td><td>trash talk, shouting, the last minutes of a close game</td></tr>
   <tr><td>People-pleaser</td><td>praise, comfort, calm</td><td>a talk every week</td><td>the same, and demands</td></tr>
-  <tr><td>Proud (show-off)</td><td>praise, challenge</td><td>a start: sulks on the bench</td><td>shouting, being ignored</td></tr>
-  <tr><td>Hot-tempered</td><td>comfort, joke</td><td>calm handling</td><td>challenge, demand, shout, "calm down"</td></tr>
+  <tr><td>Proud (show-off)</td><td>praise, challenge</td><td>a start: sulks on the bench</td><td>shouting, being ignored, trash talk</td></tr>
+  <tr><td>Hot-tempered</td><td>comfort, joke</td><td>calm handling</td><td>challenge, demand, shout, "calm down", trash talk</td></tr>
   <tr><td>Joker</td><td>joke, praise, comfort</td><td>fun</td><td>demands, shouting; half the time put off by trash talk</td></tr></table>
   <h4><i>2</i>Bodies: height and build</h4>
   <p>Every player has one of four heights (<b>tiny, medium, tall, very tall</b>) and one of three builds (<b>slim, normal, fat</b>). You see both in the gym, and both matter.</p>
