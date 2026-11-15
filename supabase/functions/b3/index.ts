@@ -817,7 +817,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='33c0a5fd';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='16dd4b88';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -1217,10 +1217,10 @@ async function handle(store,req,now,hash){
   }
   if(!/^[a-f0-9]{32,64}$/.test(key))return {error:'bad key'};
   const h=await hash(key);
-  try{return await handle2(store,req,a,h,now);}
+  try{return await handle2(store,req,a,h,now,hash);}
   catch(e){if(e&&e.message==='conflict')return {busy:true};throw e;}
 }
-async function handle2(store,req,a,h,now){
+async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for the connection pool (a missing parameter here broke every new manager's draft on 14-15 Nov 2026: "hash is not defined"; the suites hid it with a global of the same name, now called `sha`)
   const lg=await tick(store,now);
   // a match day is being played by another request right now: touch nothing, the browser asks again in a moment
   if(now>=lg.next_match_at)return {busy:true};
