@@ -98,7 +98,8 @@ free plan allows; the scheduled job fails loudly from 350 on).
   character (`TRASH_FX`: rattled or fired up; a line aimed at the star reaches the star for sure; a team that has
   heard this manager before, `data.heard`, is harder to rattle). The sender gets `data.ban = 1` (and `banFor`): talk, team talk and
   trash talk are refused and the half-time talk is skipped (`half.gagged`) until the next match is played; the
-  plan, line-up and orders are set as usual (Harry's rule, 10 Nov 2026). The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
+  plan, line-up and orders are set as usual (Harry's rule, 10 Nov 2026); a half-time tone sent during the ban is ignored by
+  `checkPlan` and the page locks the tone menus, while a tone set before the ban is kept and applies again after it (15 Nov 2026). The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
 - Body types (Winter League 2026/27, Harry 12 Nov 2026): a player has a height `ht` (0 tiny .. 3 very tall) and a build
   `bd` (0 slim, 1 normal, 2 fat); `h` and `bulk` follow from them (`HT_H`, `BD_BULK` in `engine.js`). A body tires by
   `TIRE_HT[ht]*TIRE_BD[bd]` (0.81 for tiny and slim to 1.44 for very tall and fat; set 12 Nov 2026 against real figures: bigs
