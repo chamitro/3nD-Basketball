@@ -531,7 +531,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.15-1947';   // stamped by build.py
+const APP_VERSION='2026.11.15-1951';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -979,19 +979,19 @@ function planCheck(){
 }
 // the half-time orders: one row per case, a list of orders, a player for "everything through one player"
 function ordersHtml(){
-  const me=S.me,O=me.orders||(me.orders={behind:null,close:null,ahead:null});
+  const me=S.me,O=me.orders||(me.orders={behind:null,close:null,ahead:null}),banned=ONLINE&&(me.ban||0)>0;   // banned for trash talk: the orders are yours, the tone is not (Harry, 15 Nov 2026)
   const rows=ORDER_KEYS.map(w=>{const o=O[w],k=o&&o.k,talk=o&&o.talk;const sel=`<select data-w="${w}"><option value="">Keep the plan</option>${ORDERS.map(x=>`<option value="${x.k}" ${k===x.k?'selected':''}>${x.txt}</option>`).join('')}</select>`;
     const who=k==='star'?`<select data-wp="${w}">${me.players.map(p=>`<option value="${p.id}" ${o.pid===p.id?'selected':''}>${esc(p.n)}${me.starters.includes(p.id)?'':me.subs.includes(p.id)?' (substitute)':' (not playing)'}</option>`).join('')}</select>`:'';
-    const say=`<select data-wt="${w}"><option value="">Say nothing</option>${TONES.map(t=>`<option value="${t}" ${talk===t?'selected':''}>${TONE_LABEL[t]}</option>`).join('')}</select>`;
-    return `<div class="orow"><span class="olab">${ORDER_WHEN[w].replace(' at half-time','')}</span>${sel}${who}<span class="small" style="font-weight:700">and</span>${say}${k?`<div class="owhy">${orderOf(k).why}</div>`:''}${talk?`<div class="owhy">You say: "${TONE_SAY[talk]}" Each player reacts to it as they always do, moods only. ${TALK_SHARP[talk]===1?'A sharp talk lifts the whole second half a little.':TALK_SHARP[talk]===2?'Shouting lifts the second half less than a sharp word, and makes the wrong players fume.':'A soft talk lifts nobody by itself: it works through the players it reaches.'}</div>`:''}</div>`;}).join('');
-  return `<div class="lab">Half-time orders and talk</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score, hears your talk for that case and follows the order for that case. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close. "Keep the plan" and "Say nothing" change nothing.</div>${rows}`;
+    const say=banned?`<select data-wt="${w}" disabled><option>No talk: banned</option></select>`:`<select data-wt="${w}"><option value="">Say nothing</option>${TONES.map(t=>`<option value="${t}" ${talk===t?'selected':''}>${TONE_LABEL[t]}</option>`).join('')}</select>`;
+    return `<div class="orow"><span class="olab">${ORDER_WHEN[w].replace(' at half-time','')}</span>${sel}${who}<span class="small" style="font-weight:700">and</span>${say}${k?`<div class="owhy">${orderOf(k).why}</div>`:''}${talk&&!banned?`<div class="owhy">You say: "${TONE_SAY[talk]}" Each player reacts to it as they always do, moods only. ${TALK_SHARP[talk]===1?'A sharp talk lifts the whole second half a little.':TALK_SHARP[talk]===2?'Shouting lifts the second half less than a sharp word, and makes the wrong players fume.':'A soft talk lifts nobody by itself: it works through the players it reaches.'}</div>`:''}</div>`;}).join('');
+  return `<div class="lab">Half-time orders and talk</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score, hears your talk for that case and follows the order for that case. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close. "Keep the plan" and "Say nothing" change nothing.${banned?' <b>You are banned this match: the orders are followed, but there is no half-time talk.</b> A tone you had set comes back when the ban is over.':''}</div>${rows}`;
 }
 $('orders').addEventListener('change',e=>{
   const t=e.target;if(S.phase!=='week'||!t.dataset)return;const O=S.me.orders||(S.me.orders={behind:null,close:null,ahead:null});
   const keep=(w,n)=>{const o=O[w];const talk=o&&o.talk?o.talk:null;const row={...n,talk};O[w]=row.k||row.talk?row:null;};
   if(t.dataset.w){const k=t.value;keep(t.dataset.w,!k?{k:null}:k==='star'?{k,pid:(byId(S.me,S.me.ball)||byId(S.me,S.me.starters[0])||S.me.players[0]).id}:{k});}
   else if(t.dataset.wp){const o=O[t.dataset.wp];if(o&&o.k==='star')o.pid=+t.value;}
-  else if(t.dataset.wt){const w=t.dataset.wt,o=O[w]||{k:null};const row={...o,talk:t.value||null};O[w]=row.k||row.talk?row:null;}
+  else if(t.dataset.wt){if(ONLINE&&(S.me.ban||0)>0)return;const w=t.dataset.wt,o=O[w]||{k:null};const row={...o,talk:t.value||null};O[w]=row.k||row.talk?row:null;}
   save();renderPlan();
 });
 // trash talk: one line to the other dugout, the last word before tip-off (online only)

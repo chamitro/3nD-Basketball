@@ -317,7 +317,8 @@ function checkPlan(data,req,rule){
     else{if(typeof req.orders!=='object')return 'bad orders';orders={};
       for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
         if(typeof o!=='object')return 'bad orders';
-        const talk=o.talk==null?null:o.talk;if(talk!==null&&!TONES.includes(talk))return 'bad orders';
+        // a banned coach is not in the locker room: the orders are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
+        const talk=(data.ban||0)>0?((((data.orders||{})[w])||{}).talk||null):(o.talk==null?null:o.talk);if(talk!==null&&!TONES.includes(talk))return 'bad orders';
         if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
         if(!orderOf(o.k))return 'bad orders';
         if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}

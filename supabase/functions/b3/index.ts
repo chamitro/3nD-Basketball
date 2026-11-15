@@ -817,7 +817,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='16dd4b88';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='af8b6a6d';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -1117,7 +1117,8 @@ function checkPlan(data,req,rule){
     else{if(typeof req.orders!=='object')return 'bad orders';orders={};
       for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
         if(typeof o!=='object')return 'bad orders';
-        const talk=o.talk==null?null:o.talk;if(talk!==null&&!TONES.includes(talk))return 'bad orders';
+        // a banned coach is not in the locker room: the orders are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
+        const talk=(data.ban||0)>0?((((data.orders||{})[w])||{}).talk||null):(o.talk==null?null:o.talk);if(talk!==null&&!TONES.includes(talk))return 'bad orders';
         if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
         if(!orderOf(o.k))return 'bad orders';
         if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
