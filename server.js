@@ -91,6 +91,19 @@ function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.h
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
 function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
+// A team name is on a table everybody sees. With the game public (itch.io, December 2026) the plain insults are refused,
+// in English, Greek and Greeklish: every entry as a whole word, the longer ones anywhere in the name (so Dickens, cocktails,
+// Scunthorpe and Cumbria pass, fuckers and assholes do not). Accents are dropped before the check.
+const normName=s=>String(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu,'').replace(/ς/g,'σ');
+const BAD_WORDS=['fuck','fucker','fuckers','fucking','fucked','shit','shits','shitty','shithead','shitheads','cunt','cunts','nigger','niggers','nigga','niggas','faggot','faggots','fag','fags',
+  'bitch','bitches','dick','dicks','dickhead','pussy','pussies','asshole','assholes','whore','whores','slut','sluts','retard','retards','retarded','nazi','nazis','hitler',
+  'rape','rapist','porn','penis','vagina','wank','wanker','wankers','twat','twats','cum',
+  'malaka','malakas','malakes','poutana','poutanes','poutanas','gamo','gamw','gamiesai','gamiese','skata','arxidia','arxidi','mouni','mounia','poutsa','poutses','pousti','poustis','poustides','kolos','kwlos',
+  'μαλακα','μαλακας','μαλακες','πουτανα','πουτανες','πουτανας','γαμω','γαμιεσαι','γαμησε','σκατα','αρχιδια','αρχιδι','μουνι','μουνια','πουτσα','πουτσες','πουστη','πουστης','πουστηδες','κωλος'].map(normName);
+function nameFit(name){
+  const words=normName(name).split(/[^\p{L}\p{N}]+/u).filter(Boolean),flat=words.join('');
+  return !BAD_WORDS.some(w=>words.includes(w)||(w.length>=5&&flat.includes(w)));
+}
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
@@ -495,6 +508,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       const mine=pool.players.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
+      if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
       {const e=overCap(mine,CAP);if(e)return {error:e};}
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
       // a name taken by a team that joined in the meantime is changed for a fresh one (looks and dots stay); the other

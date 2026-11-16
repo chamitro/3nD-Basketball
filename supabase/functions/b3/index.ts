@@ -137,7 +137,11 @@ function trashTeam(team,line,starId,heard){
 const TALK_REACH=0.45;   // chance that a player is moved by the half-time talk (a short moment in a locker room; 0.6 made "be honest" worth +5 points when close)
 const TALK_LIFT=[0,0.02,0.008];   // shot quality for the rest of the match, by sharpness (0.03 made "be honest" worth +5 points of win chance when close: too much of a default)
 const ORDER_KEYS=['behind','close','ahead'];
-const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
+const ORDER_MARGIN=8;   // behind or ahead from this many points on (5 with the ten-minute match, Harry, 9 Nov 2026; 8 since the twenty-minute match, 14 Nov 2026); anything less than that apart is "close"
+// A match is twenty minutes of three-on-three: about 38 possessions a side (30 slow, 46 fast), twice the ten-minute
+// match of before (Harry, 14 Nov 2026: scores were too small for the friends). In-match tiring per possession is halved
+// to keep a whole match worth the same.
+const POSS=[30,38,46],POSS_SCALE=0.5;
 const orderOf=k=>ORDERS.find(o=>o.k===k);
 // orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
 function cleanOrders(team,rule){
@@ -151,15 +155,75 @@ function cleanOrders(team,rule){
 const orderWords=(o,team)=>!o||!o.k?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
 
 // ───────────────────────── players & teams ─────────────────────────
-const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7'];
-const TOPS=['bun','band','cap','horns','antenna','mohawk','tuft','propeller','cone','duck','sprout','crown','pan'];
+const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7',
+  '#f6c9a0','#e0a878','#c68642','#9c6b43','#7a5236','#d0bfff','#b2f2bb','#ffe3a3','#c5d0e6','#f1aeb5','#9bd4c8','#e8d5b0'];   // the last twelve (skin and pastel tones) came with the players update of the Winter League 2026/27
+const TOPS=['bun','band','cap','horns','antenna','mohawk','tuft','propeller','cone','duck','sprout','crown','pan',
+  'afro','spikes','ponytail','flat','beanie','curls','visor','bald','bow','feather','sidepart'];
 const SHAPES=['pill','pill','pear','bean'];
+// Looks that came with the players update: hair colour, beard, glasses, sweatbands, socks, shoes, cheeks. Numbers into
+// these lists are kept with the player; the page draws them (toon in index.html).
+const HAIRS=['#2b2233','#5c3a21','#a0522d','#e8b04a','#d9480f','#f1f3f5','#ff6fb5','#3bc9db'];
+const BEARDS=['none','moustache','goatee','beard','stubble'];
+const SPECS=['none','glasses','shades','goggles'];
+const ACCS=['none','headband','wristbands','both'];
+const SOCKS=['none','short','high','striped'];
+const SHOES=['#ffffff','#2b2233','#ff6b6b','#ffd43b','#4dabf7','#69db7c'];
+const CHEEKS=['none','freckles','blush','plaster','mole'];
+// Body types (Harry, 12 Nov 2026): four heights by three builds, drawn so that they can be seen, and they matter.
+//   height (`ht`): tall players tire faster and tend to be slow, tiny ones tire slower and tend to be quick
+//   build (`bd`): fat players tire faster but rebound better and are tougher to score on close to the hoop; slim ones tire slower
+// `h` (0..1, used by every height rule of the match) and `bulk` (0..1, the drawing) follow from them.
+// Players from before the update have no `ht`/`bd`: for them nothing changes (TIRE 1, no fat rules).
+const HEIGHTS=['tiny','medium','tall','very tall'],BUILDS=['slim','normal','fat'];
+const HT_ODDS=[0.2,0.35,0.3,0.15],BD_ODDS=[0.3,0.45,0.25];
+const HT_H=[0.08,0.38,0.68,0.94],BD_BULK=[0.08,0.5,0.95];
+// Set against real basketball (12 Nov 2026): bigs are 6-12% taller and 17-25% heavier than guards, have a 21-26% lower
+// aerobic capacity and slower repeated sprints, and play about a quarter fewer minutes (EuroLeague centres ~21 of 40,
+// guards ~28); guards cover almost twice the high-intensity distance. So a typical big tires about a quarter faster than
+// a typical guard, the extremes (very tall and fat against tiny and slim) not quite twice as fast; the height-speed link
+// is a tendency of a dot, weight slows a little as well; height and weight both win rebounds.
+const SP_SHIFT=[0.6,0,0.3,0.6],BD_SP=[0.2,0,0.4];   // chance that the body moves the speed by a dot: tiny and slim up, tall, very tall and fat down
+const TIRE_HT=[0.9,1,1.1,1.2],TIRE_BD=[0.9,1,1.2];   // how fast a body tires, in a match and from match to match: 0.81 (tiny, slim) to 1.44 (very tall, fat)
+const FAT={reb:0.5,team:0.03,inside:0.04};
+const TALL3=[0,0,0.03,0.06];   // what a long shot loses by height: real centres shoot worse from range than guards (Harry, 12 Nov 2026)
+const tall3=p=>p.ht===undefined?0:TALL3[p.ht];
+// ───────────────────────── the wage cap ─────────────────────────
+// Every team has the same cap (Harry, 12 Nov 2026). A player's value comes from the dots they were drafted with (attack
+// most, then defence, then speed), their height and build, and a little from character; never from mood or form. The
+// cap binds every time a squad changes: the draft, the one change between leagues, the mid-season window. The lower half
+// of a table gets a little extra room for the next league. Values are shown as millions.
+const CAP=125,CAP_WINDOW=125,CAP_BONUS=8;   // the same line at the windows (Harry, 13 Nov 2026: "make the market cap 125M");   // measured 12 Nov 2026: at 125 the free best seven of a pool fit in 3% of pools and a drafter gives up about one good player's worth to fit; at 130 it was 11% and little sacrifice (Harry: too easy);   // seven average players are worth about 122: the draft cap leaves room for one dear player, not for seven; at the two windows (between leagues, mid-season) the cap is tighter, so a change is a trade (Harry, 12 Nov 2026)
+const CHAR_VALUE={veteran:1,easygoing:0.5,hothead:-1,worrier:-0.5};
+function valueOf(p){const b=p.base||p;const dots=(b.sh||p.sh)*1.2+(b.df||p.df)+(b.sp||p.sp)*0.6;
+  return Math.max(6,Math.round(dots*2.2+p.h*4+(p.bd===2?1:0)+(CHAR_VALUE[p.temp]||0)));}
+const squadValue=ps=>(ps||[]).reduce((s,p)=>s+valueOf(p),0);
+const money=v=>'$'+v+'M';
+const capOf=(d,window)=>(window?CAP_WINDOW:CAP)+((d&&d.capBonus)||0);   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
+const bodyOf=p=>p.ht===undefined||p.bd===undefined?null:{ht:p.ht,bd:p.bd};
+const tireOf=p=>{const b=bodyOf(p);return b?TIRE_HT[b.ht]*TIRE_BD[b.bd]:1;};
+const isFat=p=>p.bd===2&&p.ht!==undefined;
+const bodyWords=p=>{const b=bodyOf(p);return b?HEIGHTS[b.ht]+(b.bd===1?'':' and '+BUILDS[b.bd]):'';};
+const odds=a=>{let x=R();for(let i=0;i<a.length;i++){x-=a[i];if(x<=0)return i;}return a.length-1;};
+// Team kits: two colours and a badge, chosen by the manager (a team without one gets a kit from its name).
+const KIT_COLS=['#e03131','#f76707','#f59f00','#ffd43b','#74b816','#2f9e44','#0ca678','#1098ad','#1c7ed6','#3b5bdb','#7048e8','#ae3ec9','#d6336c','#f783ac','#ffffff','#ced4da','#495057','#212529','#7f5539','#0b3d91'];
+const BADGES=['🦉','🦁','🔥','🏀','🐺','🦅','🐻','🐝','🦈','🐉','⚡','⭐','🌵','🍕','🚀','👑','🐙','🦊','🐸','🌙','💀','🐢','🦄','🍩'];
+function cleanKit(k){if(!k||typeof k!=='object')return null;const a=k.a,b=k.b,g=k.g;
+  if(!Number.isInteger(a)||!Number.isInteger(b)||!Number.isInteger(g)||a<0||b<0||g<0||a>=KIT_COLS.length||b>=KIT_COLS.length||g>=BADGES.length||a===b)return null;return {a,b,g};}
+function nameKit(name){let x=7;for(const ch of String(name||''))x=(x*31+ch.codePointAt(0))%1000003;const a=x%KIT_COLS.length;let b=Math.floor(x/20)%KIT_COLS.length;if(b===a)b=(b+7)%KIT_COLS.length;return {a,b,g:Math.floor(x/400)%BADGES.length};}
+const kitOf=(kit,name)=>cleanKit(kit)||nameKit(name);
+const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R()*KIT_COLS.length);if(b===a)b=(b+1)%KIT_COLS.length;return {a,b,g:Math.floor(R()*BADGES.length)};};
 let NEXT_ID=1;
 function makePlayer(){const q=makePlayer0();quirks(q);return q;}
 function makePlayer0(){
-  const temp=pick(TEMPKEYS);const h=R();
-  let sh,df,sp,tries=0;do{sh=1+Math.floor(R()*4);df=1+Math.floor(R()*4);sp=1+Math.floor(R()*4);tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
-  return {id:NEXT_ID++,n:makeName(),temp,h,bulk:clamp(h*0.6+R()*0.5,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+  const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
+  const h=clamp(HT_H[ht]+(R()-0.5)*0.1,0,1),d4=()=>1+Math.floor(R()*4);
+  // speed follows the height as a tendency, not a rule: after the dots are drawn, a tiny player usually gains a dot of
+  // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
+  let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
+  if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);if(R()<BD_SP[bd])sp=clamp(sp+(bd===0?1:-1),1,4);
+  return {id:NEXT_ID++,n:makeName(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+    hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
+    socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
     sh,df,sp,base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
@@ -181,7 +245,7 @@ function bump(p,k,d,kind){
   const before=Math.round(p[k]);p[k]=clamp(clamp(p.base[k]+p.tk[k]+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);p.tr[k]+=d;const after=Math.round(p[k]);return after>before?1:after<before?-1:0;}
 // match form fades a little every week; the talks' part stays
 function fadeForm(p){if(!p.fm||!p.base)return;for(const k of ['sh','df','sp']){if(!p.fm[k])continue;p.fm[k]*=1-FORM_FADE;if(Math.abs(p.fm[k])<0.01)p.fm[k]=0;p[k]=clamp(clamp(p.base[k]+(p.tk&&p.tk[k]||0)+p.fm[k],p.base[k]-STAT_BAND,p.base[k]+STAT_BAND),1,4);}}
-function makeTeam(name,players,human){return {name,players,starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
+function makeTeam(name,players,human){return {name,players,kit:randomKit(),starters:[],subs:[],ball:null,sheet:{tempo:1,shots:1,def:0,off:0,guard:0,boards:1},w:0,l:0,pf:0,pa:0,human:!!human,skill:0.25+0.75*R(),style:{tempo:Math.floor(R()*3),shots:Math.floor(R()*3),def:Math.floor(R()*3),off:Math.floor(R()*3),guard:Math.floor(R()*3),boards:Math.floor(R()*3)},lastSheet:null,lastDay:''};}
 const byId=(team,id)=>team.players.find(p=>p.id===id);
 // ───────────────────────── playing time ─────────────────────────
 // A manager may give each of the five named players a share of the match in quarters (none, a quarter, a half, three
@@ -291,7 +355,7 @@ function playMatch(A,B,ruleKey){
     return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
   };
   const a=mk(A),b=mk(B);
-  let P=rule==='first11'?60:Math.round(([15,19,23][A.sheet.tempo]+[15,19,23][B.sheet.tempo])/2);
+  let P=rule==='first11'?60:Math.round((POSS[A.sheet.tempo]+POSS[B.sheet.tempo])/2);
   const half=rule==='first11'?-1:Math.floor(P/2);
   const noRun=rule==='no_dribble'||rule==='tiny_court';
   const hMul=rule==='tiny_court'?3.5:rule==='paint'?1.8:1;
@@ -352,8 +416,8 @@ function playMatch(A,B,ruleKey){
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
     const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
-    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0);}
-    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn;}
+    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0)-tall3(shooter);}   // the big ones shoot worse from range
+    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
@@ -380,14 +444,14 @@ function playMatch(A,B,ruleKey){
       let kept=false;
       if(!second){
         const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
-        const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
-        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)).id].reb++;possession(O,D,late,true);}
+        const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length)+FAT.team*(O.court.filter(isFat).length-D.court.filter(isFat).length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
+        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)+(isFat(p)?FAT.reb:0)).id].reb++;possession(O,D,late,true);}
       }
-      if(!kept)D.st[wpick(D.court,p=>0.25+p.h+(ds.boards===0?0.3:0)).id].reb++;
+      if(!kept)D.st[wpick(D.court,p=>0.25+p.h+(ds.boards===0?0.3:0)+(isFat(p)?FAT.reb:0)).id].reb++;
     }
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+POSS_SCALE*tireOf(p)*(0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)));}}   // big and heavy bodies tire faster
   // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
   // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
   // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
@@ -401,7 +465,7 @@ function playMatch(A,B,ruleKey){
   // the playing-time plan: after every possession the three most owed minutes are on the court (one change at a time,
   // and only for a whole possession's difference, so nobody yo-yos); a bench player's legs recover meanwhile
   function rotate(X,i){if(!X.plan||X.planOff)return;
-    for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.04);
+    for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.04*POSS_SCALE);
     const owed=p=>(X.plan[p.id]||0)*(i+1)-X.st[p.id].min;
     const c=[...X.court].sort((p,q)=>owed(p)-owed(q))[0],b=[...X.bench].filter(p=>X.plan[p.id]!==undefined).sort((p,q)=>owed(q)-owed(p))[0];
     if(c&&b&&owed(b)-owed(c)>=1){X.court[X.court.indexOf(c)]=b;X.bench[X.bench.indexOf(b)]=c;}}
@@ -429,11 +493,11 @@ function playMatch(A,B,ruleKey){
         X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;}
       X.half.order=o.k;
     }
-    P=half+Math.round(([15,19,23][a.sheet.tempo]+[15,19,23][b.sheet.tempo])/4);   // the second half is as long as the new tempos say
+    P=half+Math.round((POSS[a.sheet.tempo]+POSS[b.sheet.tempo])/4);   // the second half is as long as the new tempos say
   };
   for(let i=0;i<P;i++){
     if(i===half)halfTime();
-    const late=i>=P*0.8&&Math.abs(a.score-b.score)<=5;
+    const late=i>=P*0.8&&Math.abs(a.score-b.score)<=ORDER_MARGIN;
     possession(a,b,late);tire(a);rotate(a,i);
     if(rule==='first11'&&a.score>=11)break;
     possession(b,a,late);tire(b);rotate(b,i);
@@ -452,14 +516,14 @@ function reportLines(X,Y,won,rule){
   const top=[...ps].sort((p,q)=>st(q).pts-st(p).pts)[0];
   const cold=[...ps].filter(p=>st(p).fga>=5&&st(p).fgm/st(p).fga<0.3).sort((p,q)=>st(q).fga-st(p).fga)[0];
   const hog=[...ps].filter(p=>st(p).free>=3).sort((p,q)=>st(q).free-st(p).free)[0];
-  const benchHero=[...ps].filter(p=>st(p).bench&&st(p).pts>=6).sort((p,q)=>st(q).pts-st(p).pts)[0];
+  const benchHero=[...ps].filter(p=>st(p).bench&&st(p).pts>=12).sort((p,q)=>st(q).pts-st(p).pts)[0];
   const my3=ps.reduce((s,p)=>s+st(p).m3,0);
   const their3=Y.T.players.filter(p=>Y.st[p.id]).reduce((s,p)=>s+Y.st[p.id].m3,0);
   const tiredAvg=X.court.reduce((s,p)=>s+st(p).f,0)/X.court.length;
   const bonus=ps.reduce((s,p)=>s+st(p).bonus,0);
   const moodWhy=p=>p.mood==='sad'?'still sulking':p.mood==='nervous'?'a bundle of nerves':p.mood==='angry'&&p.temp!=='fighter'?'too angry to think':st(p).f>0.6?'running on fumes':'ice cold';
   const good=[],bad=[];
-  if(top&&st(top).pts>=7)good.push([st(top).pts,`${top.n}${top.mood==='happy'?', buzzing,':top.mood==='cool'?', locked in,':top.mood==='angry'&&top.temp==='fighter'?', furious and loving it,':''} scored ${st(top).pts}.`]);
+  if(top&&st(top).pts>=14)good.push([st(top).pts,`${top.n}${top.mood==='happy'?', buzzing,':top.mood==='cool'?', locked in,':top.mood==='angry'&&top.temp==='fighter'?', furious and loving it,':''} scored ${st(top).pts}.`]);
   if(benchHero&&benchHero!==top)good.push([st(benchHero).pts+2,`${benchHero.n} came off the bench with ${st(benchHero).pts}.`]);
   if(X.sheet.def===2&&X.steals>=4)good.push([X.steals+2,`Your press stole the ball ${X.steals} times.`]);
   if(Y.sheet.def===1&&my3>=4)good.push([my3+1,`Their zone left your shooters open outside.`]);
@@ -537,7 +601,7 @@ function scoutReport(X,Y,rule){
   if(Y.fast===0&&ys.tempo===2&&rule!=='no_dribble'&&rule!=='tiny_court')add(0.7,`Got back in time: ${them} played fast and never got a fast break.`);
   // who scored
   const top=[...ps].sort((p,q)=>st(q).pts-st(p).pts)[0];
-  if(top&&st(top).pts>=7)add((st(top).pts-6)/4,`${top.n} scored ${st(top).pts} (${st(top).fgm} of ${st(top).fga} shots).`);
+  if(top&&st(top).pts>=14)add((st(top).pts-12)/8,`${top.n} scored ${st(top).pts} (${st(top).fgm} of ${st(top).fga} shots).`);
   else if(top&&st(top).pts>=4)add(0.15,`${top.n} led the scoring with ${st(top).pts}.`);
   const cold=[...ps].filter(p=>st(p).fga>=5&&st(p).fgm/st(p).fga<0.3).sort((p,q)=>st(q).fga-st(p).fga)[0];
   if(cold)add(-(0.4+0.18*(st(cold).fga-st(cold).fgm)),`${cold.n} missed ${st(cold).fga-st(cold).fgm} of ${st(cold).fga} shots.`);
@@ -549,8 +613,8 @@ function scoutReport(X,Y,rule){
   if(hungry&&fga>=12&&st(hungry).fga/fga>=0.5&&scorers<3)add(-(0.45+2*(st(hungry).fga/fga-0.5)),`${hungry.n} took ${st(hungry).fga} of the team's ${fga} shots.`);
   // the substitutes
   const cameOn=ps.filter(p=>st(p).bench&&st(p).min>0),benchPts=cameOn.reduce((s,p)=>s+st(p).pts,0);
-  if(cameOn.length&&benchPts>=7)add((benchPts-4)/5,`The substitutes scored ${benchPts}.`);
-  else if(cameOn.length&&benchPts>=4)add(0.2,`The substitutes scored ${benchPts}.`);
+  if(cameOn.length&&benchPts>=14)add((benchPts-8)/10,`The substitutes scored ${benchPts}.`);
+  else if(cameOn.length&&benchPts>=8)add(0.2,`The substitutes scored ${benchPts}.`);
   else if(cameOn.length&&benchPts>0)add(-0.15,`The substitutes scored only ${benchPts}.`);
   if(cameOn.length&&benchPts===0)add(-0.55,'The substitutes scored nothing.');
   // legs
@@ -582,7 +646,7 @@ function scoutReport(X,Y,rule){
     if(Math.abs(dh)>=0.07)add(dh/0.23*0.6,dh>0?`The taller team on the floor.`:`The smaller team on the floor.`);
     if(Math.abs(ds)>=0.3)add(ds/0.88*0.6,ds>0?`The quicker team on the floor.`:`The slower team on the floor.`);}
   // the score itself, when little else stands out
-  {const v=(X.score-19)/8;if(rule!=='first11'&&Math.abs(v)>=0.5)add(v*0.3,v>0?`Scored ${X.score} points.`:`Scored only ${X.score} points.`);}
+  {const v=(X.score-38)/16;if(rule!=='first11'&&Math.abs(v)>=0.5)add(v*0.3,v>0?`Scored ${X.score} points.`:`Scored only ${X.score} points.`);}
   {const d=fga-ofga;if(d>=2)add(0.1,`Got more shots away than ${them}: ${fga} to ${ofga}.`);if(d<=-2)add(-0.1,`Got fewer shots away than ${them}: ${fga} to ${ofga}.`);
     const oto=osum(z=>z.to);if(to<oto&&to>1)add(0.08,`Lost the ball less often than ${them}: ${to} to ${oto}.`);if(to>oto&&to<5&&to!==4)add(-0.08,`Lost the ball more often than ${them}: ${to} to ${oto}.`);}
   if(X.noLineup)add(-9,'Nobody set the line-up: the three weakest players started.');
@@ -662,7 +726,7 @@ function energyAfter(team,X){
   for(const p of team.players){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
-    p.en=clamp(p.enWas-ENERGY.COST*hard*share+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);
+    p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);   // the body's tiring rate on the cost, the night's recovery for everybody
   }
 }
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)
@@ -678,12 +742,12 @@ function aftermath(team,X,won,conceded){
   for(const p of team.players){
     const u=usage[p.id],started=team.starters.includes(p.id);const before=p.mood;
     p.cold=!!(u&&u.fga>=4&&u.fgm/u.fga<0.25);
-    if(p===best&&u.pts>=7)p.mood='happy';
+    if(p===best&&u.pts>=14)p.mood='happy';
     else if(u&&u.fga>=5&&u.fgm/u.fga<0.25)p.mood=(p.temp==='hothead'||p.temp==='fighter')?'angry':(p.temp==='veteran'||p.temp==='loner'||p.temp==='easygoing')?'ok':'nervous';
     else if(!started&&p.temp==='showoff'){p.mood='sad';p.trust=clamp(p.trust-1,-2,2);}
     else if(wins===1&&R()<0.4&&p.mood!=='angry')p.mood=p.mood==='sad'?'ok':'happy';
     // a loss leaves most players down, a heavy one (8 or more) nearly everyone; old hands, loners and easy-going players shrug (Harry, 11 Nov 2026: losses should hurt a little more)
-    else if(wins===0&&R()<(conceded-X.score>=8?0.8:0.6))p.mood=p.temp==='hothead'||p.temp==='fighter'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.temp==='showoff'||p.temp==='joker'?'sad':p.mood;
+    else if(wins===0&&R()<(conceded-X.score>=16?0.8:0.6))p.mood=p.temp==='hothead'||p.temp==='fighter'?'angry':p.temp==='worrier'||p.temp==='pleaser'?'nervous':p.temp==='showoff'||p.temp==='joker'?'sad':p.mood;
     // left out completely: some take it personally
     const played=u&&u.min>0;
     if(!played&&p.enWas<3.5){/* a tired player is glad of the rest */}
@@ -731,8 +795,8 @@ function aftermath(team,X,won,conceded){
       if(u.fga>=4&&u.fgm/u.fga>=0.5)ch.push(['sh',0.2]);
       if(u.fga>=4&&u.fgm/u.fga<0.25&&p.temp!=='veteran')ch.push(['sh',-0.15]);
       if(u.min>=u.tot*0.6)ch.push(['sp',0.1]);
-      if(u.min>=u.tot*0.5&&conceded<=17)ch.push(['df',0.15]);
-      if(u.min>=u.tot*0.5&&conceded>=26)ch.push(['df',-0.1]);
+      if(u.min>=u.tot*0.5&&conceded<=34)ch.push(['df',0.15]);
+      if(u.min>=u.tot*0.5&&conceded>=52)ch.push(['df',-0.1]);
     }else if(!(p.enWas<3.5)){ch.push(['sp',-0.12]);ch.push(['sh',-0.06]);}   // sitting out when fresh costs form; a needed rest does not
     for(const [k,d] of ch){const r=bump(p,k,d);if(r>0)ups.push(`${p.n}'s ${STATNAME[k]} went up`);if(r<0)ups.push(`${p.n}'s ${STATNAME[k]} went down`);}
   }
@@ -806,20 +870,23 @@ async function sendPush(sub,payload,vapid){
 
 const CFG={
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
-  MATCH_DAYS:[0,3],       // the seasonal leagues: Sunday and Wednesday
+  MATCH_DAYS:[0,3,5],     // the seasonal leagues: Sunday, Wednesday and Friday (Harry, 14 Nov 2026: three matches a week in every league)
   TEST_DAYS:[0,3,5],      // the leagues before SEASONS_FROM: Sunday, Wednesday and Friday
   LEAGUE_MATCHES:13,      // length of the leagues before SEASONS_FROM: 13 match days, so that 13 or 14 teams all meet each other once (League 1: Sun 8 Nov - Sun 6 Dec 2026)
   SEASONS_FROM:2,         // from this league number on, a league lasts one season of the year: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug), Autumn (Sep-Nov)
   MAX_SWAPS:1,            // players a manager may change between leagues
-  IDLE_DAYS:21,           // a manager who has not opened the game for this long is left out until they return
+  MID_DAYS:2,MID_SWAPS:2,MID_MIN:20,   // the mid-season window: opens once half the matches of a league of 20 or more are played, stays open for two match days, up to two changes under the window cap (Harry, 12 Nov 2026)
+  REDRAFT_AFTER:[1],      // when one of these leagues ends, every team drafts seven new players from fourteen instead of changing one (League 1: the switch to the players with body types, Harry 12 Nov 2026)
+  IDLE_DAYS:0,            // 0: an absent manager's team keeps playing with its last line-up and plan until the league ends (Harry, 13 Nov 2026); before, 21 days of silence left a team out until its manager returned
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='af8b6a6d';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='18fa73ab';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
+const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
 // the next match day of league `no` at the match hour, strictly after the given moment
 function nextMatchTime(afterMs,no){
@@ -857,30 +924,64 @@ function leagueName(no,at,short){
 }
 // what the browser is told about the running league
 function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at),short:leagueName(lg.no,lg.next_match_at,true),match_no:lg.match_no,of:leagueLength(lg),next_match_at:lg.next_match_at,rule:lg.rule,days:matchDays(lg.no),hour:CFG.MATCH_HOUR_UTC};}
+// Every player in the league is one of a kind (Harry, 12 Nov 2026): no two players, on any team or in any draft pool
+// still open, share a name. `taken` is every name in use; a pool or a squad is made against it.
+async function takenNames(store,withPools){
+  const names=new Set();const add=ps=>{for(const p of ps||[])if(p&&p.n)names.add(p.n);};
+  for(const t of await store.allTeams()){add(t.data.players);add(t.data.agents);if(t.data.redraft)add(t.data.redraft.pool);}
+  const house=await store.house();if(house)add(house.data.players);
+  if(withPools&&store.poolNames)for(const n of await store.poolNames())names.add(n);
+  return names;
+}
 function newPlayers(n,avoid){
   usedNames.clear();for(const x of avoid||[])usedNames.add(x);
   const out=[],ids=new Set();
   for(let i=0;i<n;i++){const p=makePlayer();do{p.id=1+Math.floor(R()*2000000000);}while(ids.has(p.id));ids.add(p.id);out.push(p);}
   return out;
 }
+// the computer team's seven, like everyone's, fit under the cap: the best seven of a pool that do
+function capSeven(pool,cap){const ps=[...pool].sort((a,b)=>rating(b)-rating(a));const out=[];let v=0;
+  for(const p of ps){if(out.length<7&&v+valueOf(p)<=cap){out.push(p);v+=valueOf(p);}}
+  if(out.length===7)return out;
+  const cheap=[...pool].sort((a,b)=>valueOf(a)-valueOf(b)).slice(0,7);return squadValue(cheap)<=cap?cheap:null;}
+// a pool of fourteen a manager can always draft from: its cheapest seven leave room under the cap, its dearest seven do not fit
+function fairPool(avoid,cap){let pool=null;for(let t=0;t<40;t++){pool=newPlayers(14,avoid);const byV=[...pool].sort((a,b)=>valueOf(a)-valueOf(b));if(squadValue(byV.slice(0,7))<=cap-10&&squadValue(byV.slice(7))>cap)return pool;}return pool;}
+function houseSeven(avoid){for(let t=0;t<30;t++){const s=capSeven(newPlayers(14,avoid),CAP);if(s)return s;}return newPlayers(7,avoid);}
+const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+money(squadValue(ps))+' and the cap is '+money(cap)+'. Let a dearer player go.':null;
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
-function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,col:p.col,top:p.top,shape:p.shape,num:p.num,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+// a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
+function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
+// A team name is on a table everybody sees. With the game public (itch.io, December 2026) the plain insults are refused,
+// in English, Greek and Greeklish: every entry as a whole word, the longer ones anywhere in the name (so Dickens, cocktails,
+// Scunthorpe and Cumbria pass, fuckers and assholes do not). Accents are dropped before the check.
+const normName=s=>String(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu,'').replace(/ς/g,'σ');
+const BAD_WORDS=['fuck','fucker','fuckers','fucking','fucked','shit','shits','shitty','shithead','shitheads','cunt','cunts','nigger','niggers','nigga','niggas','faggot','faggots','fag','fags',
+  'bitch','bitches','dick','dicks','dickhead','pussy','pussies','asshole','assholes','whore','whores','slut','sluts','retard','retards','retarded','nazi','nazis','hitler',
+  'rape','rapist','porn','penis','vagina','wank','wanker','wankers','twat','twats','cum',
+  'malaka','malakas','malakes','poutana','poutanes','poutanas','gamo','gamw','gamiesai','gamiese','skata','arxidia','arxidi','mouni','mounia','poutsa','poutses','pousti','poustis','poustides','kolos','kwlos',
+  'μαλακα','μαλακας','μαλακες','πουτανα','πουτανες','πουτανας','γαμω','γαμιεσαι','γαμησε','σκατα','αρχιδια','αρχιδι','μουνι','μουνια','πουτσα','πουτσες','πουστη','πουστης','πουστηδες','κωλος'].map(normName);
+function nameFit(name){
+  const words=normName(name).split(/[^\p{L}\p{N}]+/u).filter(Boolean),flat=words.join('');
+  return !BAD_WORDS.some(w=>words.includes(w)||(w.length>=5&&flat.includes(w)));
+}
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
-function newTeamRow(hash,name,players,leagueNo,now){
+const midOpen=(d,lg)=>!!(d.mid&&d.mid.league===lg.no&&lg.match_no<=d.mid.until&&d.mid.agents);
+function newTeamRow(hash,name,players,leagueNo,now,kit){
   const top=[...players].sort((a,b)=>rating(b)-rating(a));
   const data={name,players,starters:top.slice(0,3).map(p=>p.id),subs:top.slice(3,5).map(p=>p.id),
     ball:top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id,sheet:{...DEF_SHEET},teamTalked:false,vote:null,last:null,final:null,agents:[],won:0,played:0};
-  return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{},data};
+  return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:kitOf(kit,name)},data};
 }
 function newHouseRow(leagueNo,now){
-  const t=makeTeam(CFG.HOUSE_NAME,newPlayers(7),false);t.skill=0.6;
+  const t=makeTeam(CFG.HOUSE_NAME,houseSeven(),false);t.skill=0.6;
   const top=[...t.players].sort((a,b)=>rating(b)-rating(a));t.starters=top.slice(0,3).map(p=>p.id);t.subs=top.slice(3,5).map(p=>p.id);t.ball=t.starters[0];
-  return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{},data:t};
+  return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:randomKit()},data:t};
 }
 const standing=(a,b)=>b.pts-a.pts||(b.pf-b.pa)-(a.pf-a.pa)||(a.name<b.name?-1:1);
 
@@ -1036,11 +1137,11 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
+        X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppKit:kitOf(Y.pub.kit,Y.name),oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
       X.pub={...X.pub,ls:mine.sheet,lw:won,st:mine.st,ball:mine.ball,sc:seasonCard(X.pub.sc,lg.no,xs,ys,won),rep:{league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,half,trash:sent?sent.line:null}};
-      rec.detail[X===A?'a':'b']={sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs)};
+      rec.detail[X===A?'a':'b']={kit:kitOf(X.pub.kit,X.name),sheet:mine.sheet,half,trash:sent?{line:sent.line,rattled:sent.rattled,fired:sent.fired}:null,lines,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs)};
     }
     matches.push(rec);
   }
@@ -1063,13 +1164,24 @@ async function runMatchday(store,lg,now){
     const all=(await store.allTeams()).map(t=>map.get(t.id)||t);
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
     for(const t of away){rows.push(t);map.set(t.id,t);}
+    const redraft=CFG.REDRAFT_AFTER.includes(lg.no);
+    const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=n===14?fairPool([...taken,...(avoid||[])],CAP):newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league; a pool of fourteen is always draftable under the cap
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
       t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,seen:false};
       t.data.played=(t.data.played||0)+1;if(place===1)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
-      t.data.agents=newPlayers(7,t.data.players.map(p=>p.n));
+      t.data.agents=redraft?[]:fresh(7);
     }
+    // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
+    // its way into the next league. The old squad stays until then; the computer team simply gets new players.
+    if(redraft)for(const t of [...all,...rows.filter(t=>t.is_house)]){   // `all` is every manager's team; the computer team is among the rows in play
+      if(t.is_house){const pool=fresh(14);t.data.players=capSeven(pool,CAP)||pool.slice(0,7);firstLineup(t.data);t.data.orders=null;continue;}
+      if(!map.has(t.id)){rows.push(t);map.set(t.id,t);}
+      t.data.redraft={after:lg.no,pool:fresh(14)};
+    }
+    // the wage cap: the lower half of the table gets a little extra room for the next league, the rest none
+    for(const t of [...humans,...away]){const place=placeOf(t.id);t.data.capBonus=place>tbl.length/2?CAP_BONUS:0;}
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
@@ -1079,12 +1191,18 @@ async function runMatchday(store,lg,now){
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}
     reset=true;lg.no++;lg.match_no=1;
   }else lg.match_no++;
+  // the mid-season window: once half the matches are played every team in the league gets seven free agents for MID_DAYS match days
+  if(!reset&&leagueLength(lg)>=CFG.MID_MIN){const midAt=midAfter(lg);
+    if(lg.match_no===midAt+1){const taken=await takenNames(store,true);
+      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:midAt+CFG.MID_DAYS,agents:ps,used:0};}}
+    if(lg.match_no>midAt+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
+  }
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
   lg.next_match_at=nextMatchTime(lg.next_match_at,lg.no);lg.busy_until=null;   // lg.no is already the next league's number if one just ended
   // next pairings, among the managers who are still around
   if(reset){for(const t of rows)t.next_opp=null;}   // the new league starts empty
   else{
-    const active=humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS);
+    const active=CFG.IDLE_DAYS>0?humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS):humans.slice();   // everybody in the league plays every match day
     for(const t of humans)if(!active.includes(t))t.next_opp=null;
     pairUp(active,house,await meetings(store,lg.no,matches),leagueLength(lg)-lg.match_no+1);
   }
@@ -1134,28 +1252,37 @@ async function makeView(store,row,lg,now,extra){
   if(row.next_opp){const o=await store.teamById(row.next_opp);
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
       const st=(o.pub.st||[]).filter(id=>o.data.players.some(p=>p.id===id));
-      opp={id:o.id,name:o.name,house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
+      opp={id:o.id,name:o.name,kit:kitOf(o.pub.kit,o.name),sv:squadValue(o.data.players),house:o.is_house,w:o.w,l:o.l,pf:o.pf,pa:o.pa,pts:o.pts,players:o.data.players.map(pubPlayer),
         starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null,sc:o.pub.sc&&o.pub.sc.lg===lg.no?o.pub.sc:null};}}
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
-    me:{id:row.id,name:row.name,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
     push_key:vapid?vapid.pub:null,
-    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
 }
 
 // ───────────────────────── match reports ─────────────────────────
 // One match day as everybody may read it: every score, each side's plan, three strong and three weak points.
 // What a manager was told in private about their own match (the "lines") is never part of it.
 const ROUND_MAX=60;   // matches sent for one match day
+// one team's season: every match it played in the running league, with its side of each report (the season view, 13 Nov 2026)
+async function teamView(store,lg,req){
+  const id=req.id;if(typeof id!=='string'&&typeof id!=='number')return {error:'bad team'};
+  const t=await store.teamById(id);if(!t||(t.league_no!==lg.no&&!t.is_house))return {error:'No such team in this league.'};
+  const side=d=>({kit:(d&&d.kit)||null,sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
+  const rows=await store.teamMatches(lg.no,t.id);
+  const matches=rows.map(m=>{const mine=m.a===t.id;const d=(m.detail||{});return {match:m.match_no,opp:mine?m.b_name:m.a_name,oppId:mine?m.b:m.a,us:mine?m.score_a:m.score_b,them:mine?m.score_b:m.score_a,rule:m.rule,side:side(mine?d.a:d.b),theirs:{sheet:((mine?d.b:d.a)||{}).sheet||null,kit:((mine?d.b:d.a)||{}).kit||null}};});
+  return {id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),house:t.is_house,w:t.w,l:t.l,pf:t.pf,pa:t.pa,sv:squadValue(t.data.players),sc:t.pub.sc&&t.pub.sc.lg===lg.no?t.pub.sc:null,league:lg.no,lname:leagueName(lg.no,lg.next_match_at),matches};
+}
 async function roundView(store,req){
   let L=Number.isInteger(req.league)&&req.league>0?req.league:null,M=Number.isInteger(req.match)&&req.match>0?req.match:null;
   if(L===null||M===null){const last=await store.roundNear(null,null,-1);if(!last)return {none:true};L=last.league_no;M=last.match_no;}
   const rows=await store.roundMatches(L,M,ROUND_MAX+1);
   if(!rows.length)return {none:true,league:L,match:M};
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
-  const side=d=>({sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
+  const side=d=>({kit:(d&&d.kit)||null,sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
   const d0=rows[0].detail||{};
   return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
@@ -1235,7 +1362,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
         // sees what the first one saw (Harry, 14 Nov 2026: refreshing for better players is unfair)
         const ipHash=req._ip?await hash('ip:'+req._ip):null;const shared=ipHash?await store.pool(ipHash):null;
         if(shared&&Array.isArray(shared.players)&&shared.players.length===14)pool={players:shared.players,rerolls:0};
-        else{pool={players:newPlayers(14),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
+        else{pool={players:fairPool([...await takenNames(store,true)],CAP),rerolls:0};if(ipHash)await store.savePool(ipHash,pool);}
         await store.savePool(h,pool);}
       return {phase:'draft',now,pool:pool.players.map(ownPlayer),league:leagueInfo(lg)};
     }
@@ -1245,8 +1372,13 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       const mine=pool.players.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
+      if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
+      {const e=overCap(mine,CAP);if(e)return {error:e};}
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
-      const fresh=newTeamRow(h,name,mine,lg.no,now);enforceRule(fresh.data,lg.rule);
+      // a name taken by a team that joined in the meantime is changed for a fresh one (looks and dots stay); the other
+      // open pools do not count here, they were made to avoid this one
+      {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);}}
+      const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);fresh.pub.sv=squadValue(mine);
       try{row=await store.insertTeam(fresh);}
       catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once
         row=await store.teamByKey(h);
@@ -1295,18 +1427,43 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
   }else if(a==='vote'){
     if(![0,1,2].includes(req.i))return {error:'bad vote'};
     d.vote=req.i;dirty=true;
+  }else if(a==='mid'){   // the mid-season window: up to MID_SWAPS changes in all, one free agent in for each player out, under the window cap
+    if(!midOpen(d,lg))return {error:'The mid-season window is not open.'};
+    const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
+    if(!outs.length||outs.length!==ins.length)return {error:'One free agent in for each player out.'};
+    const left=CFG.MID_SWAPS-d.mid.used;if(outs.length>left)return {error:left>0?'You may change '+left+' more player'+(left===1?'':'s')+' in this window.':'You have made your two changes in this window.'};
+    if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!d.mid.agents.some(p=>p.id===id)))return {error:'bad swap'};
+    const after=d.players.filter(p=>!outs.includes(p.id)).concat(d.mid.agents.filter(p=>ins.includes(p.id)));
+    {const e=overCap(after,capOf(d,true));if(e)return {error:e};}
+    d.players=after;d.mid.agents=d.mid.agents.filter(p=>!ins.includes(p.id));d.mid.used+=outs.length;
+    // the line-up: whoever left is replaced by the best of the rest, so the team is never short
+    enforceRule(d,lg.rule);const avail=rule=>d.players.filter(p=>!(rule==='tall_out'&&tallestId(d)===p.id));
+    for(const p of [...avail(lg.rule)].sort((a,b)=>rating(b)-rating(a))){if(d.starters.length>=3)break;if(!d.starters.includes(p.id)&&!d.subs.includes(p.id))d.starters.push(p.id);}
+    for(const p of [...avail(lg.rule)].sort((a,b)=>rating(b)-rating(a))){if(d.subs.length>=2)break;if(!d.starters.includes(p.id)&&!d.subs.includes(p.id))d.subs.push(p.id);}
+    if(!d.ball||!d.starters.includes(d.ball))d.ball=d.starters.slice().map(id=>byId(d,id)).sort((a,b)=>b.sh-a.sh)[0].id;
+    cleanMins(d);row.pub={...row.pub,sv:squadValue(d.players)};dirty=true;
+  }else if(a==='kit'){   // the team's two colours and its badge; may be changed at any time, it changes nothing in a match
+    const k=cleanKit(req.kit);if(!k)return {error:'Pick two different colours and a badge.'};
+    row.pub={...row.pub,kit:k};dirty=true;
   }else if(a==='enter'||a==='swap'){   // enter the league that is running now, changing a player on the way in if the last league just ended ('swap' is what older copies of the game send)
     const fresh=!!(d.final&&!d.final.seen);   // this team finished a league and has not started another since
     if(!out&&!fresh)return a==='enter'?makeView(store,row,lg,now,null):{error:'No swaps now. They open when a league ends.'};
     const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
-    if(outs.length||ins.length){
+    if(d.redraft){   // the fresh draft: seven of the fourteen new players replace the whole squad
+      const picks=Array.isArray(req.picks)?[...new Set(req.picks)]:[];const mine=d.redraft.pool.filter(p=>picks.includes(p.id));
+      if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven of the new players. (If you see no new players, update the game first.)'};
+      {const e=overCap(mine,capOf(d));if(e)return {error:e};}
+      d.players=mine;firstLineup(d,lg.rule);d.sheet={...DEF_SHEET,...(d.sheet||{})};d.orders=null;d.teamTalked=false;d.heard={};delete d.redraft;
+      const k=cleanKit(req.kit);if(k)row.pub={...row.pub,kit:k};
+    }else if(outs.length||ins.length){
       if(!fresh)return {error:'No player changes now. They open when a league you played in ends.'};
       if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};
       const agents=d.agents||[];
       if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!agents.some(p=>p.id===id)))return {error:'bad swap'};
+      {const after=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));const e=overCap(after,capOf(d,true));if(e)return {error:e};}   // the window cap
       d.players=d.players.filter(p=>!outs.includes(p.id)).concat(agents.filter(p=>ins.includes(p.id)));
     }
-    d.agents=[];if(d.final)d.final.seen=true;
+    d.agents=[];if(d.final)d.final.seen=true;row.pub={...row.pub,sv:squadValue(d.players)};
     if(out)d.vote=null;
     enforceRule(d,lg.rule);row.last_seen=now;
     if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
@@ -1314,6 +1471,8 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     return makeView(store,row,lg,now,{entered:out});
   }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
     extra={round:await roundView(store,req)};
+  }else if(a==='team'){            // one team's season: all its matches of this league
+    extra={team:await teamView(store,lg,req)};
   }else if(a==='push'){            // this device wants result notifications
     const s=req.sub||{},k=s.keys||{};
     if(typeof s.endpoint!=='string'||s.endpoint.length>600||!pushHostOk(s.endpoint)||typeof k.p256dh!=='string'||typeof k.auth!=='string'||k.p256dh.length>120||k.auth.length>60)return {error:'This browser cannot receive notifications from the game.'};
@@ -1369,19 +1528,20 @@ function restStore(base,keys,prefix){
     // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
     leaguePairs:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=a,b&order=id',1000),   // who met whom in one league
     roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
+    teamMatches:(L,id)=>q('b3_matches?league_no=eq.'+(+L)+'&or=(a.eq.'+encodeURIComponent(id)+',b.eq.'+encodeURIComponent(id)+')&select=id,league_no,match_no,a,b,a_name,b_name,score_a,score_b,rule,detail&order=match_no&limit=60'),   // one team's matches of a league, the season view
     roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')
       +'&order=league_no.'+(dir<0?'desc':'asc')+',match_no.'+(dir<0?'desc':'asc')+'&limit=1'),
     insertTeam:async row=>(await q('b3_teams?select='+TEAM,{method:'POST',prefer:'return=representation',body:row}))[0],
     saveTeam:async row=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&select=id',{method:'PATCH',prefer:'return=representation',
-        body:{last_seen:row.last_seen,data:row.data,ver:row.ver+1}});   // who meets whom is never written from here
+        body:{last_seen:row.last_seen,data:row.data,pub:row.pub,ver:row.ver+1}});   // who meets whom is never written from here (pub: the kit can change between matches)
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;
     },
     // a team enters league `no`: from zero, together with whatever else changed on the way in
     enterLeague:async(row,no)=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&is_house=is.false&select=id',{method:'PATCH',prefer:'return=representation',
-        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,last_seen:row.last_seen,data:row.data,ver:row.ver+1}});
+        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,last_seen:row.last_seen,data:row.data,pub:row.pub,ver:row.ver+1}});
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;row.league_no=no;
     },
@@ -1398,6 +1558,7 @@ function restStore(base,keys,prefix){
     pool:h=>one('b3_pools?key_hash=eq.'+h+'&select=players,rerolls'),
     savePool:(h,p)=>q('b3_pools?on_conflict=key_hash',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:{key_hash:h,players:p.players,rerolls:p.rerolls}}),
     dropPool:h=>q('b3_pools?key_hash=eq.'+h,{method:'DELETE',prefer:'return=minimal'}),
+    poolNames:async()=>(await pages('b3_pools?select=players',200)).flatMap(x=>(x.players||[]).map(p=>p.n)),   // names in the draft pools still open
     lock:async now=>{
       const a=await q('b3_league?id=eq.1&next_match_at=lte.'+now+'&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
         {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});
