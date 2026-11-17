@@ -1,6 +1,6 @@
 // 3nD Basketball service worker: network first for the page so updates win, cache as a fallback when offline.
 // Bump CACHE_NAME whenever the shell changes.
-const CACHE_NAME = 'b3-2026.11.17-1431';
+const CACHE_NAME = 'b3-2026.11.17-1634';
 const ASSETS = ['./', 'index.html', 'engine.js', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -23,7 +23,9 @@ self.addEventListener('fetch', (e) => {
   const isShell = req.mode === 'navigate' || /\/(index\.html|engine\.js|manifest\.json)$/.test(url.pathname) || url.pathname.includes('/icons/');
   if (!isShell) return;
   e.respondWith(
-    fetch(req).then(res => {
+    // ask the server every time: the browser's own 10-minute cache once mixed a new page with an old engine (17 Nov 2026).
+    // A page navigation cannot be re-made with options, so it goes as it came.
+    (req.mode === 'navigate' ? fetch(req) : fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
       const copy = res.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(req, copy)).catch(() => null);
       return res;
