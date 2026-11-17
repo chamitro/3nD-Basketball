@@ -112,8 +112,7 @@ free plan allows; the scheduled job fails loudly from 350 on).
   the update, 54 to 44: height wins close shots and rebounds), fat about 1.5 points more than slim; very tall players
   start a match with about 0.5 energy dots less than tiny ones.
 - Team names: `nameFit` (server.js) refuses the plain insults in English, Greek and Greeklish at `join` (whole words, the longer ones
-  anywhere in the name, accents dropped), since the game goes public on itch.io with the Winter League (16 Nov 2026). `itch.py` zips the
-  static page for the itch upload; itch players join the same league as the GitHub Pages site.
+  anywhere in the name, accents dropped). See the itch.io section below.
 - Every player is one of a kind: `takenNames` collects every name on every team, in free agents, in fresh-draft pools and in the
   draft pools still open; new pools and new players are made against it, and at `join` a name taken in the meantime is swapped
   for a fresh one (Harry, 12 Nov 2026).
@@ -127,3 +126,9 @@ free plan allows; the scheduled job fails loudly from 350 on).
   with the usual one change.
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.
+
+## itch.io
+
+The itch.io page (from 17 Nov 2026) is a launcher, not the game: `itch/index.html` sends people to the GitHub Pages site to
+install the game as a web app, so a team never lives in itch's frame. `python3 itch.py` zips it for upload. Team names are
+checked by `nameFit` (server.js) at `join`: plain insults in English, Greek and Greeklish are refused.
