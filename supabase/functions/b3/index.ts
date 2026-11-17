@@ -903,7 +903,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='f01e3a6b';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='6bf6e7fa';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1272,7 +1272,9 @@ async function runMatchday(store,lg,now){
   if(seedDay){const today=matches.map(m=>({a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b}));
     const inLg=tbl.filter(t=>map.has(t.id)&&!map.get(t.id).is_house).map(t=>map.get(t.id));
     for(const x of poSeeds(poOrder(inLg,[...poRes,...today]))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
-      if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no)t.data.last.po=po;}}
+      if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no){t.data.last.po=po;
+        const nth=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
+        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the ${x.cup==='t'?'title play-offs':'Silver Cup'}`+(x.seed<=2&&(x.cup==='t'?inLg.length>=6:inLg.length>=12)?', with a bye in week one.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
   let reset=false;
   if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
     const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at,lg.no+1));
@@ -1305,7 +1307,7 @@ async function runMatchday(store,lg,now){
       t.data.redraft={after:lg.no,pool:fresh(14)};
     }
     // the wage cap: the lower half of the table gets a little extra room for the next league, the rest none
-    for(const t of [...humans,...away]){const place=placeOf(t.id);t.data.capBonus=place>tbl.length/2?CAP_BONUS:0;}
+    for(const t of [...humans,...away]){const place=placeOf(t.id);t.data.capBonus=place>Math.ceil(tbl.length/2)?CAP_BONUS:0;}
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
@@ -1318,7 +1320,8 @@ async function runMatchday(store,lg,now){
   // the mid-season window: once half the matches are played every team in the league gets seven free agents for MID_DAYS match days
   if(!reset&&leagueLength(lg)>=CFG.MID_MIN){const midAt=midAfter(lg);
     if(lg.match_no===midAt+1){const taken=await takenNames(store,true);
-      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:midAt+CFG.MID_DAYS,agents:ps,used:0,bonus:placeOf(t.id)>tbl.length/2?CAP_BONUS:0};}}
+      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:midAt+CFG.MID_DAYS,agents:ps,used:0,bonus:placeOf(t.id)>Math.ceil(tbl.length/2)?CAP_BONUS:0};
+        if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no-1)t.data.last.lines.unshift(`The mid-season window is open until match ${midAt+CFG.MID_DAYS} is played: up to ${CFG.MID_SWAPS} changes from seven free agents, under a window cap of $${CAP_WINDOW+t.data.mid.bonus}M${t.data.mid.bonus?' (extra room: you are in the lower half of the table)':''}. It is in the locker room.`);}}
     if(lg.match_no>midAt+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
   }
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);

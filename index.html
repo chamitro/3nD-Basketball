@@ -52,6 +52,11 @@
   .mins{margin-top:12px;border-top:3px dashed #e6dfd2;padding-top:10px}.mins table{border-collapse:collapse;margin:6px 0;width:100%}.mins td{padding:3px 4px;font-weight:700;font-size:15px}.mins td.q{text-align:right;white-space:nowrap}.mins .qs{display:inline-flex;border:3px solid var(--ink);border-radius:12px;overflow:hidden;box-shadow:0 3px 0 var(--ink);background:#fff}.mins .qs button{border:0;border-radius:0;box-shadow:none;padding:5px 7px;font-size:14px;min-width:0;margin:0;background:#fff}.mins .qs button+button{border-left:2px solid var(--ink)}.mins .qs button.on{background:var(--yellow)}.mins .tag{font-size:11px;font-weight:900;border-radius:999px;padding:1px 7px;border:2px solid var(--ink);margin-left:6px}.mins .bad{color:var(--red)}
   .trash{margin-top:14px;border-top:3px dashed #e6dfd2;padding-top:10px}
   /* play-offs (17 Nov 2026): the bracket on the Table tab, the series sheet, the play-off box in the locker room */
+  .alert{background:var(--yellow);border:4px solid var(--ink);border-radius:20px;padding:10px 14px;box-shadow:0 6px 0 var(--ink);margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+  .alert.po{background:var(--teal)}
+  .alert .at{flex:1 1 220px;min-width:0;font-size:15px;line-height:1.3}
+  .alert .at b{font-size:17px;display:block}
+  .alert button{font-size:14px;padding:6px 12px}
   .pobox{margin-top:14px;border-top:3px dashed #e6dfd2;padding-top:10px}
   .pobox select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%;margin-top:6px}
   .bracket{display:grid;grid-template-columns:minmax(0,1fr) 9px minmax(0,1fr);grid-template-areas:"h1 . h2" "a la s1" "b lb s2" ". . j" "f f f";gap:10px 0;align-items:center;margin-top:12px}
@@ -301,6 +306,7 @@
   <div id="draft" class="hide"></div>
 
   <div id="room" class="hide">
+    <div id="alertUI"></div>
     <div class="rule"><small id="ruleLab">RULE OF THE WEEK</small><div><div class="txt" id="ruleTxt"></div><div class="why" id="ruleWhy"></div></div></div>
     <div class="scene"><canvas id="gym" width="1160" height="400"></canvas></div>
     <div class="small hide" id="gymHint" style="text-align:center;margin-top:6px">Tap a player to talk to them or change their role.</div>
@@ -618,7 +624,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.17-1054';   // stamped by build.py
+const APP_VERSION='2026.11.17-1248';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1066,6 +1072,7 @@ function render(){
     $('ruleWhy').textContent+=' '+(mp.picker?(mp.chosen?'You picked it.':'You pick it, under the game plan; until you do, the rule of the week applies.'):(mp.chosen?'Picked by '+mp.pickerName+'.':mp.pickerName+' picks it; until they do, the rule of the week applies.'));}}
   $('weekUI').classList.toggle('hide',S.phase!=='week');
   $('resUI').classList.toggle('hide',S.phase==='week');
+  renderAlert();
   if(S.phase==='week'){renderCard();renderPlan();}
   if(S.phase==='results')renderResults();
   if(S.phase==='cupend')renderCupEnd();
@@ -1310,6 +1317,24 @@ function poSheet(c,k){
   const close=()=>{v.remove();sh.remove();};v.onclick=close;document.body.append(v,sh);sh.querySelector('#poX').onclick=close;
   sh.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{close();loadRound({league:V.league.no,match:+b.dataset.rep});setTimeout(()=>{const c=[...document.querySelectorAll('#league .card')].find(x=>x.textContent.startsWith('Match reports'));if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},400);});
 }
+// the banner at the top of the locker room: the mid-season window is open, or the play-offs are on (17 Nov 2026: both were easy to miss)
+function renderAlert(){
+  const el=$('alertUI');if(!el)return;let h='';
+  if(ONLINE&&S.phase==='week'&&!S.out&&V&&V.me){
+    const m=S.me.mid,po=poInfo(),mp=V.me.po;
+    if(m)h+=`<div class="alert"><div class="at"><b>The mid-season window is open</b>${m.left} change${m.left===1?'':'s'} left until match ${m.until} is played: seven free agents, under your ${money(V.me.capW||CAP_WINDOW)} window cap. They leave when the window closes.</div><button type="button" id="alMid">Go to the window</button></div>`;
+    if(po&&po.day>0&&po.cups){
+      const cupName=c=>c==='s'?'Silver Cup':'title play-offs';let t;
+      if(mp&&mp.role==='series'){const cup=po.cups.find(c=>c.c===mp.c),ser=cup.series.find(x=>x.k===mp.s),op=ser.hi&&ser.hi.id===S.me.id?ser.lo:ser.hi;t=`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}. ${DAY()}: ${PO_ROUND(mp.s).toLowerCase()}, game ${mp.g+1} against ${esc(op?op.name:'')}${mp.picker?'. You pick the rule':''}.`;}
+      else if(mp&&mp.role==='rest')t=mp.bye?`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}, with a bye this week: you rest and come back fresh for the semi-final.`:`Your series this week is decided, so you rest on ${DAY()}.`;
+      else if(mp&&mp.cup)t=`Your ${cupName(mp.cup)} run is over this season. You play friendlies until the end of the league; they do not count in the table.`;
+      else t=`You finished ${ord((mp&&mp.pos)||placeOf(S.me))}, outside the brackets: friendlies until the end of the league. They do not count in the table.`;
+      h+=`<div class="alert po"><div class="at"><b>The play-offs are on</b>${t}</div><button type="button" id="alPo">See the brackets</button></div>`;}
+  }
+  el.innerHTML=h;
+  if($('alMid'))$('alMid').onclick=()=>{const c=$('midUI');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});};
+  if($('alPo'))$('alPo').onclick=()=>{S.tab='league';render();setTimeout(()=>{const c=document.querySelector('#league .pocard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},100);};
+}
 // the play-off box in the locker room: the series, the rule picker, a bye or a friendly
 function renderPo(){
   const el=$('poUI');if(!el)return;const po=poInfo(),me=V&&V.me&&V.me.po;
@@ -1539,7 +1564,7 @@ function renderHelp(){
   <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name.</li>
   <li><b>The fresh draft, once.</b> When League 1 ends, every team drafts seven new players from fourteen for the Winter League, the players with heights and builds, so everyone starts the Winter League on equal terms. It happens only that once: from then on the seven stay together from league to league, with the one change between leagues and the two at the mid-season window.</li>
   <li><b>One change.</b> Before you enter you may change <b>${SWAP_WORDS}</b> of your seven players for a free agent, as long as the squad stays under the wage cap: to sign a dearer player you let a good one go.</li>
-  <li><b>The mid-season window.</b> In a season league, once half the matches are played (after match 18 of the Winter League's 36), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
+  <li><b>The mid-season window.</b> In a season league, once half the matches are played (after match 18 of the Winter League's 36), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. A yellow banner at the top of the locker room says while the window is open, with a button that takes you to it. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)}, at a draft and at the two windows alike (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
   <li><b>What a change means under the cap.</b> Say your seven are worth $118M and you want a $25M free agent at a window. Let a $14M player go and the squad becomes $129M: over the line, refused. Let a $18M player go instead and it becomes $125M: allowed, a good player traded for a better one. With one change per window, the only question is which of your own must go to make room, and whether that trade is worth it. There is no saving up and no buying two.</li>
   <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the change before the next league, so the league stays close. At the <b>mid-season window</b> it is the lower half of the table at the moment the window opens that gets the ${money(CAP_BONUS)}. The locker room shows your squad value and your room under the game plan; the Table tab shows every squad's value.</li>
@@ -1555,7 +1580,7 @@ function renderHelp(){
   <li><b>The rule of each game</b> is picked by the higher seed for games 1 and 3 and by the lower seed for game 2, in the locker room under the game plan; the other team sees it as soon as it is picked. Nothing picked: the rule of the week, which everyone still votes on and which the friendlies are played under.</li>
   <li><b>Ties in the table</b> are settled by points, then the matches between the teams level on points, then points difference, then points scored. The computer team never takes a place. With fewer teams the brackets shrink: with 4 or 5 teams the title play-offs are semi-finals in week two and a final, with 2 or 3 only a final in week three. The Silver Cup needs a full title bracket: with 8 or 9 teams it is a final between 7th and 8th, with 10 or 11 semi-finals and a final for 7th to 10th, from 12 teams the full bracket for 7th to 12th.</li>
   <li><b>Trash talk in the play-offs</b> works as always: the ban covers your next match, and that may be the next game of your series.</li>
-  <li><b>Where to see it.</b> In the last three weeks of the regular season the table tags each team Title or Silver by its place. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Title play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>
+  <li><b>Where to see it.</b> In the last three weeks of the regular season the table tags each team Title or Silver by its place. Your result after the last regular-season match says where you finished and what comes next for you, and during the play-offs a banner at the top of the locker room tells you your seed, your next game, your bye or your friendlies, with a button to the brackets. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Title play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>
   <div class="note">${ONLINE?'<b>Online league:</b> the league being played now is '+LG()+', '+V.league.of+' matches.'+(V.league.no===1?' It is a one-month trial before the first Winter League.':'')+' If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, a league is seven matches, and the next league starts with the same eight teams as soon as you press the button.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
