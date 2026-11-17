@@ -102,3 +102,9 @@ free plan allows; the scheduled job fails loudly from 350 on).
   `checkPlan` and the page locks the tone menus, while a tone set before the ban is kept and applies again after it (15 Nov 2026). The line, who was rattled and who was fired up are in `b3_matches.detail` and in both managers' lines.
 - Managers can ask for a notification with their result after each match. The server signs these with a key it
   makes once and keeps in the table `b3_config`; without that table notifications are simply off.
+
+## itch.io
+
+The itch.io page (from 17 Nov 2026) is a launcher, not the game: `itch/index.html` sends people to the GitHub Pages site to
+install the game as a web app, so a team never lives in itch's frame. `python3 itch.py` zips it for upload. Team names are
+checked by `nameFit` (server.js) at `join`: plain insults in English, Greek and Greeklish are refused.

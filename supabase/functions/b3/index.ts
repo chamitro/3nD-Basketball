@@ -817,7 +817,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='af8b6a6d';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='0b20357c';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -868,6 +868,19 @@ function ownPlayer(p){const q={...p};delete q.love;delete q.hate;q.en=energyOf(p
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
 function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,col:p.col,top:p.top,shape:p.shape,num:p.num,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
+// A team name is on a table everybody sees. With the game public (itch.io, December 2026) the plain insults are refused,
+// in English, Greek and Greeklish: every entry as a whole word, the longer ones anywhere in the name (so Dickens, cocktails,
+// Scunthorpe and Cumbria pass, fuckers and assholes do not). Accents are dropped before the check.
+const normName=s=>String(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu,'').replace(/ς/g,'σ');
+const BAD_WORDS=['fuck','fucker','fuckers','fucking','fucked','shit','shits','shitty','shithead','shitheads','cunt','cunts','nigger','niggers','nigga','niggas','faggot','faggots','fag','fags',
+  'bitch','bitches','dick','dicks','dickhead','pussy','pussies','asshole','assholes','whore','whores','slut','sluts','retard','retards','retarded','nazi','nazis','hitler',
+  'rape','rapist','porn','penis','vagina','wank','wanker','wankers','twat','twats','cum',
+  'malaka','malakas','malakes','poutana','poutanes','poutanas','gamo','gamw','gamiesai','gamiese','skata','arxidia','arxidi','mouni','mounia','poutsa','poutses','pousti','poustis','poustides','kolos','kwlos',
+  'μαλακα','μαλακας','μαλακες','πουτανα','πουτανες','πουτανας','γαμω','γαμιεσαι','γαμησε','σκατα','αρχιδια','αρχιδι','μουνι','μουνια','πουτσα','πουτσες','πουστη','πουστης','πουστηδες','κωλος'].map(normName);
+function nameFit(name){
+  const words=normName(name).split(/[^\p{L}\p{N}]+/u).filter(Boolean),flat=words.join('');
+  return !BAD_WORDS.some(w=>words.includes(w)||(w.length>=5&&flat.includes(w)));
+}
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
@@ -1245,6 +1258,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       const mine=pool.players.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven players.'};
       const name=cleanName(req.name);if(name.length<2)return {error:'Give your team a name.'};
+      if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
       const fresh=newTeamRow(h,name,mine,lg.no,now);enforceRule(fresh.data,lg.rule);
       try{row=await store.insertTeam(fresh);}
