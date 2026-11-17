@@ -389,7 +389,7 @@ function playMatch(A,B,ruleKey){
     let tag=0;
     if(!forceInside){
       if(shadow){if(isF){pm+=-0.04-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=0.03;}
-      if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.17,0.06,0.11][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not
+      if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.15,0.06,0.10][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not (0.17 for a sharing team until 17 Nov 2026: a wrong double cost 8 points of win chance while a right one gained 10; Harry: a wrong call should matter, up to a level; now about 5)
     }
     if(shooter.id===O.freeFail)pm-=FREE.failShot;else if(O.freed&&isF)pm+=FREE.winShot;
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.08;   // a fighter shoots better when angry (0.11 until 14 Nov 2026: challenging a fighter was worth more than any other talk, and trash talk at fighters cost the sender 11 points; Harry: unfair)
@@ -848,7 +848,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='d0d200c1';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='8f217179';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
