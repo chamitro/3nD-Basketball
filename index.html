@@ -359,7 +359,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.17-1634"></script>
+<script src="engine.js?v=2026.11.17-1637"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -624,7 +624,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.17-1634';   // stamped by build.py
+const APP_VERSION='2026.11.17-1637';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1248,6 +1248,7 @@ function ordersHtml(){
       <div class="cnt">${n} of ${HALF_MAX} changes. Tap a setting to change it for the second half; the underlined one is your plan, tap it to undo.</div>
       ${dials}
       <div class="mv"><button data-hf="${w}" class="${o.free?'on':''}">Free the star</button><button data-hs="${w}" class="${o.star!=null?'on':''}">Everything through</button>${who}</div>
+      <div class="small" style="margin:2px 0 4px">Free the star: try to break their double on your star (a roll, only if they double). Everything through: give the ball to one player (always happens).</div>
       <div class="mv"><span class="small" style="font-weight:800;margin:0">And say</span>${say}</div>${why}</div></details>`;}).join('');
   return `<div class="lab">Half-time changes and talk</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score, then makes the changes and hears the talk you left for that case: up to ${HALF_MAX} changes each. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close.${banned?' <b>You are banned this match: the changes are made, but there is no half-time talk.</b> A tone you had set comes back when the ban is over.':''}</div>${rows}`;
 }
@@ -1517,7 +1518,7 @@ function renderHelp(){
   <h4><i>8</i>Half-time changes</h4>
   <p>The match is played without you, so you leave orders for half-time. There are three cases: <b>behind</b> means you are 8 points or more down at half-time, <b>ahead</b> means 8 or more up, and <b>close</b> is anything less than 8 points apart, for example 20-14 or 16-23. For each case you may make <b>up to two changes</b> to your plan, or none. Tap a case to open it: it shows your six dials as they are in the plan (the underlined setting), and you tap a different setting to change that dial for the second half. Two more changes are moves rather than dials: <b>free the star</b> and <b>everything through one player</b>. At half-time your team reads the score and makes the changes for that case for the rest of the match.</p>
   <ul><li><b>Any dial can change:</b> tempo, shots, attack, defence, their star, rebounds. A change of tempo makes the second half shorter or longer with it. Two changes together are often the point: for example behind, a fast tempo with a press; ahead, a slow tempo with everyone running back.</li>
-  <li><b>Free the star</b>: a gamble against their double team or shadow on your star. At half-time your team tries to break it for the second half. It works against tired or unsettled defenders, so a fast first half that ran them tired helps, and it often fails against a fresh, locked-in defence. Broken free, your star is neither doubled nor shadowed and finds a rhythm; if it fails, your star stays doubled, tires faster and shoots a little worse. Against a team that neither doubles nor shadows it does nothing. Measured on the twenty-minute match: about +4 points of win chance against a tired defence, about −1 against a fresh one. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on, and they stay on the court to the end. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan. It already sets the attack, so it cannot go with a change of the attack dial.</li>
+  <li><b>Free the star</b>: a gamble against their double team or shadow on your star. At half-time your team tries to break it for the second half. It works against tired or unsettled defenders, so a fast first half that ran them tired helps, and it often fails against a fresh, locked-in defence. Broken free, your star is neither doubled nor shadowed and finds a rhythm; if it fails, your star stays doubled, tires faster and shoots a little worse. Against a team that neither doubles nor shadows it does nothing. Measured on the twenty-minute match: about +4 points of win chance against a tired defence, about −1 against a fresh one. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on, and they stay on the court to the end. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan. It already sets the attack, so it cannot go with a change of the attack dial. <b>The difference:</b> everything through decides <i>who gets the ball</i>, and it always happens; free the star is about <i>their defence</i>, it is a roll that can fail, and it matters only if they are doubling or shadowing your star. They can go together: if your star is doubled and their defence is tired, break the double and run everything through the star. If the free fails, though, you are feeding a star who is still doubled and shooting worse.</li>
   <li>A change costs what it costs in the normal plan: a press and a fast game tire the legs, a failed free the star tires your star, slowing down also shortens your own comeback. Players in a bad mood ignore a change the way they ignore the plan.</li>
   <li><b>The half-time talk.</b> In each case you can also choose what you say to the whole team in the locker room, in one of your nine tones. Every player reacts to it the way they react to that tone in the week, moods only: no trust and no form change at half-time. A sharp talk (be honest, challenge, demand more) also lifts the whole second half a little, as real half-time speeches do; shouting lifts it less and makes hot-tempered and proud players fume; a soft talk works only through the players it reaches.</li>
   <li>Your result says which changes kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the changes they made. Your assistant has no opinion on half-time changes: this one is yours.</li>
