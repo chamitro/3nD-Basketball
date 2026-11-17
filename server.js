@@ -364,18 +364,24 @@ function checkPlan(data,req,rule){
     else{if(typeof req.mins!=='object')return 'bad minutes';if(st.length!==3||sb.length!==2)return 'Name three starters and two substitutes before sharing out the minutes.';
       mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step)return 'bad minutes';mins[id]=v;sum+=v;}
       if(sum!==MINS.total)return 'Give twelve quarters in all: three players on the court for the whole match.';}}
-  // half-time orders: one per case, each an order key, "star" with one of the manager's own players
+  // half-time changes: for each case up to HALF_MAX changes (dials, fresh legs, everything through one of the manager's own
+  // players) and a tone; an order in the old one-key format {k,pid,talk} from a page not yet reloaded is turned into the same change
   let orders=data.orders||null;
   if(req.orders!==undefined){
     if(req.orders===null)orders={behind:null,close:null,ahead:null};
     else{if(typeof req.orders!=='object')return 'bad orders';orders={};
-      for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
+      for(const w of ORDER_KEYS){let o=req.orders[w];if(o==null){orders[w]=null;continue;}
         if(typeof o!=='object')return 'bad orders';
-        // a banned coach is not in the locker room: the orders are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
+        if(o.ch===undefined&&o.k!==undefined){if(o.k!==null&&!orderOf(o.k))return 'bad orders';if(o.k==='star'&&(!ids.has(o.pid)||o.pid===out))return 'bad orders';o={...cleanHalf(o,data,null)||{ch:{},fresh:false,star:null},talk:o.talk==null?null:o.talk};}
+        const ch={};if(o.ch!=null){if(typeof o.ch!=='object')return 'bad orders';
+          for(const [k,v] of Object.entries(o.ch)){if(!DIALS.some(d=>d[0]===k)||![0,1,2].includes(v))return 'bad orders';ch[k]=v;}}
+        if(o.fresh!=null&&typeof o.fresh!=='boolean')return 'bad orders';const fresh=!!o.fresh;
+        const star=o.star==null?null:o.star;if(star!==null&&(!ids.has(star)||star===out))return 'bad orders';
+        if(star!==null&&ch.off!==undefined)return 'bad orders';
+        if(Object.keys(ch).length+(fresh?1:0)+(star!==null?1:0)>HALF_MAX)return 'Two changes at most for each case at half-time.';
+        // a banned coach is not in the locker room: the changes are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
         const talk=(data.ban||0)>0?((((data.orders||{})[w])||{}).talk||null):(o.talk==null?null:o.talk);if(talk!==null&&!TONES.includes(talk))return 'bad orders';
-        if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
-        if(!orderOf(o.k))return 'bad orders';
-        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
+        const any=Object.keys(ch).length||fresh||star!==null;orders[w]=any||talk?{ch,fresh,star,talk}:null;}}
   }
   data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;data.mins=mins;cleanMins(data);
   return null;

@@ -143,16 +143,33 @@ const ORDER_MARGIN=8;   // behind or ahead from this many points on (5 with the 
 // to keep a whole match worth the same.
 const POSS=[30,38,46],POSS_SCALE=0.5;
 const orderOf=k=>ORDERS.find(o=>o.k===k);
-// orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
+// Half-time changes, one set per case (Harry's friends, 17 Nov 2026: "only one order per case" was too little): up to
+// HALF_MAX changes to the plan, chosen from the six dials and two moves, fresh legs and everything through one player.
+// Stored as {behind:{ch:{dial:value},fresh,star,talk}|null, close:..., ahead:...}. Orders saved before 17 Nov 2026 were
+// {k,pid,talk} with one key of ORDERS; cleanHalf turns them into the same change, so nobody loses a setting.
+const HALF_MAX=2;
+const DIALS=[['tempo','Tempo',['slow','steady','fast']],['shots','Shots',['inside','mixed','outside']],['off','Attack',['share','star ball','set plays']],
+  ['def','Defence',['man','zone','press']],['guard','Their star',['as normal','shadow','double']],['boards','Rebounds',['get back','balanced','crash']]];
+const OLD_ORDER={press:['def',2],zone:['def',1],slow:['tempo',0],fast:['tempo',2],outside:['shots',2]};
+const halfCount=o=>!o?0:Object.keys(o.ch||{}).length+(o.fresh?1:0)+(o.star!=null?1:0);
+function cleanHalf(x,team,rule){
+  if(!x||typeof x!=='object')return null;
+  const talk=TONES.includes(x.talk)?x.talk:null,o={ch:{},fresh:false,star:null,talk};
+  if(x.ch===undefined&&x.k!==undefined){if(OLD_ORDER[x.k])o.ch[OLD_ORDER[x.k][0]]=OLD_ORDER[x.k][1];else if(x.k==='fresh')o.fresh=true;else if(x.k==='star')o.star=x.pid;}
+  else{if(x.star!=null)o.star=x.star;if(x.fresh===true&&halfCount(o)<HALF_MAX)o.fresh=true;
+    for(const [k] of DIALS){const v=x.ch&&x.ch[k];if([0,1,2].includes(v)&&halfCount(o)<HALF_MAX&&!(k==='off'&&o.star!=null))o.ch[k]=v;}}
+  if(o.star!=null){const p=team&&byId(team,o.star);if(!p||(rule==='tall_out'&&tallestId(team)===p.id))o.star=null;else{o.star=p.id;delete o.ch.off;}}
+  return halfCount(o)||talk?o:null;
+}
 function cleanOrders(team,rule){
   const o=team.orders&&typeof team.orders==='object'?team.orders:{};const out={};
-  for(const w of ORDER_KEYS){const x=o[w];const talk=x&&TONES.includes(x.talk)?x.talk:null;
-    if(!x||!orderOf(x.k)){out[w]=talk?{k:null,talk}:null;continue;}
-    if(x.k==='star'){const p=byId(team,x.pid);if(!p||(rule==='tall_out'&&tallestId(team)===p.id)){out[w]=talk?{k:null,talk}:null;continue;}out[w]={k:'star',pid:p.id,talk};}
-    else out[w]={k:x.k,talk};}
+  for(const w of ORDER_KEYS)out[w]=cleanHalf(o[w],team,rule);
   team.orders=out;return out;
 }
-const orderWords=(o,team)=>!o||!o.k?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
+const dialWord=(k,v)=>{const d=DIALS.find(x=>x[0]===k);return d?d[1].toLowerCase()+' '+d[2][v]:'';};
+// the changes of one case in words, e.g. "tempo fast, defence press"; '' for none
+const orderWords=(o,team)=>{const c=cleanHalf(o,team,null);if(!c)return '';const w=Object.entries(c.ch).map(([k,v])=>dialWord(k,v));
+  if(c.fresh)w.push('fresh legs');if(c.star!=null)w.push('everything through '+((team&&byId(team,c.star))||{}).n);return w.join(', ');};
 
 // ───────────────────────── players & teams ─────────────────────────
 const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7',
@@ -277,7 +294,8 @@ function botPrepare(team,opp,rule,oppLast){
   }
   const sheet={...team.style};
   const r=rule,wise=()=>R()<0.5+0.5*sk;
-  team.orders={behind:wise()?{k:pick(['press','fast','outside']),talk:wise()?pick(['honest','challenge','demand']):null}:null,close:wise()&&R()<0.4?{k:null,talk:'honest'}:null,ahead:wise()&&R()<0.6?{k:'slow',talk:null}:null};
+  {const bch={};for(const [k,v] of [['def',2],['tempo',2],['shots',2]].sort(()=>R()-0.5).slice(0,wise()&&R()<0.5?2:1))bch[k]=v;
+   team.orders={behind:wise()?{ch:bch,fresh:false,star:null,talk:wise()?pick(['honest','challenge','demand']):null}:null,close:wise()&&R()<0.4?{ch:{},fresh:false,star:null,talk:'honest'}:null,ahead:wise()&&R()<0.6?{ch:{tempo:0},fresh:false,star:null,talk:null}:null};}
   if(r==='attack'){if(wise())sheet.tempo=2;if(wise()&&sheet.shots===0)sheet.shots=1;}
   if(r==='defence'&&wise())sheet.def=2;
   if(r==='speed'&&wise())sheet.tempo=2;
@@ -484,14 +502,15 @@ function playMatch(A,B,ruleKey){
         for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<TALK_REACH&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
           const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
-      if(!orderOf(o.k))continue;
-      if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
-      else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);X.planOff=true;}   // the order outranks the playing-time plan
-      else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
-        if(!p){X.half.failed='that player is not available';continue;}
-        if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);X.planOff=true;}
-        X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;}
-      X.half.order=o.k;
+      const c=cleanHalf(o,X.T,rule);if(!c)continue;const did=[],fails=[];
+      for(const [k,v] of Object.entries(c.ch)){X.sheet[k]=v;did.push(dialWord(k,v));}
+      if(c.fresh){if(rule==='iron'||!X.bench.length)fails.push('fresh legs: '+(rule==='iron'?'no substitutions under this rule':'nobody on the bench'));
+        else{for(const p of [...X.bench])bringOn(X,p);X.planOff=true;did.push('fresh legs');}}   // the change outranks the playing-time plan
+      if(c.star!=null){const p=X.court.find(q=>q.id===c.star)||X.bench.find(q=>q.id===c.star);
+        if(!p)fails.push('everything through one player: that player is not available');
+        else if(!X.court.includes(p)&&rule==='iron')fails.push('everything through '+p.n+': no substitutions under this rule');
+        else{if(!X.court.includes(p)){bringOn(X,p);X.planOff=true;}X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;did.push('everything through '+p.n);}}
+      X.half.order=did.length?did:null;X.half.failed=fails.length?fails.join('; '):null;
     }
     P=half+Math.round((POSS[a.sheet.tempo]+POSS[b.sheet.tempo])/4);   // the second half is as long as the new tempos say
   };
@@ -566,9 +585,9 @@ function reportLines(X,Y,won,rule){
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
-  if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half,o=h.order&&orderOf(h.order);
+  if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half;
     const talk=h.gagged?' Banned, you were not in the locker room: no half-time talk.':h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
-    const order=o?` Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}.`:h.failed?` Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`:'';
+    const order=(h.order&&h.order.length?` Your changes kicked in: ${h.order.join(', ')}.`:'')+(h.failed?` Could not be followed: ${h.failed}.`:'');
     L.unshift(`Half-time ${h.us}-${h.them}.${talk}${order} Second half ${X.score-h.us}-${Y.score-h.them}.`);L.length=Math.min(L.length,2);}
   return L;
 }
@@ -883,7 +902,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='18fa73ab';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='ac476053';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1228,18 +1247,24 @@ function checkPlan(data,req,rule){
     else{if(typeof req.mins!=='object')return 'bad minutes';if(st.length!==3||sb.length!==2)return 'Name three starters and two substitutes before sharing out the minutes.';
       mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step)return 'bad minutes';mins[id]=v;sum+=v;}
       if(sum!==MINS.total)return 'Give twelve quarters in all: three players on the court for the whole match.';}}
-  // half-time orders: one per case, each an order key, "star" with one of the manager's own players
+  // half-time changes: for each case up to HALF_MAX changes (dials, fresh legs, everything through one of the manager's own
+  // players) and a tone; an order in the old one-key format {k,pid,talk} from a page not yet reloaded is turned into the same change
   let orders=data.orders||null;
   if(req.orders!==undefined){
     if(req.orders===null)orders={behind:null,close:null,ahead:null};
     else{if(typeof req.orders!=='object')return 'bad orders';orders={};
-      for(const w of ORDER_KEYS){const o=req.orders[w];if(o==null){orders[w]=null;continue;}
+      for(const w of ORDER_KEYS){let o=req.orders[w];if(o==null){orders[w]=null;continue;}
         if(typeof o!=='object')return 'bad orders';
-        // a banned coach is not in the locker room: the orders are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
+        if(o.ch===undefined&&o.k!==undefined){if(o.k!==null&&!orderOf(o.k))return 'bad orders';if(o.k==='star'&&(!ids.has(o.pid)||o.pid===out))return 'bad orders';o={...cleanHalf(o,data,null)||{ch:{},fresh:false,star:null},talk:o.talk==null?null:o.talk};}
+        const ch={};if(o.ch!=null){if(typeof o.ch!=='object')return 'bad orders';
+          for(const [k,v] of Object.entries(o.ch)){if(!DIALS.some(d=>d[0]===k)||![0,1,2].includes(v))return 'bad orders';ch[k]=v;}}
+        if(o.fresh!=null&&typeof o.fresh!=='boolean')return 'bad orders';const fresh=!!o.fresh;
+        const star=o.star==null?null:o.star;if(star!==null&&(!ids.has(star)||star===out))return 'bad orders';
+        if(star!==null&&ch.off!==undefined)return 'bad orders';
+        if(Object.keys(ch).length+(fresh?1:0)+(star!==null?1:0)>HALF_MAX)return 'Two changes at most for each case at half-time.';
+        // a banned coach is not in the locker room: the changes are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
         const talk=(data.ban||0)>0?((((data.orders||{})[w])||{}).talk||null):(o.talk==null?null:o.talk);if(talk!==null&&!TONES.includes(talk))return 'bad orders';
-        if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
-        if(!orderOf(o.k))return 'bad orders';
-        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
+        const any=Object.keys(ch).length||fresh||star!==null;orders[w]=any||talk?{ch,fresh,star,talk}:null;}}
   }
   data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;data.mins=mins;cleanMins(data);
   return null;

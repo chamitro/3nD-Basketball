@@ -58,6 +58,20 @@
   .orders .olab{font-weight:800;min-width:150px}
   .orders select{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);max-width:100%;box-sizing:border-box}
   .orders .owhy{flex-basis:100%;font-size:13px;color:var(--soft);margin:-2px 0 0}
+  .orders details.ocase{border:3px solid var(--ink);border-radius:14px;margin:8px 0;background:#fffaf0}
+  .orders details.ocase>summary{cursor:pointer;padding:9px 12px;font-weight:800;list-style-position:inside}
+  .orders details.ocase>summary .sw{font-weight:700;color:var(--soft)}
+  .orders details.ocase[open]>summary{border-bottom:3px dashed #e6dfd2}
+  .orders .obody{padding:6px 12px 10px}
+  .orders .hd{display:grid;grid-template-columns:92px 1fr;gap:6px;align-items:center;margin:6px 0}
+  .orders .hd .lab{margin:0;font-size:14px}
+  .orders .hd.ch .lab{color:#c2255c}
+  .orders .hd .seg button{padding:6px 2px;font-size:13px}
+  .orders .hd .seg button.pl{text-decoration:underline dotted 2px;text-underline-offset:3px}
+  .orders .mv{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 4px}
+  .orders .mv button{font:inherit;font-weight:800;font-size:14px;border:3px solid var(--ink);border-radius:12px;padding:6px 10px;background:#fff;color:var(--ink);cursor:pointer}
+  .orders .mv button.on{background:var(--yellow)}
+  .orders .cnt{font-size:13px;font-weight:800;margin:2px 0 6px}
   .pips{display:flex;gap:16px;margin:8px 0 10px;font-size:14px;flex-wrap:wrap}
   .pip{display:flex;align-items:center;gap:5px}
   .pip i{width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);background:#fff;display:inline-block}
@@ -546,7 +560,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.17-0940';   // stamped by build.py
+const APP_VERSION='2026.11.17-0959';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1146,22 +1160,49 @@ function planCheck(){
   }
   return L;
 }
-// the half-time orders: one row per case, a list of orders, a player for "everything through one player"
+// Half-time changes: for each case up to HALF_MAX changes to the plan (dials, fresh legs, everything through one player) and a tone
+// (Harry's friends, 17 Nov 2026: one order per case was too little). Each case folds open; its dials start at the plan's own setting.
+const openCase=new Set();
 function ordersHtml(){
-  const me=S.me,O=me.orders||(me.orders={behind:null,close:null,ahead:null}),banned=ONLINE&&(me.ban||0)>0;   // banned for trash talk: the orders are yours, the tone is not (Harry, 15 Nov 2026)
-  const rows=ORDER_KEYS.map(w=>{const o=O[w],k=o&&o.k,talk=o&&o.talk;const sel=`<select data-w="${w}"><option value="">Keep the plan</option>${ORDERS.map(x=>`<option value="${x.k}" ${k===x.k?'selected':''}>${x.txt}</option>`).join('')}</select>`;
-    const who=k==='star'?`<select data-wp="${w}">${me.players.map(p=>`<option value="${p.id}" ${o.pid===p.id?'selected':''}>${esc(p.n)}${me.starters.includes(p.id)?'':me.subs.includes(p.id)?' (substitute)':' (not playing)'}</option>`).join('')}</select>`:'';
+  const me=S.me,O=me.orders||(me.orders={behind:null,close:null,ahead:null}),banned=ONLINE&&(me.ban||0)>0;   // banned for trash talk: the changes are yours, the tone is not (Harry, 15 Nov 2026)
+  for(const w of ORDER_KEYS)O[w]=cleanHalf(O[w],me,null);
+  const sh=me.sheet;
+  const rows=ORDER_KEYS.map(w=>{const o=O[w]||{ch:{},fresh:false,star:null,talk:null},n=halfCount(o),talk=o.talk;
+    const words=orderWords(o,me);
+    const sum=`${ORDER_WHEN[w].replace(' at half-time','')}: <span class="sw">${words?esc(words):'keep the plan'}${talk&&!banned?' · '+esc(TONE_LABEL[talk].toLowerCase()):''}</span>`;
+    const dials=DIALS.map(([k,lab,vals])=>{const changed=o.ch[k]!==undefined,cur=changed?o.ch[k]:(k==='off'&&o.star!=null?1:sh[k]||0);
+      return `<div class="hd${changed?' ch':''}"><div class="lab">${lab}${changed?' ✱':''}</div><div class="seg" data-hw="${w}" data-hk="${k}">${vals.map((v,i)=>`<button class="${i===cur?'on':''} ${i===(sh[k]||0)?'pl':''}">${v}</button>`).join('')}</div></div>`;}).join('');
+    const who=o.star!=null?`<select data-hp="${w}">${me.players.map(p=>`<option value="${p.id}" ${o.star===p.id?'selected':''}>${esc(p.n)}${me.starters.includes(p.id)?'':me.subs.includes(p.id)?' (substitute)':' (not playing)'}</option>`).join('')}</select>`:'';
     const say=banned?`<select data-wt="${w}" disabled><option>No talk: banned</option></select>`:`<select data-wt="${w}"><option value="">Say nothing</option>${TONES.map(t=>`<option value="${t}" ${talk===t?'selected':''}>${TONE_LABEL[t]}</option>`).join('')}</select>`;
-    return `<div class="orow"><span class="olab">${ORDER_WHEN[w].replace(' at half-time','')}</span>${sel}${who}<span class="small" style="font-weight:700">and</span>${say}${k?`<div class="owhy">${orderOf(k).why}</div>`:''}${talk&&!banned?`<div class="owhy">You say: "${TONE_SAY[talk]}" Each player reacts to it as they always do, moods only. ${TALK_SHARP[talk]===1?'A sharp talk lifts the whole second half a little.':TALK_SHARP[talk]===2?'Shouting lifts the second half less than a sharp word, and makes the wrong players fume.':'A soft talk lifts nobody by itself: it works through the players it reaches.'}</div>`:''}</div>`;}).join('');
-  return `<div class="lab">Half-time orders and talk</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score, hears your talk for that case and follows the order for that case. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close. "Keep the plan" and "Say nothing" change nothing.${banned?' <b>You are banned this match: the orders are followed, but there is no half-time talk.</b> A tone you had set comes back when the ban is over.':''}</div>${rows}`;
+    const why=[...Object.entries(o.ch).map(([k,v])=>`<div class="owhy"><b>${esc(dialWord(k,v))}:</b> ${DESC[k][v]}</div>`),
+      o.fresh?`<div class="owhy"><b>fresh legs:</b> ${orderOf('fresh').why}</div>`:'',o.star!=null?`<div class="owhy"><b>everything through one player:</b> ${orderOf('star').why}</div>`:'',
+      talk&&!banned?`<div class="owhy"><b>you say:</b> "${TONE_SAY[talk]}" Each player reacts to it as they always do, moods only. ${TALK_SHARP[talk]===1?'A sharp talk lifts the whole second half a little.':TALK_SHARP[talk]===2?'Shouting lifts the second half less than a sharp word, and makes the wrong players fume.':'A soft talk lifts nobody by itself: it works through the players it reaches.'}</div>`:''].join('');
+    return `<details class="ocase" data-case="${w}" ${openCase.has(w)?'open':''}><summary>${sum}</summary><div class="obody">
+      <div class="cnt">${n} of ${HALF_MAX} changes. Tap a setting to change it for the second half; the underlined one is your plan, tap it to undo.</div>
+      ${dials}
+      <div class="mv"><button data-hf="${w}" class="${o.fresh?'on':''}">Fresh legs</button><button data-hs="${w}" class="${o.star!=null?'on':''}">Everything through</button>${who}</div>
+      <div class="mv"><span class="small" style="font-weight:800;margin:0">And say</span>${say}</div>${why}</div></details>`;}).join('');
+  return `<div class="lab">Half-time changes and talk</div><div class="small" style="margin:2px 0 4px">At half-time your team reads the score, then makes the changes and hears the talk you left for that case: up to ${HALF_MAX} changes each. Behind or ahead means ${ORDER_MARGIN} points or more; anything less than ${ORDER_MARGIN} points apart is close.${banned?' <b>You are banned this match: the changes are made, but there is no half-time talk.</b> A tone you had set comes back when the ban is over.':''}</div>${rows}`;
 }
+const halfOf=w=>{const O=S.me.orders||(S.me.orders={behind:null,close:null,ahead:null});return O[w]=cleanHalf(O[w],S.me,null)||{ch:{},fresh:false,star:null,talk:null};};
+const halfSet=(w,o)=>{S.me.orders[w]=halfCount(o)||o.talk?o:null;save();renderPlan();};
+const full=(o,adding)=>{if(adding&&halfCount(o)>=HALF_MAX){toast(`${HALF_MAX} changes at most for each case. Undo one first.`);return true;}return false;};
+$('orders').addEventListener('toggle',e=>{const d=e.target;if(d.dataset&&d.dataset.case){if(d.open)openCase.add(d.dataset.case);else openCase.delete(d.dataset.case);}},true);
+$('orders').addEventListener('click',e=>{
+  const t=e.target;if(S.phase!=='week'||t.tagName!=='BUTTON')return;
+  const seg=t.parentElement&&t.parentElement.dataset.hw?t.parentElement:null;
+  if(seg){const w=seg.dataset.hw,k=seg.dataset.hk,v=[...seg.children].indexOf(t),o=halfOf(w);
+    if(v===(S.me.sheet[k]||0)&&!(k==='off'&&o.star!=null)){delete o.ch[k];return halfSet(w,o);}
+    if(k==='off'&&o.star!=null){toast('Everything through one player already sets the attack. Undo it first.');return;}
+    if(full(o,o.ch[k]===undefined))return;o.ch[k]=v;return halfSet(w,o);}
+  if(t.dataset.hf){const w=t.dataset.hf,o=halfOf(w);if(!o.fresh&&full(o,true))return;o.fresh=!o.fresh;return halfSet(w,o);}
+  if(t.dataset.hs){const w=t.dataset.hs,o=halfOf(w);if(o.star!=null){o.star=null;return halfSet(w,o);}
+    if(full(o,o.ch.off===undefined))return;delete o.ch.off;o.star=(byId(S.me,S.me.ball)||byId(S.me,S.me.starters[0])||S.me.players[0]).id;return halfSet(w,o);}
+});
 $('orders').addEventListener('change',e=>{
-  const t=e.target;if(S.phase!=='week'||!t.dataset)return;const O=S.me.orders||(S.me.orders={behind:null,close:null,ahead:null});
-  const keep=(w,n)=>{const o=O[w];const talk=o&&o.talk?o.talk:null;const row={...n,talk};O[w]=row.k||row.talk?row:null;};
-  if(t.dataset.w){const k=t.value;keep(t.dataset.w,!k?{k:null}:k==='star'?{k,pid:(byId(S.me,S.me.ball)||byId(S.me,S.me.starters[0])||S.me.players[0]).id}:{k});}
-  else if(t.dataset.wp){const o=O[t.dataset.wp];if(o&&o.k==='star')o.pid=+t.value;}
-  else if(t.dataset.wt){if(ONLINE&&(S.me.ban||0)>0)return;const w=t.dataset.wt,o=O[w]||{k:null};const row={...o,talk:t.value||null};O[w]=row.k||row.talk?row:null;}
-  save();renderPlan();
+  const t=e.target;if(S.phase!=='week'||!t.dataset)return;
+  if(t.dataset.hp){const o=halfOf(t.dataset.hp);o.star=+t.value;halfSet(t.dataset.hp,o);}
+  else if(t.dataset.wt){if(ONLINE&&(S.me.ban||0)>0)return;const o=halfOf(t.dataset.wt);o.talk=t.value||null;halfSet(t.dataset.wt,o);}
 });
 // trash talk: one line to the other dugout, the last word before tip-off (online only)
 function renderTrash(){
@@ -1215,7 +1256,7 @@ function renderPlan(){
   renderTrash();
   const sh=S.me.sheet;
   $('orders').innerHTML=ordersHtml();
-  document.querySelectorAll('.seg').forEach(s=>{const k=s.dataset.k;[...s.children].forEach((b,i)=>b.classList.toggle('on',sh[k]===i));});
+  document.querySelectorAll('.seg[data-k]').forEach(s=>{const k=s.dataset.k;[...s.children].forEach((b,i)=>b.classList.toggle('on',sh[k]===i));});
   const n=S.me.starters.length;
   document.querySelectorAll('.dial .d').forEach(d=>{d.textContent=DESC[d.dataset.d][sh[d.dataset.d]];});
   const sn=S.me.subs.map(id=>byId(S.me,id)).filter(Boolean).map(q=>q.n);
@@ -1241,7 +1282,7 @@ $('tones').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.t)talk
 
 for(const id of ['tones','teamtones']){$(id).addEventListener('mouseover',e=>{const b=e.target.closest('button');const t=b&&b.dataset.t;if(t)$('sayhint').textContent='You say: "'+TONE_SAY[t]+'"';});$(id).addEventListener('mouseleave',()=>{$('sayhint').textContent=SAYDEF;});}
 $('teamtones').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.t)teamTalk(b.dataset.t);};
-document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{if(e.target.tagName!=='BUTTON'||S.phase!=='week')return;S.me.sheet[s.dataset.k]=[...s.children].indexOf(e.target);save();renderPlan();}));
+document.querySelectorAll('.seg[data-k]').forEach(s=>s.addEventListener('click',e=>{if(e.target.tagName!=='BUTTON'||S.phase!=='week')return;S.me.sheet[s.dataset.k]=[...s.children].indexOf(e.target);save();renderPlan();}));
 $('play').onclick=()=>playSunday();
 function renderHelp(){
   const chars=Object.keys(CHAR).map(k=>`<div class="hrow"><span class="chr" style="background:${CHAR[k][1]}">${CHAR[k][0]}</span><span>${CHAR[k][2]}</span></div>`).join('');
@@ -1284,7 +1325,7 @@ function renderHelp(){
   <p>Roughly in this order:</p>
   <ul><li><b>The players.</b> Dots and height, and whether the three on the court are the right three for the week's rule.</li>
   <li><b>Their state.</b> Mood, trust and energy, which you set with your talks and your rotation. Over a season this is the biggest difference between managers.</li>
-  <li><b>The plan.</b> Six dials, the star, the half-time orders and talk, and the trash talk, which tilt a close match one way or the other. No dial is good in itself: each pays against some teams and costs against others.</li>
+  <li><b>The plan.</b> Six dials, the star, the half-time changes and talk, and the trash talk, which tilt a close match one way or the other. No dial is good in itself: each pays against some teams and costs against others.</li>
   <li><b>Luck.</b> Every shot is a roll of the dice. A better team loses sometimes; over a league the better manager comes out on top.</li></ul>
   <h4><i>4</i>Talk to your players</h4>
   <p>Before every match you may talk <b>once to each player</b> and <b>once to the whole team</b>, unless you are banned for trash talk (section 9). There are nine ways to talk: ${TONES.map(t=>TONE_LABEL[t]).join(', ')}.</p>
@@ -1325,17 +1366,17 @@ function renderHelp(){
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
   <p>Under the dials your <b>assistant</b> marks the plan with ✓ and ✗: what fits your players today and what the opponent did last time. After every match all game plans become public, yours too, so do not play the same match twice.</p>
-  <h4><i>8</i>Half-time orders</h4>
-  <p>The match is played without you, so you leave orders for half-time. There are three cases: <b>behind</b> means you are 8 points or more down at half-time, <b>ahead</b> means 8 or more up, and <b>close</b> is anything less than 8 points apart, for example 20-14 or 16-23. For each you choose one order, or nothing. At half-time your team reads the score and follows the order for that case for the rest of the match.</p>
-  <ul><li><b>Press them</b> and <b>Drop into a zone</b> change the defence. <b>Slow the game down</b> and <b>Speed the game up</b> change the tempo, and the second half gets shorter or longer with it. <b>Shoot from outside</b> goes for three-pointers.</li>
-  <li><b>Fresh legs</b>: both substitutes come on for the two most tired players on the court. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan.</li>
-  <li>An order costs what it costs in the normal plan: a press and a fast game tire the legs, fresh legs are weaker legs, slowing down also shortens your own comeback. Players in a bad mood ignore an order the way they ignore the plan.</li>
-  <li><b>The half-time talk.</b> Next to each order you can choose what you say to the whole team in the locker room, in one of your nine tones. Every player reacts to it the way they react to that tone in the week, moods only: no trust and no form change at half-time. A sharp talk (be honest, challenge, demand more) also lifts the whole second half a little, as real half-time speeches do; shouting lifts it less and makes hot-tempered and proud players fume; a soft talk works only through the players it reaches.</li>
-  <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
-  <li>Orders and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week. A manager banned for trash talk gives no half-time talk that match.</li></ul>
+  <h4><i>8</i>Half-time changes</h4>
+  <p>The match is played without you, so you leave orders for half-time. There are three cases: <b>behind</b> means you are 8 points or more down at half-time, <b>ahead</b> means 8 or more up, and <b>close</b> is anything less than 8 points apart, for example 20-14 or 16-23. For each case you may make <b>up to two changes</b> to your plan, or none. Tap a case to open it: it shows your six dials as they are in the plan (the underlined setting), and you tap a different setting to change that dial for the second half. Two more changes are moves rather than dials: <b>fresh legs</b> and <b>everything through one player</b>. At half-time your team reads the score and makes the changes for that case for the rest of the match.</p>
+  <ul><li><b>Any dial can change:</b> tempo, shots, attack, defence, their star, rebounds. A change of tempo makes the second half shorter or longer with it. Two changes together are often the point: for example behind, a fast tempo with a press; ahead, a slow tempo with everyone running back.</li>
+  <li><b>Fresh legs</b>: both substitutes come on for the two most tired players on the court. <b>Everything through one player</b>: star ball for the second half, to a player you name; from the bench they come on. It pays for a player who is buzzing or locked in and sinks a cold, anxious or sulking one, like star ball in the plan. It already sets the attack, so it cannot go with a change of the attack dial.</li>
+  <li>A change costs what it costs in the normal plan: a press and a fast game tire the legs, fresh legs are weaker legs, slowing down also shortens your own comeback. Players in a bad mood ignore a change the way they ignore the plan.</li>
+  <li><b>The half-time talk.</b> In each case you can also choose what you say to the whole team in the locker room, in one of your nine tones. Every player reacts to it the way they react to that tone in the week, moods only: no trust and no form change at half-time. A sharp talk (be honest, challenge, demand more) also lifts the whole second half a little, as real half-time speeches do; shouting lifts it less and makes hot-tempered and proud players fume; a soft talk works only through the players it reaches.</li>
+  <li>Your result says which changes kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the changes they made. Your assistant has no opinion on half-time changes: this one is yours.</li>
+  <li>Changes and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week; your other change still is. A manager banned for trash talk gives no half-time talk that match.</li></ul>
   <h4><i>9</i>Trash talk</h4>
   <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. Each of them takes it by character, moods only: worriers, people-pleasers, proud and hot-tempered players lose their heads; fighters and old hands get sharper; jokers and loners are put off half the time; easy-going players shrug. A line aimed at their star reaches the star for sure and the others less. A team that has heard you before is harder to rattle.</p>
-  <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
+  <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time changes; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
   <li>One line per match. Four of the six lines are aimed at the whole team, two at their star. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
   <li>Real research on trash talk says it mostly fires the target up and only sometimes rattles them. Look at who you are talking to before you send it.</li></ul>
   <p><b>What a line does to each character</b>, moods only, for that match (see the mood table in section 5). Each player is reached by chance: those who lose their heads about 70 times in 100, those who get sharper about 45; a line at the star reaches the star almost surely.</p>
@@ -1456,7 +1497,8 @@ async function loadRound(pos){
   if(ONLINE&&SCREEN==='game'&&S.phase!=='draft'&&S.tab==='league')renderLeague();
 }
 // "Half-time 8–12, then Press them." as a sentence for the match-day list and the opponent's note
-function halfWords(h){if(!h)return '';return ` Half-time ${h.us}–${h.them}${h.talk?', the coach '+TALK_WORD[h.talk]:''}${h.order?', then <b>'+esc(orderOf(h.order).txt.toLowerCase())+(h.who?' ('+esc(h.who)+')':'')+'</b>':h.left&&!h.talk?', no order for that case':''}.`;}
+function halfWords(h){if(!h)return '';const ord=Array.isArray(h.order)?h.order.join(', '):h.order&&orderOf(h.order)?orderOf(h.order).txt.toLowerCase()+(h.who?' ('+h.who+')':''):'';   // a list of changes since 17 Nov 2026, one order key before
+  return ` Half-time ${h.us}–${h.them}${h.talk?', the coach '+TALK_WORD[h.talk]:''}${ord?', then <b>'+esc(ord)+'</b>':h.left&&!h.talk?', no changes for that case':''}.`;}
 function roundHtml(){
   if(!ONLINE||!V)return '';
   let h=`<div class="card" style="margin-bottom:16px"><h3>Match reports${RD&&RD.matches?' · '+esc(RD.name)+' · match '+RD.match:''}</h3>`;
@@ -1606,7 +1648,7 @@ function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;T+=dt;
   requestAnimationFrame(loop);}
 boot();
 requestAnimationFrame(loop);
-Object.assign(window,{setMode,applyView,api,TRASH,renderTrash,ORDERS,ORDER_WHEN,ORDER_KEYS,orderOf,cleanOrders,orderWords,ordersHtml,halfWords,TALK_WORD,TALK_SHARP,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
+Object.assign(window,{setMode,applyView,api,TRASH,renderTrash,ORDERS,ORDER_WHEN,ORDER_KEYS,orderOf,cleanOrders,cleanHalf,halfCount,HALF_MAX,DIALS,orderWords,ordersHtml,halfWords,TALK_WORD,TALK_SHARP,B3:{get online(){return ONLINE;},get view(){return V;},get screen(){return SCREEN;}},S,newGame,startLeague,playSunday,nextWeek,newCup,talk,teamTalk,playMatch,render,drawGym,drawCards,RULES,TONES,TEMPS,table,placeOf,rating,byId,tallestId,botPrepare,makeTeam,makePlayer,planCheck,nextOpp,oppView,CHAR,TONE_LABEL,setT:v=>{T=v;}});
 </script>
 </body>
 </html>
