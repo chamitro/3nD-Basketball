@@ -141,3 +141,18 @@ cannot go with `ch.off`). The talk does not count. `cleanHalf` (engine.js) turns
 same change, at match time and when the server takes a plan. Measured, re-checked on fresh matches: for a manager who picks
 perfectly, two changes add about 2 points of win chance over the best single change when behind, about 5 when close, none when ahead;
 a random pair is no stronger than a random single change.
+
+## Play-offs and the Silver Cup (17 Nov 2026, from the Winter League)
+
+The last `CFG.PO_DAYS` (9) match days of a season league of at least `PO_MIN` (18) are play-offs, one round a week, best of three.
+Title play-offs for 1st-6th (3v6, 4v5; 1 and 2 have a bye and rest; semi-finals; final), the Silver Cup for 7th-12th, the same
+bracket (`PO_SHAPES`; four teams play semi-finals in week two, two only a final in week three). After the last regular match day
+`poOrder` (points, head-to-head among teams level, +/-, points scored) and `poSeeds` put `{league,cup,seed,pos}` in each team's
+`data.po` and `pub.po`; the table is frozen from then on. Nothing new is stored in the league row: `poState` works the brackets out
+from the seeds and the match records, which carry `detail.po = {c, s, g}`. `poPair` pairs the series of the week, friendlies for the
+rest (`pairUp`), and leaves byes and decided series unpaired: they rest (energy as a match off) and are not given the computer team
+when they open the game. The higher seed picks the rule of games 1 and 3, the lower seed game 2 (action `porule`, kept in
+`data.poRule` for that match); nothing picked means the voted rule of the week, which also rules the friendlies. The champion is
+the title final's winner (`data.won`, history `title`); `final.top` keeps the top of the table, `final.silver` the Silver Cup.
+Store query `leagueResults` (scores with the `po` tag). Page: the bracket and series sheet on the Table tab, zones in the table,
+the play-off box with the rule picker in the locker room, help section 14.

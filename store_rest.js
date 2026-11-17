@@ -30,6 +30,7 @@ function restStore(base,keys,prefix){
     tableRows:no=>pages('b3_teams?is_house=is.false&league_no=eq.'+(+no)+'&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),   // the teams that entered league `no`
     // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
     leaguePairs:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=a,b&order=id',1000),   // who met whom in one league
+    leagueResults:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=match_no,a,b,score_a,score_b,rule,po:detail->po&order=id',1000),   // every score of one league, with the play-off tag (head-to-head and the series)
     roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
     teamMatches:(L,id)=>q('b3_matches?league_no=eq.'+(+L)+'&or=(a.eq.'+encodeURIComponent(id)+',b.eq.'+encodeURIComponent(id)+')&select=id,league_no,match_no,a,b,a_name,b_name,score_a,score_b,rule,detail&order=match_no&limit=60'),   // one team's matches of a league, the season view
     roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')

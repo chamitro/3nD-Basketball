@@ -900,9 +900,10 @@ const CFG={
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
+  PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='ac476053';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='ac7eb3e4';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1077,6 +1078,79 @@ async function meetings(store,no,today){
   for(const m of today)add(m.a,m.b);
   return met;
 }
+// ───────────────────────── play-offs (Harry, 17 Nov 2026) ─────────────────────────
+// The last PO_DAYS match days of a seasonal league are play-offs, one round a week, every series best of three.
+// Title play-offs for 1st to 6th: 3 v 6 and 4 v 5, then 1 and 2 meet the winners in the semi-finals, then the final.
+// The Silver Cup is the same bracket for 7th to 12th. With fewer teams a bracket shrinks to four (1 v 4, 2 v 3 in week
+// two) or to a final (week three). Everyone else, and every team knocked out, plays friendlies; a team with a bye, or
+// whose series of the week is already decided, rests. Seeds are kept in each team's data and pub (`po`), the series are
+// worked out from the match records (`detail.po`), so nothing new is stored in the league row.
+// The higher seed picks the rule of games 1 and 3, the lower seed game 2; if they pick nothing the voted rule applies.
+const PO_SHAPES={6:[['a',3,6,0],['b',4,5,0],['s1',1,'a',1],['s2',2,'b',1],['f','s1','s2',2]],4:[['s1',1,4,1],['s2',2,3,1],['f','s1','s2',2]],2:[['f',1,2,2]]};
+const PO_CUPS={t:'Title play-offs',s:'Silver Cup'};
+function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const len=leagueLength(lg);return len>=CFG.PO_MIN?{len,reg:len-CFG.PO_DAYS}:null;}
+const poDay=(P,m)=>P&&m>P.reg?m-P.reg:0;   // 1..9 in the play-offs, 0 before
+const poSize=n=>n>=6?6:n>=4?4:n>=2?2:0;
+// the final order of the regular season: points, then the matches among the teams level on points, then +/-, then points scored
+function poOrder(teams,results){
+  const s=[...teams].sort((a,b)=>b.pts-a.pts),out=[];
+  for(let i=0;i<s.length;){let j=i;while(j<s.length&&s[j].pts===s[i].pts)j++;const g=s.slice(i,j);
+    if(g.length>1){const ids=new Set(g.map(t=>t.id)),w=new Map();
+      for(const m of results)if(ids.has(m.a)&&ids.has(m.b)){const x=m.score_a>m.score_b?m.a:m.b;w.set(x,(w.get(x)||0)+1);}
+      g.sort((a,b)=>(w.get(b.id)||0)-(w.get(a.id)||0)||(b.pf-b.pa)-(a.pf-a.pa)||b.pf-a.pf||(a.name<b.name?-1:1));}
+    out.push(...g);i=j;}
+  return out;
+}
+// seeds for the teams in that order: [{id, cup:'t'|'s'|null, seed, pos}]
+function poSeeds(order){
+  const n=order.length,ts=poSize(n),ss=ts===6?poSize(n-6):0;
+  return order.map((t,i)=>({id:t.id,cup:i<ts?'t':i<ts+ss?'s':null,seed:i<ts?i+1:i<ts+ss?i-ts+1:null,pos:i+1}));
+}
+const poOf=(t,no)=>{const po=(t.data&&t.data.po)||(t.pub&&t.pub.po);return po&&po.league===no?po:null;};
+// the brackets as they stand: {t:{size,series:{key:{k,r,hi,lo,wh,wl,games,win,lose}}}, s:...}; hi/lo are team ids
+function poState(teams,results,no){
+  const seeds={t:new Map(),s:new Map()},seedOf=new Map(),cups={};
+  for(const t of teams){const po=poOf(t,no);if(!po||!po.cup)continue;seeds[po.cup].set(po.seed,t.id);seedOf.set(t.id,po.seed);}
+  for(const c of ['t','s']){const shape=PO_SHAPES[seeds[c].size];if(!shape)continue;const ser={};
+    for(const [k,h,l,r] of shape){
+      const src=x=>typeof x==='number'?seeds[c].get(x)||null:(ser[x]&&ser[x].win)||null;
+      let hi=src(h),lo=src(l);if(hi&&lo&&seedOf.get(lo)<seedOf.get(hi))[hi,lo]=[lo,hi];
+      const games=results.filter(m=>m.po&&m.po.c===c&&m.po.s===k).sort((x,y)=>x.match_no-y.match_no)
+        .map(m=>({m:m.match_no,a:m.a,b:m.b,sa:m.score_a,sb:m.score_b,rule:m.rule}));
+      let wh=0,wl=0;for(const g of games){const w=g.sa>g.sb?g.a:g.b;if(w===hi)wh++;else if(w===lo)wl++;}
+      const win=hi&&lo?(wh>=2?hi:wl>=2?lo:null):null;
+      ser[k]={k,r,hi,lo,wh,wl,games,win,lose:win?(win===hi?lo:hi):null};}
+    cups[c]={size:seeds[c].size,series:ser};}
+  return cups;
+}
+// the series two teams are playing on play-off day `day`, if any: {c, s, g (games played), picker}
+function poSeriesOf(cups,day,x,y){
+  const r=Math.floor((day-1)/3);
+  for(const c of Object.keys(cups))for(const s of Object.values(cups[c].series)){
+    if(s.r!==r||s.win||!s.hi||!s.lo)continue;
+    if((s.hi===x&&s.lo===y)||(s.hi===y&&s.lo===x)){const g=s.games.length;return {c,s:s.k,g,picker:g===1?s.lo:s.hi,ser:s};}}
+  return null;
+}
+// what a team does on play-off day `day`: 'series' (with the opponent), 'rest' (a bye, or its series of the week is decided) or 'friendly'
+function poRole(cups,day,id){
+  const r=Math.floor((day-1)/3);
+  for(const c of Object.keys(cups)){const ser=Object.values(cups[c].series),mine=ser.filter(s=>s.hi===id||s.lo===id),now=mine.find(s=>s.r===r);
+    if(now)return now.win||!now.hi||!now.lo?{role:'rest'}:{role:'series',opp:now.hi===id?now.lo:now.hi,c,s:now.k};
+    if(mine.some(s=>s.r>r)&&ser.some(s=>s.r===r))return {role:'rest',bye:true};}   // a bye: this cup plays this week, this team starts later
+  return {role:'friendly'};
+}
+// the rule of a match: in a series the picker's choice for that game, else the rule of the week
+const poRuleChoice=(row,no,match)=>{const x=row&&row.data&&row.data.poRule;return x&&x.league===no&&x.match===match&&RULES.some(r=>r.k===x.rule)?x.rule:null;};
+// pairs for play-off day `day`: the series of the week, friendlies for everyone else, rest for byes and decided series
+function poPair(cups,day,humans,house,met){
+  for(const t of humans)t.next_opp=null;
+  const byId=new Map(humans.map(t=>[t.id,t])),free=[];
+  for(const t of humans){const r=poRole(cups,day,t.id);
+    if(r.role==='series'){const o=byId.get(r.opp);if(o){t.next_opp=o.id;o.next_opp=t.id;}else free.push(t);}   // an opponent gone from the league: friendlies
+    else if(r.role==='friendly')free.push(t);}
+  pairUp(free,house,met,0);
+}
+
 // A manager who has no opponent (new, or back after a long absence) takes the house team's place if the house
 // team has a match, and otherwise plays the house team. So there is never more than one computer team in play.
 // The database does this in one step (store.attach), one manager at a time and never during a match day, so
@@ -1110,6 +1184,11 @@ async function runMatchday(store,lg,now){
   const map=new Map(rows.map(r=>[r.id,r]));
   const house=rows.find(r=>r.is_house);
   const rule=lg.rule,matches=[],done=new Set(),playedLeague=lg.no,playedMatch=lg.match_no;
+  // play-offs: the series as they stand before today; teams resting today are not in play but are saved (their players rest)
+  const P=poLen(lg),pday=poDay(P,lg.match_no),seedDay=!!P&&lg.match_no===P.reg;
+  const poRes=pday>0||seedDay?await store.leagueResults(lg.no):[];let cups=null;
+  if(pday>0){for(const t of await store.allTeams())if(t.league_no===lg.no&&!map.has(t.id)){rows.push(t);map.set(t.id,t);t._rest=true;}
+    cups=poState(rows.filter(r=>!r.is_house),poRes,lg.no);}
   // the pairings first: a broken one (the opponent was deleted or re-paired in the week) does not cost a match any more:
   // orphans play each other, the last orphan plays the computer team if it is free (13 Nov 2026: Sisa sat out a match
   // after a deleted team's pairing had pointed at them)
@@ -1123,6 +1202,10 @@ async function runMatchday(store,lg,now){
   while(orphans.length>=2){const A=orphans.shift(),B=orphans.shift();done.add(A.id);done.add(B.id);pairs.push([A,B]);}
   if(orphans.length&&house&&!done.has(house.id)){const A=orphans.shift();done.add(A.id);done.add(house.id);pairs.push([A,house]);}
   for(const [A,B] of pairs){
+    // a play-off game is played under the rule its picker chose, or the rule of the week
+    const ps=cups?poSeriesOf(cups,pday,A.id,B.id):null;
+    const rule=ps?(poRuleChoice(map.get(ps.picker),lg.no,lg.match_no)||lg.rule):lg.rule;
+    if(ps){if(!A.is_house)enforceRule(A.data,rule);if(!B.is_house)enforceRule(B.data,rule);}
     if(A.is_house)botPrepare(A.data,B.data,rule,B.pub.ls||null);
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
     const ordersOf=T=>{const o=T.data.orders||{};return ORDER_KEYS.some(w=>o[w])?{behind:o.behind||null,close:o.close||null,ahead:o.ahead||null}:null;};
@@ -1140,10 +1223,16 @@ async function runMatchday(store,lg,now){
     const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
     const sides=[[A,r.a,r.b,B,before.a,before.b],[B,r.b,r.a,A,before.b,before.a]];
     const rec={league_no:lg.no,match_no:lg.match_no,a:A.id,b:B.id,a_name:A.name,b_name:B.name,score_a:r.a.score,score_b:r.b.score,rule,detail:{at:lg.next_match_at,lname:leagueName(lg.no,lg.next_match_at)}};
+    if(ps)rec.detail.po={c:ps.c,s:ps.s,g:ps.g};
     for(const [X,xs,ys,Y,mine,theirs] of sides){
       const won=xs.score>ys.score;
-      X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;
+      if(!pday){X.pf+=xs.score;X.pa+=ys.score;if(won){X.w++;X.pts+=3;}else X.l++;}   // the table is final after the regular season: play-off games and friendlies do not count in it
       const lines=reportLines(xs,ys,won,rule);
+      // in the play-offs: where the series stands after this game, or that it was a friendly
+      if(ps){const ser=ps.ser,wid=r.a.score>r.b.score?A.id:B.id,wh=ser.wh+(wid===ser.hi?1:0),wl=ser.wl+(wid===ser.lo?1:0),my=X.id===ser.hi?wh:wl,th=X.id===ser.hi?wl:wh;
+        const rd=ps.s==='f'?'final':ps.s[0]==='s'?'semi-final':'round one';
+        lines.unshift(`${PO_CUPS[ps.c]}, ${rd}, game ${ps.g+1}: series ${my}–${th}.`+(my===2?(ps.s==='f'?(ps.c==='t'?' YOU ARE THE CHAMPIONS!':' You win the Silver Cup!'):' You are through!'):th===2?(ps.s==='f'?' You lost the final.':' You are out.'):''));}
+      else if(pday)lines.unshift('A friendly: it does not count in the table.');
       // trash talk, as the manager hears of it (the sender's ban starts now, a ban served this match ends)
       const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
       if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
@@ -1164,6 +1253,9 @@ async function runMatchday(store,lg,now){
     }
     matches.push(rec);
   }
+  // a rest day: a bye, or a series already decided this week; the players get back what a match off gives
+  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players)p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
+  const poAfter=()=>poState(rows.filter(r=>!r.is_house),[...poRes,...matches.map(m=>({match_no:m.match_no,a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b,rule:m.rule,po:m.detail.po||null}))],lg.no);
   const humans=rows.filter(r=>!r.is_house);
   // the vote: managers chose the rule for the match after the one just played
   const tally=lg.vote_opts.map(()=>0);
@@ -1174,11 +1266,21 @@ async function runMatchday(store,lg,now){
   const tbl=(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t).sort(standing);
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;
   for(const t of humans)if(t.data.last&&t.data.last.match===lg.match_no&&t.data.last.league===lg.no){t.data.last.place=placeOf(t.id);t.data.last.of=tbl.length;}
+  // the regular season is over: the seeds, from the final order with head-to-head for teams level on points
+  if(seedDay){const today=matches.map(m=>({a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b}));
+    const inLg=tbl.filter(t=>map.has(t.id)&&!map.get(t.id).is_house).map(t=>map.get(t.id));
+    for(const x of poSeeds(poOrder(inLg,[...poRes,...today]))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
+      if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no)t.data.last.po=po;}}
   let reset=false;
   if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
     const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at,lg.no+1));
     // the league is over: remember how it ended, hand out free agents, start again from zero
-    const champ=tbl[0]?tbl[0].name:'';
+    // with play-offs the champion is the winner of the title final (the top of the table if it could not be decided); the final table is the regular season's, head-to-head included
+    if(P)tbl.sort((a,b)=>((poOf(a,lg.no)||{}).pos||999)-((poOf(b,lg.no)||{}).pos||999));
+    const fin=P?poAfter():null,fw=c=>fin&&fin[c]&&fin[c].series.f?fin[c].series.f.win:null;
+    const nameOf=id=>{const t=map.get(id)||tbl.find(x=>x.id===id);return t?t.name:'';};
+    const champId=fw('t')||(tbl[0]?tbl[0].id:null),silverId=fw('s');
+    const champ=champId?nameOf(champId):'',silver=silverId?nameOf(silverId):null,top=tbl[0]?tbl[0].name:'';
     // managers who played part of this league and then went away get their place recorded too
     const all=(await store.allTeams()).map(t=>map.get(t.id)||t);
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
@@ -1187,9 +1289,10 @@ async function runMatchday(store,lg,now){
     const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=n===14?fairPool([...taken,...(avoid||[])],CAP):newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league; a pool of fourteen is always draftable under the cap
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
-      t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,seen:false};
-      t.data.played=(t.data.played||0)+1;if(place===1)t.data.won=(t.data.won||0)+1;
-      t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,ended:now}].slice(-80);
+      const title=P?(t.id===champId?'champion':t.id===silverId?'silver':null):null;
+      t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,silver,top,title,seen:false};
+      t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
+      t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,silver,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
@@ -1204,7 +1307,7 @@ async function runMatchday(store,lg,now){
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
-    lg.final={no:lg.no,name:endedName,champion:champ,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
+    lg.final={no:lg.no,name:endedName,champion:champ,silver,top,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
     // Everyone goes back to zero, and nobody is in the next league yet: a team is in it once its manager enters it.
     // (league_no of a manager's team is the last league it entered; only the house team moves on by itself)
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}
@@ -1223,7 +1326,9 @@ async function runMatchday(store,lg,now){
   else{
     const active=CFG.IDLE_DAYS>0?humans.filter(t=>t.last_seen>=now-CFG.IDLE_DAYS*DAY_MS):humans.slice();   // everybody in the league plays every match day
     for(const t of humans)if(!active.includes(t))t.next_opp=null;
-    pairUp(active,house,await meetings(store,lg.no,matches),leagueLength(lg)-lg.match_no+1);
+    const nd=poDay(P,lg.match_no);
+    if(nd>0)poPair(poAfter(),nd,active,house,await meetings(store,lg.no,matches));
+    else pairUp(active,house,await meetings(store,lg.no,matches),leagueLength(lg)-lg.match_no+1);
   }
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});
@@ -1270,9 +1375,28 @@ function checkPlan(data,req,rule){
   return null;
 }
 
+// the play-offs as the page shows them: the dates, the brackets with every game, and what this team does next
+async function poView(store,lg,tbl,row){
+  const P=poLen(lg);if(!P)return {info:null,me:null};
+  const day=poDay(P,lg.match_no);let at=lg.next_match_at;for(let m=lg.match_no;m<=P.reg;m++)at=nextMatchTime(at,lg.no);
+  const info={reg:P.reg,len:P.len,day,startAt:day>0?null:at,cups:null};
+  if(!tbl.some(t=>poOf(t,lg.no)))return {info,me:null};
+  const cups=poState(tbl,await store.leagueResults(lg.no),lg.no);
+  const side=id=>{const t=tbl.find(x=>x.id===id);if(!t)return null;const po=poOf(t,lg.no);return {id,name:t.name,kit:kitOf(t.pub.kit,t.name),seed:po?po.seed:null};};
+  info.cups=Object.entries(cups).map(([c,cu])=>({c,name:PO_CUPS[c],size:cu.size,series:Object.values(cu.series).map(s=>({k:s.k,r:s.r,hi:side(s.hi),lo:side(s.lo),wh:s.wh,wl:s.wl,win:s.win,
+    games:s.games.map(g=>({m:g.m,hi:g.a===s.hi?g.sa:g.sb,lo:g.a===s.hi?g.sb:g.sa,rule:g.rule}))}))}));
+  const po=poOf(row,lg.no);let me=po?{cup:po.cup,seed:po.seed,pos:po.pos}:{};
+  if(day>0){const role=poRole(cups,day,row.id);me={...me,role:role.role,bye:!!role.bye};
+    if(role.role==='series'&&row.next_opp===role.opp){const ps=poSeriesOf(cups,day,row.id,role.opp);
+      const pk=ps.picker===row.id?row:await store.teamById(ps.picker),chosen=poRuleChoice(pk,lg.no,lg.match_no);
+      me={...me,c:ps.c,s:ps.s,g:ps.g,picker:ps.picker===row.id,pickerName:pk?pk.name:'',rule:chosen||lg.rule,chosen:!!chosen};}}
+  return {info,me};
+}
 async function makeView(store,row,lg,now,extra){
   const vapid=await getVapid(store);
-  const tbl=(await store.tableRows(lg.no)).sort(standing);   // only the teams that entered this league
+  let tbl=(await store.tableRows(lg.no)).sort(standing);   // only the teams that entered this league
+  const pv=await poView(store,lg,tbl,row);
+  if(pv.info&&pv.info.cups)tbl=[...tbl].sort((a,b)=>((poOf(a,lg.no)||{}).pos||999)-((poOf(b,lg.no)||{}).pos||999));   // after the regular season: the final order, head-to-head included
   let opp=null;
   if(row.next_opp){const o=await store.teamById(row.next_opp);
     if(o){const top=[...o.data.players].sort((a,b)=>rating(b)-rating(a)).slice(0,3).map(p=>p.id);
@@ -1281,11 +1405,11 @@ async function makeView(store,row,lg,now,extra){
         starters:st.length===3?st:top,ball:o.pub.ball&&st.includes(o.pub.ball)?o.pub.ball:null,ls:o.pub.ls||null,rep:o.pub.rep||null,sc:o.pub.sc&&o.pub.sc.lg===lg.no?o.pub.sc:null};}}
   const d=row.data;
   return {phase:'week',now,
-    league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final},
+    league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final,po:pv.info},
     me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
-      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length},
+      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length,po:pv.me,rested:d.rested&&d.rested.league===lg.no?d.rested.match:null},
     push_key:vapid?vapid.pub:null,
-    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw})),teams:tbl.length,...(extra||{})};
+    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw,po:poOf(t,lg.no)})),teams:tbl.length,...(extra||{})};
 }
 
 // ───────────────────────── match reports ─────────────────────────
@@ -1309,9 +1433,10 @@ async function roundView(store,req){
   const pos=x=>x?{league:x.league_no,match:x.match_no}:null;
   const side=d=>({kit:(d&&d.kit)||null,sheet:(d&&d.sheet)||null,half:(d&&d.half)||null,trash:(d&&d.trash)||null,pros:(d&&d.pros)||[],cons:(d&&d.cons)||[],box:(d&&d.box)||null});
   const d0=rows[0].detail||{};
-  return {league:L,match:M,name:d0.lname||'League '+L,rule:rows[0].rule,at:d0.at||null,more:rows.length>ROUND_MAX,
+  const plain=rows.find(m=>!(m.detail&&m.detail.po))||rows[0];   // on a play-off day the series have their own rules: the day's rule is the friendlies'
+  return {league:L,match:M,name:d0.lname||'League '+L,rule:plain.rule,at:d0.at||null,more:rows.length>ROUND_MAX,
     prev:pos(await store.roundNear(L,M,-1)),next:pos(await store.roundNear(L,M,1)),
-    matches:rows.slice(0,ROUND_MAX).map(m=>({a:m.a,b:m.b,an:m.a_name,bn:m.b_name,sa:m.score_a,sb:m.score_b,ra:side((m.detail||{}).a),rb:side((m.detail||{}).b)}))};
+    matches:rows.slice(0,ROUND_MAX).map(m=>({a:m.a,b:m.b,an:m.a_name,bn:m.b_name,sa:m.score_a,sb:m.score_b,rule:m.rule,po:(m.detail&&m.detail.po)||null,ra:side((m.detail||{}).a),rb:side((m.detail||{}).b)}))};
 }
 
 // ───────────────────────── result notifications ─────────────────────────
@@ -1421,7 +1546,10 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     // back after a long absence, or the pairing broke: find this manager an opponent
     let paired=!!row.next_opp;
     if(paired){const o=await store.teamById(row.next_opp);paired=!!(o&&o.next_opp===row.id);}
-    if(!paired){await store.attach(row.id,now);row=await store.teamByKey(h);}
+    // in the play-offs a team with a bye, or whose series of the week is decided, rests: it is not given the computer team
+    if(!paired){const day=poDay(poLen(lg),lg.match_no);
+      const rests=day>0&&poRole(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,row.id).role==='rest';
+      if(!rests){await store.attach(row.id,now);row=await store.teamByKey(h);}}
   }
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
@@ -1452,6 +1580,15 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
   }else if(a==='vote'){
     if(![0,1,2].includes(req.i))return {error:'bad vote'};
     d.vote=req.i;dirty=true;
+  }else if(a==='porule'){   // the rule of the next play-off game, picked by the higher seed for games 1 and 3, the lower seed for game 2; null = the rule of the week
+    const day=poDay(poLen(lg),lg.match_no);if(!day)return {error:'There are no play-offs on the next match day.'};
+    if(!row.next_opp)return {error:'You have no match on the next match day.'};
+    const ps=poSeriesOf(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,row.id,row.next_opp);
+    if(!ps)return {error:'Your next match is not a play-off game.'};
+    if(ps.picker!==row.id)return {error:'The other team picks the rule of this game.'};
+    if(req.rule==null)d.poRule=null;
+    else{if(!RULES.some(r=>r.k===req.rule))return {error:'bad rule'};d.poRule={league:lg.no,match:lg.match_no,rule:req.rule};}
+    enforceRule(d,req.rule||lg.rule);dirty=true;
   }else if(a==='mid'){   // the mid-season window: up to MID_SWAPS changes in all, one free agent in for each player out, under the window cap
     if(!midOpen(d,lg))return {error:'The mid-season window is not open.'};
     const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];
@@ -1552,6 +1689,7 @@ function restStore(base,keys,prefix){
     tableRows:no=>pages('b3_teams?is_house=is.false&league_no=eq.'+(+no)+'&select=id,name,w,l,pf,pa,pts,pub&order=pts.desc,id',1000),   // the teams that entered league `no`
     // match reports: the matches of one match day; and the match day just before (dir -1) or after (dir 1) a given one, or the latest of all
     leaguePairs:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=a,b&order=id',1000),   // who met whom in one league
+    leagueResults:L=>pages('b3_matches?league_no=eq.'+(+L)+'&select=match_no,a,b,score_a,score_b,rule,po:detail->po&order=id',1000),   // every score of one league, with the play-off tag (head-to-head and the series)
     roundMatches:(L,M,limit)=>q('b3_matches?league_no=eq.'+(+L)+'&match_no=eq.'+(+M)+'&select=id,a,b,a_name,b_name,score_a,score_b,rule,detail&order=id&limit='+(+limit)),
     teamMatches:(L,id)=>q('b3_matches?league_no=eq.'+(+L)+'&or=(a.eq.'+encodeURIComponent(id)+',b.eq.'+encodeURIComponent(id)+')&select=id,league_no,match_no,a,b,a_name,b_name,score_a,score_b,rule,detail&order=match_no&limit=60'),   // one team's matches of a league, the season view
     roundNear:(L,M,dir)=>one('b3_matches?select=league_no,match_no'+(L===null?'':'&or=(league_no.'+(dir<0?'lt':'gt')+'.'+(+L)+',and(league_no.eq.'+(+L)+',match_no.'+(dir<0?'lt':'gt')+'.'+(+M)+'))')
