@@ -108,6 +108,8 @@ function nameFit(name){
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
+// the window cap at the mid-season window: the lower half of the table as it stands when the window opens gets CAP_BONUS (Harry, 17 Nov 2026)
+const midCap=d=>CAP_WINDOW+((d.mid&&d.mid.bonus)||0);
 const midOpen=(d,lg)=>!!(d.mid&&d.mid.league===lg.no&&lg.match_no<=d.mid.until&&d.mid.agents);
 function newTeamRow(hash,name,players,leagueNo,now,kit){
   const top=[...players].sort((a,b)=>rating(b)-rating(a));
@@ -433,7 +435,7 @@ async function runMatchday(store,lg,now){
   // the mid-season window: once half the matches are played every team in the league gets seven free agents for MID_DAYS match days
   if(!reset&&leagueLength(lg)>=CFG.MID_MIN){const midAt=midAfter(lg);
     if(lg.match_no===midAt+1){const taken=await takenNames(store,true);
-      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:midAt+CFG.MID_DAYS,agents:ps,used:0};}}
+      for(const t of humans)if(t.league_no===lg.no){const ps=newPlayers(7,[...taken]);for(const p of ps)taken.add(p.n);t.data.mid={league:lg.no,until:midAt+CFG.MID_DAYS,agents:ps,used:0,bonus:placeOf(t.id)>tbl.length/2?CAP_BONUS:0};}}
     if(lg.match_no>midAt+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
   }
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
@@ -523,7 +525,7 @@ async function makeView(store,row,lg,now,extra){
   const d=row.data;
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final,po:pv.info},
-    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
+    me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:midOpen(d,lg)?midCap(d):capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length,po:pv.me,rested:d.rested&&d.rested.league===lg.no?d.rested.match:null},
     push_key:vapid?vapid.pub:null,
     opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw,po:poOf(t,lg.no)})),teams:tbl.length,...(extra||{})};
@@ -713,7 +715,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     const left=CFG.MID_SWAPS-d.mid.used;if(outs.length>left)return {error:left>0?'You may change '+left+' more player'+(left===1?'':'s')+' in this window.':'You have made your two changes in this window.'};
     if(outs.some(id=>!d.players.some(p=>p.id===id))||ins.some(id=>!d.mid.agents.some(p=>p.id===id)))return {error:'bad swap'};
     const after=d.players.filter(p=>!outs.includes(p.id)).concat(d.mid.agents.filter(p=>ins.includes(p.id)));
-    {const e=overCap(after,capOf(d,true));if(e)return {error:e};}
+    {const e=overCap(after,midCap(d));if(e)return {error:e};}
     d.players=after;d.mid.agents=d.mid.agents.filter(p=>!ins.includes(p.id));d.mid.used+=outs.length;
     // the line-up: whoever left is replaced by the best of the rest, so the team is never short
     enforceRule(d,lg.rule);const avail=rule=>d.players.filter(p=>!(rule==='tall_out'&&tallestId(d)===p.id));
