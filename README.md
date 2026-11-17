@@ -108,3 +108,12 @@ free plan allows; the scheduled job fails loudly from 350 on).
 The itch.io page (from 17 Nov 2026) is a launcher, not the game: `itch/index.html` sends people to the GitHub Pages site to
 install the game as a web app, so a team never lives in itch's frame. `python3 itch.py` zips it for upload. Team names are
 checked by `nameFit` (server.js) at `join`: plain insults in English, Greek and Greeklish are refused.
+
+## Half-time changes (17 Nov 2026)
+
+`data.orders` is `{behind, close, ahead}`, each `{ch:{dial:0..2}, fresh, star, talk}` or null: up to `HALF_MAX` (2) changes per
+case from the six dials (`DIALS`), fresh legs and everything through one player (`star`, a player id; it sets the attack, so it
+cannot go with `ch.off`). The talk does not count. `cleanHalf` (engine.js) turns the old one-key format `{k,pid,talk}` into the
+same change, at match time and when the server takes a plan. Measured, re-checked on fresh matches: for a manager who picks
+perfectly, two changes add about 2 points of win chance over the best single change when behind, about 5 when close, none when ahead;
+a random pair is no stronger than a random single change.
