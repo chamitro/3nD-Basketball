@@ -24,6 +24,8 @@ print('server function:', ('CHANGED, deploy it again in Supabase' if changed els
 version = datetime.datetime.utcnow().strftime('%Y.%m.%d-%H%M')
 page, n1 = re.subn(r"const APP_VERSION='[^']*';", "const APP_VERSION='%s';" % version, rd('index.html'))
 sw, n2 = re.subn(r"const CACHE_NAME = '[^']*';", "const CACHE_NAME = 'b3-%s';" % version, rd('sw.js'))
-assert n1 == 1 and n2 == 1, 'version markers not found'
+# the engine is loaded with the version in its address, so a phone never runs a new page with an engine it cached earlier
+page, n3 = re.subn(r'<script src="engine\.js[^"]*"></script>', '<script src="engine.js?v=%s"></script>' % version, page)
+assert n1 == 1 and n2 == 1 and n3 == 1, 'version markers not found'
 wr('index.html', page); wr('sw.js', sw); wr('version.json', json.dumps({'version': version}) + '\n')
 print('version', version)
