@@ -88,6 +88,17 @@
   .sb.final{border-width:4px;background:#fffbe9}.sb.live{border-color:var(--pink);box-shadow:0 4px 0 var(--pink)}
   .trophy{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:3px solid var(--ink);border-radius:16px;background:var(--yellow);font-weight:900}
   .trophy .big{font-size:26px;line-height:1}
+  .poseg button{font-size:14px;padding:8px 2px;line-height:1.15}
+  @media (max-width:420px){   /* phones: more room for the names in the bracket */
+    .poseg button{font-size:13px}
+    .card.pocard{padding:12px 9px}
+    .pocard .bracket{grid-template-columns:minmax(0,1fr) 7px minmax(0,1fr)}
+    .pocard .sb{padding:5px 5px 6px}
+    .pocard .srow{font-size:12.5px;gap:3px}
+    .pocard .srow .seed{width:9px;font-size:10px}
+    .pocard .srow .kit{width:17px;height:17px;font-size:8px}
+    .pocard .pips i{width:7px;height:7px;border-width:1.5px}
+  }
   .ztag{display:inline-block;border:2px solid var(--ink);border-radius:999px;padding:0 6px;font-size:10px;font-weight:900;white-space:nowrap;margin-left:4px;vertical-align:middle}
   .ztag.t{background:var(--teal)}.ztag.s{background:#ffb347}
   tr.zcut td{border-top:3px solid var(--ink)}
@@ -607,7 +618,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.17-1037';   // stamped by build.py
+const APP_VERSION='2026.11.17-1042';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1277,8 +1288,8 @@ function poHtml(){
     return `<div class="card" style="margin-bottom:16px"><h3>The play-offs are coming</h3><div class="small" style="margin:0">After match ${po.reg} the table is final. The top six play the <b>title play-offs</b>, 7th to 12th the <b>Silver Cup</b>, from ${when}: three weeks, every series best of three. The tags in the table show where everyone stands now.</div></div>`;}
   const mine=V.me&&V.me.po&&V.me.po.cup;if(!S.poCup||!po.cups.some(c=>c.c===S.poCup))S.poCup=po.cups.some(c=>c.c===mine)?mine:po.cups[0].c;
   const cup=po.cups.find(c=>c.c===S.poCup);
-  let h=`<div class="card" style="margin-bottom:16px"><h3>Play-offs</h3>`;
-  if(po.cups.length>1)h+=`<div class="seg" style="margin-bottom:4px">${po.cups.map(c=>`<button type="button" data-cup="${c.c}" class="${c.c===S.poCup?'on':''}">${c.c==='t'?'Title play-offs · 1st–6th':'Silver Cup · 7th–'+(6+c.size)+'th'}</button>`).join('')}</div>`;
+  let h=`<div class="card pocard" style="margin-bottom:16px"><h3>Play-offs</h3>`;
+  if(po.cups.length>1)h+=`<div class="seg poseg" style="margin-bottom:4px">${po.cups.map(c=>`<button type="button" data-cup="${c.c}" class="${c.c===S.poCup?'on':''}">${c.c==='t'?'Title play-offs · <span style="white-space:nowrap">1st–6th</span>':'Silver Cup · <span style="white-space:nowrap">7th–'+(6+c.size)+'th</span>'}</button>`).join('')}</div>`;
   if(cup.size===6)h+=`<div class="bracket"><div class="bh h1">Round one</div><div class="bh h2">Semi-finals</div><div class="bh h3">Final</div>${poBox(cup,'a','a')}<div class="link la"></div>${poBox(cup,'s1','s1')}${poBox(cup,'b','b')}<div class="link lb"></div>${poBox(cup,'s2','s2')}<div class="join"></div><div class="sjoin"></div>${poBox(cup,'f','f final')}</div>`;
   else if(cup.size===4)h+=`<div class="bracket b4"><div class="bh h2">Semi-finals</div><div class="bh h3">Final</div>${poBox(cup,'s1','s1')}${poBox(cup,'s2','s2')}<div class="join"></div><div class="sjoin"></div>${poBox(cup,'f','f final')}</div>`;
   else h+=`<div class="bracket b2">${poBox(cup,'f','f final')}</div>`;
