@@ -321,7 +321,7 @@ function playMatch(A,B,ruleKey){
   function possession(O,D,late,second){
     const os=O.sheet,ds=D.sheet;
     const star=O.court.find(p=>p.id===O.ball)||null;
-    const focus=star||[...O.court].sort((p,q)=>q.sh-p.sh)[0]; // the one the defence worries about
+    const focus=star&&os.off===1?star:[...O.court].sort((p,q)=>q.sh-p.sh)[0]; // the one the defence worries about: the star when the team plays star ball, else its best shooter (Harry, 19 Nov 2026: a weak player named star as a decoy drew the double)
     // who shoots
     let shooter=null,hog=false;
     for(const p of [...O.court].sort(()=>R()-0.5)){if(R()>obey(p)&&R()<0.5){shooter=p;hog=true;break;}}
@@ -464,6 +464,11 @@ function playMatch(A,B,ruleKey){
   if(a.score===b.score)a.score++;
   return {a,b};
 }
+// after a match, the player the defence went after: the one who drew the most doubles and shadows; if nobody did, the star
+// (or the best shooter on the court)
+const dblTarget=Z=>{const ps=Z.T.players.filter(p=>Z.st[p.id]),n=p=>(Z.st[p.id].dbl||0)+(Z.st[p.id].shad||0);
+  const top=[...ps].sort((p,q)=>n(q)-n(p))[0];if(top&&n(top)>0)return top;
+  return Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];};
 function reportLines(X,Y,won,rule){
   // X = our side, Y = theirs. Returns up to two short cause lines.
   const L=[];const ps=X.T.players.filter(p=>X.st[p.id]);
@@ -492,7 +497,7 @@ function reportLines(X,Y,won,rule){
     if(d<=-1.2)bad.push([-d*3+4,`They started the better ${LU[1]} in a week when ${LU[2]}.`]);}
   // the newer dials
   const xs=X.sheet,ys=Y.sheet;
-  const foc=Z=>Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const foc=Z=>dblTarget(Z);
   const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id];
   if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)bad.push([ms.dbl+5,`They double-teamed ${mf.n}: ${ms.dblM} of ${ms.dbl}.${xs.off===1?' Star ball walked straight into it.':''}`]);
   if(ys.guard===2&&X.openM>=4)good.push([X.openM+3,`Their double team on ${mf.n} left your others open for ${X.openM} easy ones.`]);
@@ -580,7 +585,7 @@ function scoutReport(X,Y,rule){
   if(xs.def===2){if(X.steals>=4)add(0.4+0.2*X.steals,`The press won the ball ${X.steals} times.`);else if(X.steals<=1)add(-0.6,`The press won the ball ${X.steals?'only once':'not even once'}.`);}
   if(xs.def===1&&o3>=4)add(-(0.3+0.2*o3),`The zone left shooters open: ${o3} long shots went in.`);
   // the star and the special guard on a star
-  const foc=Z=>Z.T.players.find(p=>p.id===Z.ball&&Z.st[p.id])||[...Z.court].sort((p,q)=>q.sh-p.sh)[0];
+  const foc=Z=>dblTarget(Z);
   const mf=foc(X),yf=foc(Y),ms=X.st[mf.id],yst=Y.st[yf.id],stopper=[...X.court].sort((p,q)=>q.df-p.df)[0];
   if(ys.guard===2&&ms.dbl>=4&&ms.dblM/ms.dbl<0.34)add(-(0.6+0.12*ms.dbl),`${mf.n} was double-teamed and made ${ms.dblM} of ${ms.dbl}.`);
   if(ys.guard===2&&X.openM>=4)add(0.4+0.15*X.openM,`Beat the double team on ${mf.n}: ${X.openM} open baskets for the others.`);
@@ -627,7 +632,7 @@ function seasonCard(prev,leagueNo,X,Y,won){
   c.sec+=X.oreb;c.osec+=Y.oreb;c.fb+=X.fast;c.ofb+=Y.fast;                     // second shots and fast breaks, for and against
   if(X.court.reduce((s,p)=>s+X.st[p.id].f,0)/X.court.length>=0.3)c.tired++;    // matches finished on tired legs
   if(fga>0)c.hog=Math.round((c.hog+Math.max(...xs.map(v=>v.fga))/fga)*1000)/1000;   // how much of the shooting one player does
-  const star=X.T.players.find(p=>p.id===X.ball&&X.st[p.id])||[...X.court].sort((p,q)=>q.sh-p.sh)[0],ss=X.st[star.id];
+  const star=dblTarget(X),ss=X.st[star.id];
   if(os.guard===2){c.dn++;c.db+=ss.dbl;c.dbm+=ss.dblM;c.opn+=X.openM;}         // when their star was double-teamed
   if(os.guard===1){c.sn++;c.sh+=ss.shad;c.shm+=ss.shadM;}                      // when their star was shadowed
   c.t[sh.tempo]++;c.s[sh.shots]++;c.d[sh.def]++;c.o[sh.off||0]++;c.g[sh.guard||0]++;c.b[sh.boards===undefined?1:sh.boards]++;   // the plans they chose
@@ -836,7 +841,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='d386ebc9';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='d9073e23';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
