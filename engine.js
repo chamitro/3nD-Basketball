@@ -147,14 +147,20 @@ const orderOf=k=>ORDERS.find(o=>o.k===k);
 const HALF_MAX=2;
 // The double team and "free the star" are gambles, not sure things (Harry, 17 Nov 2026: "something that not always will
 // work but it is a good play"). On every doubled shot the star may beat the double, more often when buzzing or locked in
-// and fresh, less when anxious, sulking or tired: the state, never the dots. At half-time "free the star" tries to break
+// and fresh, less when anxious, sulking or tired. At half-time "free the star" tries to break
 // a double or a shadow for the rest of the match. It works against tired or unsettled defenders and fails against a fresh,
 // sharp defence (their state at half-time, never their dots); when it fails the star tires faster and shoots a little worse.
-const BEAT={base:0.43,sh:0.18,sp:0.05,fit:0.30,mood:{happy:0.15,cool:0.12,ok:0,nervous:-0.12,sad:-0.15,angry:0}};   // 0.34 in the ten-minute match; the twenty-minute match doubles the doubled shots, so the star beats it more often here
+const BEAT={base:0.43,sh:0.18,sp:0.05,fit:0.30,mood:{happy:0.15,cool:0.12,ok:0,nervous:-0.12,sad:-0.15,angry:0}};
+BEAT.df=0.12;BEAT.dfit=0.25;BEAT.dmood={happy:-0.03,cool:-0.06,ok:0,nervous:0.05,sad:0.05,angry:0.03};   // the two who double: their defence dots, tiredness and moods (Harry, 18 Nov 2026)   // 0.34 in the ten-minute match; the twenty-minute match doubles the doubled shots, so the star beats it more often here
 const FREE={base:0.15,fit:1.4,mood:{happy:-0.10,cool:-0.15,ok:0,nervous:0.12,sad:0.15,angry:0.05},lo:0.2,hi:0.8,failTire:0.03,failShot:0.05,winShot:0.04};   // broken free: the star finds a rhythm; failed: the star tires faster and, frustrated, shoots a little worse
 const stateBonus=(T,p)=>(T.mood[p.mood]||0)+(p.temp==='fighter'&&p.mood==='angry'?0.12:0);
 // and the star's skill: attack dots count most, speed a little (Harry, 17 Nov 2026: a dearer star beats a double more often)
-const beatChance=(p,f)=>clamp(BEAT.base+stateBonus(BEAT,p)+BEAT.sh*nrm(p.sh)+BEAT.sp*nrm(p.sp)-BEAT.fit*(f||0),0.05,0.8);
+// and the two who double him: the best two defenders on the court. Good defence dots hold the double, tired or upset
+// defenders let him through (Harry, 18 Nov 2026: "it is harder to break a double on good defenders")
+const dblPair=D=>[...D.court].sort((a,b)=>b.df-a.df).slice(0,2);
+const dblHold=D=>{const d=D?dblPair(D):[];if(!d.length)return 0;
+  return d.reduce((s,q)=>s+BEAT.df*nrm(q.df)-BEAT.dfit*((D.st&&D.st[q.id]?D.st[q.id].f:0.3*tiredOf(q)))-(BEAT.dmood[q.mood]||0),0)/d.length;};
+const beatChance=(p,f,D)=>clamp(BEAT.base+stateBonus(BEAT,p)+BEAT.sh*nrm(p.sh)+BEAT.sp*nrm(p.sp)-BEAT.fit*(f||0)-dblHold(D),0.05,0.8);
 // the chance against the defenders on the court: their tiredness in the match, and their moods (locked-in defenders hold it)
 const freeChance=(D)=>{const c=D.court;if(!c.length)return FREE.lo;const f=c.reduce((s,p)=>s+D.st[p.id].f+0.5*tiredOf(p),0)/c.length,m=c.reduce((s,p)=>s+(FREE.mood[p.mood]||0),0)/c.length;return clamp(FREE.base+FREE.fit*f+m,FREE.lo,FREE.hi);};
 const DIALS=[['tempo','Tempo',['slow','steady','fast']],['shots','Shots',['inside','mixed','outside']],['off','Attack',['share','star ball','set plays']],
@@ -451,7 +457,7 @@ function playMatch(A,B,ruleKey){
     let tag=0;
     if(!forceInside){
       if(shadow){if(isF){pm+=-0.04-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=0.03;}
-      if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.11,0.06,0.08][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not (0.17 for a sharing team until 17 Nov 2026: a wrong double cost 8 points of win chance while a right one gained 10; Harry: a wrong call should matter, up to a level; 0.15, then 0.13 once the star's dots helped to beat the double: a wrong double costs about 6, a right one gains about 9)
+      if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f,D)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.11,0.06,0.08][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not (0.17 for a sharing team until 17 Nov 2026: a wrong double cost 8 points of win chance while a right one gained 10; Harry: a wrong call should matter, up to a level; 0.15, then 0.13 once the star's dots helped to beat the double: a wrong double costs about 6, a right one gains about 9)
     }
     if(shooter.id===O.freeFail)pm-=FREE.failShot;else if(O.freed&&isF)pm+=FREE.winShot;
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.08;   // a fighter shoots better when angry (0.11 until 14 Nov 2026: challenging a fighter was worth more than any other talk, and trash talk at fighters cost the sender 11 points; Harry: unfair)

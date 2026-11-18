@@ -359,7 +359,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.18-0943"></script>
+<script src="engine.js?v=2026.11.18-1043"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -624,7 +624,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.18-0943';   // stamped by build.py
+const APP_VERSION='2026.11.18-1043';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1049,7 +1049,7 @@ const DESC={
   shots:['Close shots. Height decides.','A bit of both.','Long shots. Attack dots decide.'],
   off:['Everyone shoots. Nobody for them to double. Bad if a starter is in no state to shoot.','Most balls go to your star. As good as the mood of your star today.','Rehearsed moves. Work only if the starters trust you. Spoiled by a fast tempo or by their press.'],
   def:['Each guards his man. Defence dots decide.','Guards the hoop, leaves long shots open and second shots to the attack. Hides weak defenders. Fuming players wander out of it.','Steals the ball, most of all from tall, slow or tired players. Tires you, gives easy shots when beaten. Fuming players love it, sulking ones jog.'],
-  guard:['Nobody special on their star.','Your best defender follows their star everywhere. Tiring, and their others get a little more room.','Two on their star. Stops the star most of the time, but a star with more attack, or a buzzing, fresh one, beats it more often. Leaves someone else open. Bad against a team that shares.'],
+  guard:['Nobody special on their star.','Your best defender follows their star everywhere. Tiring, and their others get a little more room.','Two on their star, your two best defenders. Stops the star most of the time, but a star with more attack, or a buzzing, fresh one, beats it more often, and so does any star against weak or tired defenders. Leaves someone else open. Bad against a team that shares.'],
   boards:['Run back after every shot. Stops their fast breaks, gives up second shots.','A bit of both.','Everyone to the hoop for second shots. A quick team runs past you. Tires legs.']};
 const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
 function render(){
@@ -1510,7 +1510,7 @@ function renderHelp(){
   <li><b>Playing time.</b> Or share out the match yourself: give each of the five named players none, a quarter, a half, three quarters or all of the match, twelve quarters in all since three are on the court the whole time, and the coach rotates to those shares; when each player goes in and out is the coach's. Three starters at three quarters and two substitutes at half and a quarter means the substitutes play a third of the match between them, fresh. A half-time change that brings players on (everything through one player from the bench) outranks the plan for the rest of that match. No substitutions under "Iron legs". The box score shows the minutes each player got.</li>
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game. Star ball is as good as your star's mood today: a buzzing or locked-in star pays, an anxious or sulking one sinks you. A double team on your star is answered by sharing the ball, or at half-time by trying to free the star, so look at what the opponent did last time. While the star sits on the bench the attack simply shares the ball; nobody else becomes the star, and the ball goes back through them when they return.</li>
   <li><b>When star ball pays</b>: the star is buzzing or locked in (a sulking or anxious star with the ball costs you about as much as a happy one gains), the star is clearly the best shooter, the opponent did not double last time, and the star is fresh, because the ball carrier tires faster. If one of those fails, share, and let the star take the last shots anyway: in the final stretch of a close match 60% of your shots go to the named star whatever the dial says.</li>
-  <li><b>The double team is a bet</b>, not a wall: on every doubled shot your star may beat it. A star with more attack dots, and a little more speed, beats it more often, and so does a buzzing or locked-in, fresh one; an anxious, sulking or tired star much less. Measured on the twenty-minute match: against star ball a double is worth about +9 points of win chance to the doubler (about +6 against a buzzing, fresh star); against a sharing team it costs them about 5, because one of your other two is always open. Nobody can double every week: plans are public.</li>
+  <li><b>The double team is a bet</b>, not a wall: on every doubled shot your star may beat it. A star with more attack dots, and a little more speed, beats it more often, and so does a buzzing or locked-in, fresh one; an anxious, sulking or tired star much less. It also depends on who doubles: their two best defenders on the court hold it. Good defence dots make it harder to beat, and tired, nervous or sulking defenders let the star through more often. Measured, a star beats about two in five of doubled shots against two 4-dot defenders and about half against two 1-dot defenders. Overall, on the twenty-minute match: against star ball a double is worth about +9 points of win chance to the doubler (about +6 against a buzzing, fresh star); against a sharing team it costs them about 5, because one of your other two is always open. Nobody can double every week: plans are public.</li>
   <li>Everything is saved the moment you set it, and stays from match to match until you change it. <b>Name three starters before every match:</b> a team without a line-up plays its three weakest players.</li>
   </ul><p>Then six dials:</p>
   <div class="two">${dial('Tempo','tempo',['slow','steady','fast'])}${dial('Shots','shots',['inside','mixed','outside'])}${dial('Attack','off',['share','star ball','set plays'])}${dial('Defence','def',['man','zone','press'])}${dial('Their star','guard',['as normal','shadow','double'])}${dial('Rebounds','boards',['get back','balanced','crash'])}</div>
