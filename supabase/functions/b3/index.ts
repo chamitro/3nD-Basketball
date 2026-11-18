@@ -92,7 +92,7 @@ const ORDERS=[
   {k:'slow',txt:'Slow the game down',why:'Fewer possessions for both teams and legs are saved. Protects a lead, kills your own comeback.'},
   {k:'fast',txt:'Speed the game up',why:'More possessions for both teams and fast breaks if you are quicker. Tires the legs.'},
   {k:'outside',txt:'Shoot from outside',why:'Long shots for three. Attack dots decide, a zone leaves them open.'},
-  {k:'free',txt:'Free the star',why:'Try to break their double team or shadow on your star for the second half. It works against tired or unsettled defenders, and often fails against a fresh, sharp defence. Broken free, the star finds a rhythm; if it fails, the star tires faster and shoots a little worse. Against a team that neither doubles nor shadows it does nothing.'},
+  {k:'fresh',txt:'Fresh legs',why:'Both substitutes come on for the two most tired players on the court.'},
   {k:'star',txt:'Everything through one player',why:'Star ball for the second half, to the player you name; from the bench they come on. Pays for a player who is buzzing or locked in, sinks a cold, anxious or sulking one.'},
 ];
 const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close at half-time',ahead:'If we are ahead at half-time'};
@@ -139,51 +139,35 @@ const TALK_LIFT=[0,0.02,0.008];   // shot quality for the rest of the match, by 
 const ORDER_KEYS=['behind','close','ahead'];
 const ORDER_MARGIN=5;   // behind or ahead from this many points on (Harry, 9 Nov 2026); anything less than that apart is "close"
 const orderOf=k=>ORDERS.find(o=>o.k===k);
-// Half-time changes, one set per case (Harry's friends, 17 Nov 2026: "only one order per case" was too little): up to
-// HALF_MAX changes to the plan, chosen from the six dials and two moves, free the star and everything through one player
-// (fresh legs until 17 Nov 2026). Stored as {behind:{ch:{dial:value},free,star,talk}|null, close:..., ahead:...}. Orders saved before 17 Nov 2026 were
-// {k,pid,talk} with one key of ORDERS; cleanHalf turns them into the same change, so nobody loses a setting.
-const HALF_MAX=2;
-// The double team and "free the star" are gambles, not sure things (Harry, 17 Nov 2026: "something that not always will
-// work but it is a good play"). On every doubled shot the star may beat the double, more often when buzzing or locked in
-// and fresh, less when anxious, sulking or tired. At half-time "free the star" tries to break
-// a double or a shadow for the rest of the match. It works against tired or unsettled defenders and fails against a fresh,
-// sharp defence (their state at half-time, never their dots); when it fails the star tires faster and shoots a little worse.
+// From 17 to 18 Nov 2026 the half-time card took up to two changes per case, {ch:{dial:value},free,star,talk}; Harry's friends
+// found it too complicated, so it is one order per case again. An order saved in that format becomes one order: the player
+// named for everything through, else the first dial change that is one of the orders (press, zone, slow, fast, outside).
+const HALF_DIAL={press:['def',2],zone:['def',1],slow:['tempo',0],fast:['tempo',2],outside:['shots',2]};
+const oneOrder=x=>{if(!x||typeof x!=='object'||x.k!==undefined||(x.ch===undefined&&x.star===undefined&&x.free===undefined))return x;
+  const talk=x.talk||null;if(x.star!=null)return {k:'star',pid:x.star,talk};
+  const ch=x.ch&&typeof x.ch==='object'?x.ch:{};for(const k of Object.keys(HALF_DIAL))if(ch[HALF_DIAL[k][0]]===HALF_DIAL[k][1])return {k,talk};
+  return talk?{k:null,talk}:null;};
+// orders as stored on a team: {behind:{k,pid}|null, close:..., ahead:...}; anything unknown is dropped
+// The double team is a bet, not a wall (Harry, 17-18 Nov 2026): on every doubled shot the star may beat it. A star in good
+// condition (attack dots most, a little speed; buzzing or locked in; fresh) and clearly better than the two who double him
+// (the two best defenders on the court: their defence dots, tiredness and moods) beats it more often. There is no order
+// for it: it just happens, or not.
 const BEAT={base:0.34,sh:0.18,sp:0.05,fit:0.30,mood:{happy:0.15,cool:0.12,ok:0,nervous:-0.12,sad:-0.15,angry:0},
-  df:0.12,dfit:0.25,dmood:{happy:-0.03,cool:-0.06,ok:0,nervous:0.05,sad:0.05,angry:0.03}};   // the two who double: their defence dots, tiredness and moods (Harry, 18 Nov 2026)
-const FREE={base:0.15,fit:1.4,mood:{happy:-0.10,cool:-0.15,ok:0,nervous:0.12,sad:0.15,angry:0.05},lo:0.2,hi:0.8,failTire:0.03,failShot:0.05,winShot:0.04};   // broken free: the star finds a rhythm; failed: the star tires faster and, frustrated, shoots a little worse
+  df:0.12,dfit:0.25,dmood:{happy:-0.03,cool:-0.06,ok:0,nervous:0.05,sad:0.05,angry:0.03}};
 const stateBonus=(T,p)=>(T.mood[p.mood]||0)+(p.temp==='fighter'&&p.mood==='angry'?0.12:0);
-// and the star's skill: attack dots count most, speed a little (Harry, 17 Nov 2026: a dearer star beats a double more often)
-// and the two who double him: the best two defenders on the court. Good defence dots hold the double, tired or upset
-// defenders let him through (Harry, 18 Nov 2026: "it is harder to break a double on good defenders")
 const dblPair=D=>[...D.court].sort((a,b)=>b.df-a.df).slice(0,2);
 const dblHold=D=>{const d=D?dblPair(D):[];if(!d.length)return 0;
   return d.reduce((s,q)=>s+BEAT.df*nrm(q.df)-BEAT.dfit*((D.st&&D.st[q.id]?D.st[q.id].f:0.3*tiredOf(q)))-(BEAT.dmood[q.mood]||0),0)/d.length;};
 const beatChance=(p,f,D)=>clamp(BEAT.base+stateBonus(BEAT,p)+BEAT.sh*nrm(p.sh)+BEAT.sp*nrm(p.sp)-BEAT.fit*(f||0)-dblHold(D),0.05,0.8);
-// the chance against the defenders on the court: their tiredness in the match, and their moods (locked-in defenders hold it)
-const freeChance=(D)=>{const c=D.court;if(!c.length)return FREE.lo;const f=c.reduce((s,p)=>s+D.st[p.id].f+0.5*tiredOf(p),0)/c.length,m=c.reduce((s,p)=>s+(FREE.mood[p.mood]||0),0)/c.length;return clamp(FREE.base+FREE.fit*f+m,FREE.lo,FREE.hi);};
-const DIALS=[['tempo','Tempo',['slow','steady','fast']],['shots','Shots',['inside','mixed','outside']],['off','Attack',['share','star ball','set plays']],
-  ['def','Defence',['man','zone','press']],['guard','Their star',['as normal','shadow','double']],['boards','Rebounds',['get back','balanced','crash']]];
-const OLD_ORDER={press:['def',2],zone:['def',1],slow:['tempo',0],fast:['tempo',2],outside:['shots',2]};
-const halfCount=o=>!o?0:Object.keys(o.ch||{}).length+(o.free?1:0)+(o.star!=null?1:0);   // fresh legs was a change until 17 Nov 2026; it is gone, "free the star" took its place
-function cleanHalf(x,team,rule){
-  if(!x||typeof x!=='object')return null;
-  const talk=TONES.includes(x.talk)?x.talk:null,o={ch:{},free:false,star:null,talk};
-  if(x.ch===undefined&&x.k!==undefined){if(OLD_ORDER[x.k])o.ch[OLD_ORDER[x.k][0]]=OLD_ORDER[x.k][1];else if(x.k==='star')o.star=x.pid;}
-  else{if(x.star!=null)o.star=x.star;if(x.free===true&&halfCount(o)<HALF_MAX)o.free=true;
-    for(const [k] of DIALS){const v=x.ch&&x.ch[k];if([0,1,2].includes(v)&&halfCount(o)<HALF_MAX&&!(k==='off'&&o.star!=null))o.ch[k]=v;}}
-  if(o.star!=null){const p=team&&byId(team,o.star);if(!p||(rule==='tall_out'&&tallestId(team)===p.id))o.star=null;else{o.star=p.id;delete o.ch.off;}}
-  return halfCount(o)||talk?o:null;
-}
 function cleanOrders(team,rule){
   const o=team.orders&&typeof team.orders==='object'?team.orders:{};const out={};
-  for(const w of ORDER_KEYS)out[w]=cleanHalf(o[w],team,rule);
+  for(const w of ORDER_KEYS){const x=oneOrder(o[w]);const talk=x&&TONES.includes(x.talk)?x.talk:null;
+    if(!x||!orderOf(x.k)){out[w]=talk?{k:null,talk}:null;continue;}
+    if(x.k==='star'){const p=byId(team,x.pid);if(!p||(rule==='tall_out'&&tallestId(team)===p.id)){out[w]=talk?{k:null,talk}:null;continue;}out[w]={k:'star',pid:p.id,talk};}
+    else out[w]={k:x.k,talk};}
   team.orders=out;return out;
 }
-const dialWord=(k,v)=>{const d=DIALS.find(x=>x[0]===k);return d?d[1].toLowerCase()+' '+d[2][v]:'';};
-// the changes of one case in words, e.g. "tempo fast, defence press"; '' for none
-const orderWords=(o,team)=>{const c=cleanHalf(o,team,null);if(!c)return '';const w=Object.entries(c.ch).map(([k,v])=>dialWord(k,v));
-  if(c.free)w.push('free the star');if(c.star!=null)w.push('everything through '+((team&&byId(team,c.star))||{}).n);return w.join(', ');};
+const orderWords=(o,team)=>!o||!o.k?'':orderOf(o.k).txt+(o.k==='star'&&team&&byId(team,o.pid)?' ('+byId(team,o.pid).n+')':'');
 
 // ───────────────────────── players & teams ─────────────────────────
 const COLS=['#ff7aa8','#6ec6ff','#f4a259','#ef6f6c','#8ce99a','#b197fc','#63e6be','#ffd43b','#74c0fc','#a9e34b','#da77f2','#ffa8a8','#66d9e8','#ff8787','#ffc078','#96f2d7'];
@@ -248,8 +232,7 @@ function botPrepare(team,opp,rule,oppLast){
   }
   const sheet={...team.style};
   const r=rule,wise=()=>R()<0.5+0.5*sk;
-  {const bch={};for(const [k,v] of [['def',2],['tempo',2],['shots',2]].sort(()=>R()-0.5).slice(0,wise()&&R()<0.5?2:1))bch[k]=v;
-   team.orders={behind:wise()?{ch:bch,free:false,star:null,talk:wise()?pick(['honest','challenge','demand']):null}:null,close:wise()&&R()<0.4?{ch:{},free:false,star:null,talk:'honest'}:null,ahead:wise()&&R()<0.6?{ch:{tempo:0},free:false,star:null,talk:null}:null};}
+  team.orders={behind:wise()?{k:pick(['press','fast','outside']),talk:wise()?pick(['honest','challenge','demand']):null}:null,close:wise()&&R()<0.4?{k:null,talk:'honest'}:null,ahead:wise()&&R()<0.6?{k:'slow',talk:null}:null};
   if(r==='attack'){if(wise())sheet.tempo=2;if(wise()&&sheet.shots===0)sheet.shots=1;}
   if(r==='defence'&&wise())sheet.def=2;
   if(r==='speed'&&wise())sheet.tempo=2;
@@ -348,7 +331,7 @@ function playMatch(A,B,ruleKey){
     }
     const sst=O.st[shooter.id];if(hog)sst.free++;
     const fx=MOODFX[shooter.mood],m=shooter.mood;
-    const isF=shooter===focus,dbl=ds.guard===2&&!O.freed,shadow=ds.guard===1&&!O.freed;   // a star freed at half-time is neither doubled nor shadowed
+    const isF=shooter===focus,dbl=ds.guard===2,shadow=ds.guard===1;
     // turnover
     // A press works best on those who handle the ball badly anyway: the tall, the slow and the tired. Against quick,
     // small, fresh players it wins little. `loose` is about -1..1 and close to zero for an average player, so a press
@@ -396,9 +379,8 @@ function playMatch(A,B,ruleKey){
     let tag=0;
     if(!forceInside){
       if(shadow){if(isF){pm+=-0.04-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=0.03;}
-      if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f,D)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.13,0.06,0.09][os.off];tag=3;O.openA++;}} // a sharing team finds the open man, a star-ball team does not (0.17 for a sharing team until 17 Nov 2026: a wrong double cost 8 points of win chance while a right one gained 10; Harry: a wrong call should matter, up to a level; 0.15, then 0.13 once the star's dots helped to beat the double: a wrong double costs about 6, a right one gains about 9)
+      if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f,D)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.13,0.06,0.09][os.off];tag=3;O.openA++;}} // the star may beat the double; a sharing team finds the open man, a star-ball team does not (a wrong double costs less than a right one gains since 17 Nov 2026)
     }
-    if(shooter.id===O.freeFail)pm-=FREE.failShot;else if(O.freed&&isF)pm+=FREE.winShot;
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.08;   // a fighter shoots better when angry (0.11 until 14 Nov 2026: challenging a fighter was worth more than any other talk, and trash talk at fighters cost the sender 11 points; Harry: unfair)
     if(late){if(shooter.mood==='happy'||shooter.mood==='cool')pm+=0.04;if(shooter.mood==='nervous')pm-=0.08;if(shooter.temp==='showoff')pm+=0.04;}   // a proud player rises to the big moment (narcissism and performance under pressure)
     sst.fga++;if(three)sst.a3++;const dst=D.st[def.id];dst.dg++;
@@ -424,7 +406,7 @@ function playMatch(A,B,ruleKey){
     }
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)+(p.id===X.freeFail?FREE.failTire:0));}}
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0));}}
   // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
   // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
   // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
@@ -451,22 +433,20 @@ function playMatch(A,B,ruleKey){
     for(const [X,d] of [[a,m],[b,-m]]){
       const cond=d>=ORDER_MARGIN?'ahead':d<=-ORDER_MARGIN?'behind':'close';
       X.half={us:X.score,them:X===a?b.score:a.score,cond,order:null,pid:null,failed:null,talk:null,gagged:false,up:[],down:[]};
-      const o=X.T.orders&&X.T.orders[cond];if(!o)continue;
+      const o=oneOrder(X.T.orders&&X.T.orders[cond]);if(!o)continue;   // an order saved in the two-change format of 17-18 Nov 2026 counts as one order
       if(TONES.includes(o.talk)&&(X.T.ban||0)>0)X.half.gagged=true;
       else if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
         for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<TALK_REACH&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
           const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
-      const c=cleanHalf(o,X.T,rule);if(!c)continue;const did=[],fails=[];
-      for(const [k,v] of Object.entries(c.ch)){X.sheet[k]=v;did.push(dialWord(k,v));}
-      // everything through first, so that free the star works on whoever is the star in the second half (Harry, 18 Nov 2026)
-      if(c.star!=null){const p=X.court.find(q=>q.id===c.star)||X.bench.find(q=>q.id===c.star);
-        if(!p)fails.push('everything through one player: that player is not available');
-        else if(!X.court.includes(p)&&rule==='iron')fails.push('everything through '+p.n+': no substitutions under this rule');
-        else{if(!X.court.includes(p)){bringOn(X,p);X.planOff=true;}X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;X.keep=p.id;did.push('everything through '+p.n);}}   // and they stay on the court to the end
-      if(c.free){const tgt=byId(X.T,X.ball)&&X.court.some(q=>q.id===X.ball)?byId(X.T,X.ball):[...X.court].sort((p,q)=>q.sh-p.sh)[0];   // the one their defence worries about
-        if(R()<freeChance(X===a?b:a)){X.freed=true;did.push('free the star ('+tgt.n+' broke free)');}else{X.freeFail=tgt.id;did.push('free the star (it failed: '+tgt.n+' tires faster)');}}
-      X.half.order=did.length?did:null;X.half.failed=fails.length?fails.join('; '):null;
+      if(!orderOf(o.k))continue;
+      if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
+      else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);X.planOff=true;}   // the order outranks the playing-time plan
+      else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
+        if(!p){X.half.failed='that player is not available';continue;}
+        if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);X.planOff=true;}
+        X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;X.keep=p.id;}   // and they stay on the court to the end
+      X.half.order=o.k;
     }
     P=half+Math.round(([15,19,23][a.sheet.tempo]+[15,19,23][b.sheet.tempo])/4);   // the second half is as long as the new tempos say
   };
@@ -541,9 +521,9 @@ function reportLines(X,Y,won,rule){
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
   if(!L.length)L.push(won?'A scrappy win. Nothing pretty about it.':'Close, but they wanted it more.');
   if(X.noLineup){L.unshift(`You named no starters, so your three weakest players started: ${X.court.map(p=>p.n).join(', ')}.`);L.length=Math.min(L.length,2);}
-  if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half;
+  if(X.half&&(X.half.order||X.half.failed||X.half.talk||X.half.gagged)){const h=X.half,o=h.order&&orderOf(h.order);
     const talk=h.gagged?' Banned, you were not in the locker room: no half-time talk.':h.talk?` You ${TALK_WORD[h.talk]}${h.up.length||h.down.length?': '+[h.up.length?h.up.join(', ')+(h.up.length>1?' were':' was')+' lifted':'',h.down.length?h.down.join(', ')+(h.down.length>1?' were':' was')+' put off':''].filter(Boolean).join(', ')+'.':'. Nobody blinked.'}`:'';
-    const order=(h.order&&h.order.length?` Your changes kicked in: ${h.order.join(', ')}.`:'')+(h.failed?` Could not be followed: ${h.failed}.`:'');
+    const order=o?` Your order kicked in: ${o.txt.toLowerCase()}${h.pid?' ('+(byId(X.T,h.pid)||{}).n+')':''}.`:h.failed?` Your order "${orderWords(X.T.orders[h.cond],X.T)}" could not be followed: ${h.failed}.`:'';
     L.unshift(`Half-time ${h.us}-${h.them}.${talk}${order} Second half ${X.score-h.us}-${Y.score-h.them}.`);L.length=Math.min(L.length,2);}
   return L;
 }
@@ -647,7 +627,7 @@ function seasonCard(prev,leagueNo,X,Y,won){
   c.sec+=X.oreb;c.osec+=Y.oreb;c.fb+=X.fast;c.ofb+=Y.fast;                     // second shots and fast breaks, for and against
   if(X.court.reduce((s,p)=>s+X.st[p.id].f,0)/X.court.length>=0.3)c.tired++;    // matches finished on tired legs
   if(fga>0)c.hog=Math.round((c.hog+Math.max(...xs.map(v=>v.fga))/fga)*1000)/1000;   // how much of the shooting one player does
-  const star=X.T.players.find(p=>p.id===X.ball&&X.st[p.id])||[...X.court].sort((p,q)=>q.sh-p.sh)[0],ss=X.st[star.id];   // the star at the end: everything through may have changed it
+  const star=X.T.players.find(p=>p.id===X.ball&&X.st[p.id])||[...X.court].sort((p,q)=>q.sh-p.sh)[0],ss=X.st[star.id];
   if(os.guard===2){c.dn++;c.db+=ss.dbl;c.dbm+=ss.dblM;c.opn+=X.openM;}         // when their star was double-teamed
   if(os.guard===1){c.sn++;c.sh+=ss.shad;c.shm+=ss.shadM;}                      // when their star was shadowed
   c.t[sh.tempo]++;c.s[sh.shots]++;c.d[sh.def]++;c.o[sh.off||0]++;c.g[sh.guard||0]++;c.b[sh.boards===undefined?1:sh.boards]++;   // the plans they chose
@@ -856,7 +836,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='b17d481e';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='d386ebc9';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -1162,24 +1142,18 @@ function checkPlan(data,req,rule){
     else{if(typeof req.mins!=='object')return 'bad minutes';if(st.length!==3||sb.length!==2)return 'Name three starters and two substitutes before sharing out the minutes.';
       mins={};let sum=0;for(const id of [...st,...sb]){const v=req.mins[id];if(!Number.isInteger(v)||v<0||v>MINS.game||v%MINS.step)return 'bad minutes';mins[id]=v;sum+=v;}
       if(sum!==MINS.total)return 'Give twelve quarters in all: three players on the court for the whole match.';}}
-  // half-time changes: for each case up to HALF_MAX changes (dials, free the star, everything through one of the manager's own
-  // players) and a tone; an order in the old one-key format {k,pid,talk} from a page not yet reloaded is turned into the same change
+  // half-time orders: one per case, each an order key, "star" with one of the manager's own players
   let orders=data.orders||null;
   if(req.orders!==undefined){
     if(req.orders===null)orders={behind:null,close:null,ahead:null};
     else{if(typeof req.orders!=='object')return 'bad orders';orders={};
-      for(const w of ORDER_KEYS){let o=req.orders[w];if(o==null){orders[w]=null;continue;}
+      for(const w of ORDER_KEYS){const o=oneOrder(req.orders[w]);if(o==null){orders[w]=null;continue;}   // a page not yet reloaded may still send the two-change format of 17-18 Nov 2026
         if(typeof o!=='object')return 'bad orders';
-        if(o.ch===undefined&&o.k!==undefined){if(o.k!==null&&!orderOf(o.k))return 'bad orders';if(o.k==='star'&&(!ids.has(o.pid)||o.pid===out))return 'bad orders';o={...cleanHalf(o,data,null)||{ch:{},fresh:false,star:null},talk:o.talk==null?null:o.talk};}
-        const ch={};if(o.ch!=null){if(typeof o.ch!=='object')return 'bad orders';
-          for(const [k,v] of Object.entries(o.ch)){if(!DIALS.some(d=>d[0]===k)||![0,1,2].includes(v))return 'bad orders';ch[k]=v;}}
-        if(o.free!=null&&typeof o.free!=='boolean')return 'bad orders';const free=!!o.free;   // fresh legs is gone (17 Nov 2026): a page not yet reloaded may still send it, and it is ignored
-        const star=o.star==null?null:o.star;if(star!==null&&(!ids.has(star)||star===out))return 'bad orders';
-        if(star!==null&&ch.off!==undefined)return 'bad orders';
-        if(Object.keys(ch).length+(free?1:0)+(star!==null?1:0)>HALF_MAX)return 'Two changes at most for each case at half-time.';
-        // a banned coach is not in the locker room: the changes are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
+        // a banned coach is not in the locker room: the orders are taken, a tone is not (whatever tone was set before the ban stays and comes back after it)
         const talk=(data.ban||0)>0?((((data.orders||{})[w])||{}).talk||null):(o.talk==null?null:o.talk);if(talk!==null&&!TONES.includes(talk))return 'bad orders';
-        const any=Object.keys(ch).length||free||star!==null;orders[w]=any||talk?{ch,free,star,talk}:null;}}
+        if(o.k==null){orders[w]=talk?{k:null,talk}:null;continue;}
+        if(!orderOf(o.k))return 'bad orders';
+        if(o.k==='star'){if(!ids.has(o.pid)||o.pid===out)return 'bad orders';orders[w]={k:'star',pid:o.pid,talk};}else orders[w]={k:o.k,talk};}}
   }
   data.starters=st;data.subs=sb;data.ball=ball;data.sheet=sh;if(orders)data.orders=orders;data.mins=mins;cleanMins(data);
   return null;
