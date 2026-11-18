@@ -133,14 +133,15 @@ The itch.io page (from 17 Nov 2026) is a launcher, not the game: `itch/index.htm
 install the game as a web app, so a team never lives in itch's frame. `python3 itch.py` zips it for upload. Team names are
 checked by `nameFit` (server.js) at `join`: plain insults in English, Greek and Greeklish are refused.
 
-## Half-time changes (17 Nov 2026)
+## Half-time orders (one per case again, 18 Nov 2026)
 
-`data.orders` is `{behind, close, ahead}`, each `{ch:{dial:0..2}, fresh, star, talk}` or null: up to `HALF_MAX` (2) changes per
-case from the six dials (`DIALS`), fresh legs and everything through one player (`star`, a player id; it sets the attack, so it
-cannot go with `ch.off`). The talk does not count. `cleanHalf` (engine.js) turns the old one-key format `{k,pid,talk}` into the
-same change, at match time and when the server takes a plan. Measured, re-checked on fresh matches: for a manager who picks
-perfectly, two changes add about 2 points of win chance over the best single change when behind, about 5 when close, none when ahead;
-a random pair is no stronger than a random single change.
+`data.orders` is `{behind, close, ahead}`, each `{k, pid, talk}` or null: one order of `ORDERS` (press, zone, slow, fast,
+outside, fresh legs, everything through one player with `pid`) and a tone. From 17 to 18 Nov 2026 the card took up to two
+changes per case (`{ch, free, star, talk}`); it was too complicated, so it went back. `oneOrder` (engine.js) turns an order
+saved in that format into one order, at match time, on the page and when the server takes a plan. What stayed: on every
+doubled shot the star may beat the double (`beatChance`: the star's attack and speed dots, mood and tiredness against the
+two best defenders on the court), a wrong double costs less than a right one gains, and the player named for everything
+through stays on the court.
 
 ## Play-offs and the Silver Cup (17 Nov 2026, from the Winter League)
 
