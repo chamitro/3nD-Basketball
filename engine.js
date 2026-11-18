@@ -520,12 +520,13 @@ function playMatch(A,B,ruleKey){
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
       const c=cleanHalf(o,X.T,rule);if(!c)continue;const did=[],fails=[];
       for(const [k,v] of Object.entries(c.ch)){X.sheet[k]=v;did.push(dialWord(k,v));}
-      if(c.free){const tgt=byId(X.T,X.ball)&&X.court.some(q=>q.id===X.ball)?byId(X.T,X.ball):[...X.court].sort((p,q)=>q.sh-p.sh)[0];   // the one their defence worries about
-        if(R()<freeChance(X===a?b:a)){X.freed=true;did.push('free the star ('+tgt.n+' broke free)');}else{X.freeFail=tgt.id;did.push('free the star (it failed: '+tgt.n+' tires faster)');}}
+      // everything through first, so that free the star works on whoever is the star in the second half (Harry, 18 Nov 2026)
       if(c.star!=null){const p=X.court.find(q=>q.id===c.star)||X.bench.find(q=>q.id===c.star);
         if(!p)fails.push('everything through one player: that player is not available');
         else if(!X.court.includes(p)&&rule==='iron')fails.push('everything through '+p.n+': no substitutions under this rule');
         else{if(!X.court.includes(p)){bringOn(X,p);X.planOff=true;}X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;X.keep=p.id;did.push('everything through '+p.n);}}   // and they stay on the court to the end
+      if(c.free){const tgt=byId(X.T,X.ball)&&X.court.some(q=>q.id===X.ball)?byId(X.T,X.ball):[...X.court].sort((p,q)=>q.sh-p.sh)[0];   // the one their defence worries about
+        if(R()<freeChance(X===a?b:a)){X.freed=true;did.push('free the star ('+tgt.n+' broke free)');}else{X.freeFail=tgt.id;did.push('free the star (it failed: '+tgt.n+' tires faster)');}}
       X.half.order=did.length?did:null;X.half.failed=fails.length?fails.join('; '):null;
     }
     P=half+Math.round((POSS[a.sheet.tempo]+POSS[b.sheet.tempo])/4);   // the second half is as long as the new tempos say
@@ -707,7 +708,7 @@ function seasonCard(prev,leagueNo,X,Y,won){
   c.sec+=X.oreb;c.osec+=Y.oreb;c.fb+=X.fast;c.ofb+=Y.fast;                     // second shots and fast breaks, for and against
   if(X.court.reduce((s,p)=>s+X.st[p.id].f,0)/X.court.length>=0.3)c.tired++;    // matches finished on tired legs
   if(fga>0)c.hog=Math.round((c.hog+Math.max(...xs.map(v=>v.fga))/fga)*1000)/1000;   // how much of the shooting one player does
-  const star=X.T.players.find(p=>p.id===X.T.ball&&X.st[p.id])||[...X.court].sort((p,q)=>q.sh-p.sh)[0],ss=X.st[star.id];
+  const star=X.T.players.find(p=>p.id===X.ball&&X.st[p.id])||[...X.court].sort((p,q)=>q.sh-p.sh)[0],ss=X.st[star.id];   // the star at the end: everything through may have changed it
   if(os.guard===2){c.dn++;c.db+=ss.dbl;c.dbm+=ss.dblM;c.opn+=X.openM;}         // when their star was double-teamed
   if(os.guard===1){c.sn++;c.sh+=ss.shad;c.shm+=ss.shadM;}                      // when their star was shadowed
   c.t[sh.tempo]++;c.s[sh.shots]++;c.d[sh.def]++;c.o[sh.off||0]++;c.g[sh.guard||0]++;c.b[sh.boards===undefined?1:sh.boards]++;   // the plans they chose
