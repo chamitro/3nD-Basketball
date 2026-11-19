@@ -157,6 +157,15 @@ film characters, never real people), each at most once a league. Letters, spaces
 `shortName` (the surname, or the legend's own word; `gymTag` adds the initial when two teammates share it). Old one-word
 names stay. Check: 3nD-tests/names_test.js (200 leagues: 3.0% legends, no repeats).
 
+## No twins (20 Nov 2026, Winter)
+
+Names are unique across every team, its free agents (end of league and mid-season window), redraft pools and open draft
+pools (`takenNames`). Two people on one connection are shown the same fourteen (the fishing fix); whoever joins second
+gets any player the first already took as a different player: `makeName`, `newLooks` (face and outfit, `LOOKS`) and
+`quirks` (favourite and hated talk). Dots, body and character stay, so the price under the cap stays. Faces are not
+otherwise checked: two unrelated players share face, outfit and body in about 1 league in 2000 (and differ by number
+and kit). Check: `3nD-tests/localseason/twins_test.js` (the old code gave 7 twins a league).
+
 ## Injuries (19 Nov 2026, Winter; play-offs included)
 
 In the match (`hurt` in playMatch, after every possession): a player on the court gets hurt with `injRate` = tireOf(body) x

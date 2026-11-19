@@ -65,7 +65,7 @@ function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at)
 // still open, share a name. `taken` is every name in use; a pool or a squad is made against it.
 async function takenNames(store,withPools){
   const names=new Set();const add=ps=>{for(const p of ps||[])if(p&&p.n)names.add(p.n);};
-  for(const t of await store.allTeams()){add(t.data.players);add(t.data.agents);if(t.data.redraft)add(t.data.redraft.pool);}
+  for(const t of await store.allTeams()){add(t.data.players);add(t.data.agents);if(t.data.redraft)add(t.data.redraft.pool);if(t.data.mid)add(t.data.mid.agents);}   // the window's free agents too (20 Nov 2026)
   const house=await store.house();if(house)add(house.data.players);
   if(withPools&&store.poolNames)for(const n of await store.poolNames())names.add(n);
   return names;
@@ -645,9 +645,11 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
       {const e=overCap(mine,CAP);if(e)return {error:e};}
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
-      // a name taken by a team that joined in the meantime is changed for a fresh one (looks and dots stay); the other
-      // open pools do not count here, they were made to avoid this one
-      {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);}}
+      // a player already taken by a team that joined in the meantime (two people on one connection see the same fourteen)
+      // becomes a different player: a fresh name, a fresh face and outfit, a fresh favourite and hated talk; the dots,
+      // body and character stay, so the price the manager drafted under the cap stays (Harry, 20 Nov 2026: no twins).
+      // The other open pools do not count here, they were made to avoid this one.
+      {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);newLooks(p);quirks(p);}}
       const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);fresh.pub.sv=squadValue(mine);
       try{row=await store.insertTeam(fresh);}
       catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once

@@ -284,6 +284,8 @@ function nameKit(name){let x=7;for(const ch of String(name||''))x=(x*31+ch.codeP
 const kitOf=(kit,name)=>cleanKit(kit)||nameKit(name);
 const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R()*KIT_COLS.length);if(b===a)b=(b+1)%KIT_COLS.length;return {a,b,g:Math.floor(R()*BADGES.length)};};
 let NEXT_ID=1;
+const LOOKS=['col','top','shape','hair','beard','specs','acc','socks','shoe','cheek','num','ph','eye','teeth'];
+function newLooks(p){const f=makePlayer0();usedNames.delete(f.n);for(const k of LOOKS)p[k]=f[k];}   // a fresh face and outfit, nothing else changes
 function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()<INJ.toughOdds)q.tough=true;return q;}   // a rare very tall, fat body that seldom breaks (hidden)
 function makePlayer0(){
   const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
@@ -1000,7 +1002,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='bdc45c14';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='6809bf05';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1045,7 +1047,7 @@ function leagueInfo(lg){return {no:lg.no,name:leagueName(lg.no,lg.next_match_at)
 // still open, share a name. `taken` is every name in use; a pool or a squad is made against it.
 async function takenNames(store,withPools){
   const names=new Set();const add=ps=>{for(const p of ps||[])if(p&&p.n)names.add(p.n);};
-  for(const t of await store.allTeams()){add(t.data.players);add(t.data.agents);if(t.data.redraft)add(t.data.redraft.pool);}
+  for(const t of await store.allTeams()){add(t.data.players);add(t.data.agents);if(t.data.redraft)add(t.data.redraft.pool);if(t.data.mid)add(t.data.mid.agents);}   // the window's free agents too (20 Nov 2026)
   const house=await store.house();if(house)add(house.data.players);
   if(withPools&&store.poolNames)for(const n of await store.poolNames())names.add(n);
   return names;
@@ -1625,9 +1627,11 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
       {const e=overCap(mine,CAP);if(e)return {error:e};}
       if(name.toLowerCase()===CFG.HOUSE_NAME.toLowerCase()||await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};
-      // a name taken by a team that joined in the meantime is changed for a fresh one (looks and dots stay); the other
-      // open pools do not count here, they were made to avoid this one
-      {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);}}
+      // a player already taken by a team that joined in the meantime (two people on one connection see the same fourteen)
+      // becomes a different player: a fresh name, a fresh face and outfit, a fresh favourite and hated talk; the dots,
+      // body and character stay, so the price the manager drafted under the cap stays (Harry, 20 Nov 2026: no twins).
+      // The other open pools do not count here, they were made to avoid this one.
+      {const taken=await takenNames(store,false);for(const p of mine)if(taken.has(p.n)){usedNames.clear();for(const x of taken)usedNames.add(x);for(const q of mine)usedNames.add(q.n);p.n=makeName();taken.add(p.n);newLooks(p);quirks(p);}}
       const fresh=newTeamRow(h,name,mine,lg.no,now,req.kit);enforceRule(fresh.data,lg.rule);fresh.pub.sv=squadValue(mine);
       try{row=await store.insertTeam(fresh);}
       catch(e){   // the same manager joining twice at once (two taps, two devices), or two managers taking one name at once
