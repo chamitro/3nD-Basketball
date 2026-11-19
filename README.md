@@ -149,6 +149,14 @@ court is than the leaders' (0.3x to 1.7x); a team that was ahead loses `CB.ease`
 order fired. Teams 8+ down at half-time won 5% before, about 13% after (20% from 8-11 down, 25-30% for a stronger team
 with press, fast, outside or star). Check: `3nD-tests/comeback2.js`.
 
+## Names (19 Nov 2026, Winter)
+
+`makeName` (engine.js): a first name from `FIRST` (60) and a basketball-pun surname from `LAST` (60), 3600 in all, unique in
+the league (`usedNames`, filled by the server from every name in play); 3% of the time a legend from `LEGENDS` (32 spoofs of
+film characters, never real people), each at most once a league. Letters, spaces and hyphens only. The gym tag shows
+`shortName` (the surname, or the legend's own word; `gymTag` adds the initial when two teammates share it). Old one-word
+names stay. Check: 3nD-tests/names_test.js (200 leagues: 3.0% legends, no repeats).
+
 ## Injuries (19 Nov 2026, Winter; play-offs included)
 
 In the match (`hurt` in playMatch, after every possession): a player on the court gets hurt with `injRate` = tireOf(body) x

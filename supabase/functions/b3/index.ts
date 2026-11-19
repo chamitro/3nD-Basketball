@@ -12,7 +12,35 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const ord=n=>n+(['st','nd','rd'][n-1]||'th');
 const SYL=['bo','mi','ra','te','ku','zi','lo','pa','nu','gri','fla','sno','wib','dub','zog','pim','tok','mog','bel','faz','yub','nib','ruk','sha','vee','oz','kip','dax','lum','wug'];
 const usedNames=new Set();
-function makeName(){for(let t=0;t<80;t++){let n=pick(SYL)+pick(SYL);if(R()<0.2)n+=pick(SYL);n=n[0].toUpperCase()+n.slice(1);if(n.length<=7&&!usedNames.has(n)){usedNames.add(n);return n;}}return 'Zed'+Math.floor(R()*99);}
+// Names (Harry, 19 Nov 2026, Winter League): a funny first name and a basketball-pun surname, and now and then (3%) a
+// legend, a spoof of a film character, each at most once in a league. Film characters only, never real people. Letters,
+// spaces and hyphens only (an apostrophe can break the page). The gym shows the short form (`shortName`). Players from
+// before keep their old one-word names (SYL, kept for them).
+const FIRST=['Biff','Noodle','Gus','Pickles','Dorian','Waldo','Tibbs','Moxie','Sully','Ziggy','Bubba','Fergus','Mabel','Otis','Pip',
+  'Rufus','Bertie','Clem','Doris','Fifi','Gertie','Hank','Iggy','Lulu','Mungo','Nell','Ozzie','Percy','Rocco','Stan',
+  'Vinnie','Wanda','Chuck','Dudley','Edna','Floyd','Gladys','Hector','Jasper','Lenny','Nigel','Olive','Reggie','Sid','Trudy',
+  'Wilbur','Crumpet','Muffin','Taco','Pudding','Biscuit','Sprout','Waffles','Nugget','Bean','Dotty','Fizz','Gumbo','Tater','Yolanda'];
+const LAST=['Dunkworth','McRebound','Bricksley','Airball','Hoopington','Swishman','Backboard','Layupski','Dribbleton','Netley',
+  'Rimsworth','Bouncer','Alleyoop','Fastbreak','Jumpshot','Hangtime','Buzzer','Crossover','Fadeaway','Boxout',
+  'Pickroll','Floater','Bankshot','Hooper','Dunkley','Swishby','Rimrock','Brickman','Courtside','Benchley',
+  'Sneakers','Squeaks','Tipoff','Sixthman','Overtime','McHoop','Dunkerson','Shotclock','Freethrow','Splashley',
+  'Bucketson','Glassman','Paintley','Rimshaw','Dribbs','Hoopsley','Swooshley','Layupton','Bricksby','Netsworth',
+  'Timeout','Ballhog','Swatley','Stepback','Elbowski','Baseline','Wingspan','Bonksley','Hookshot','Jersey'];
+const LEGENDS=[['Donnie Darkio','Darkio'],['Donnie Dunko','Dunko'],['Dunk Skywalker','Skywalker'],['Hoop Solo','Solo'],['Darth Dribbler','Darth'],
+  ['Forrest Dunk','Forrest'],['Rocky Rebound','Rocky'],['Indiana Hoops','Indiana'],['Marty McDunk','McDunk'],['Jack Sparrowball','Sparrowball'],
+  ['Ferris Brickler','Ferris'],['Obi-Wan Swishobi','Obi-Wan'],['Hoopy Gilmore','Gilmore'],['Napoleon Dunkamite','Napoleon'],['Edward Swishorhands','Edward'],
+  ['Jason Bounce','Bounce'],['Ace Rimtura','Ace'],['Austin Powerdunk','Austin'],['Sherlock Hoops','Sherlock'],['Harry Potshot','Potshot'],
+  ['Gandalf the Swish','Gandalf'],['Frodo Bagshots','Frodo'],['Optimus Dunk','Optimus'],['James Bondball','Bondball'],['Jeffrey Lebounce','Lebounce'],
+  ['Neo Dunkerson','Neo'],['The Dunkinator','Dunkinator'],['Maximus Rebound','Maximus'],['John Rimbo','Rimbo'],['Max Madball','Madball'],
+  ['Chewbounce','Chewbounce'],['Master Hooda','Hooda']];
+const LEGEND_ODDS=0.03;
+function makeName(){
+  if(R()<LEGEND_ODDS){const free=LEGENDS.filter(l=>!usedNames.has(l[0]));if(free.length){const n=pick(free)[0];usedNames.add(n);return n;}}
+  for(let t=0;t<200;t++){const n=pick(FIRST)+' '+pick(LAST);if(!usedNames.has(n)){usedNames.add(n);return n;}}
+  for(let t=0;t<80;t++){let n=pick(SYL)+pick(SYL)+pick(SYL);n=n[0].toUpperCase()+n.slice(1);if(!usedNames.has(n)){usedNames.add(n);return n;}}   // all 3600 taken: the old kind
+  return 'Zed '+Math.floor(R()*9999);}
+const isLegend=n=>LEGENDS.some(l=>l[0]===n);
+const shortName=n=>{const l=LEGENDS.find(x=>x[0]===n);if(l)return l[1];const i=String(n).indexOf(' ');return i<0?n:n.slice(i+1);};   // the gym's name tag
 const TEAM_NAMES=['The Lanterns','Greyhound Row','Salt Street','Old Mill','Pickle Yard','The Wet Socks','Bin Lids United','Noodle Arms','Friday Leftovers','The Slow Clappers','Moon Boots','Soggy Biscuits','Elbow Room','The Loud Sneezers','Third Floor Flat'];
 
 // ───────────────────────── temperaments ─────────────────────────
@@ -960,7 +988,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='248a9960';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='29ced050';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
