@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.19-1514"></script>
+<script src="engine.js?v=2026.11.19-1534"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -422,7 +422,7 @@ function playSunday(){
   S.lastSheets=S.teams.map(t=>({name:t.name,sheet:{...t.sheet},w:day[t.name].w,l:day[t.name].l,human:t.human}));
   // how the match left them feeling, and what it did to their form
   const moves=myX?aftermath(S.me,myX,res[0].won,conceded):[];
-  if(myX)for(const p of S.me.players)if(p.hurt)res[0].lines.push(`${p.n} got hurt${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
+  if(myX)for(const p of S.me.players)if(p.hurt)res[0].lines.push(`${p.n} got hurt and limped off in the ${p.hurtWhen}${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
   // vote
   const tally=S.vote.opts.map(()=>0);for(let i=0;i<7;i++)tally[Math.floor(R()*3)]++;if(S.myVote!==null)tally[S.myVote]++;
   S.vote.tally=tally;S.vote.winner=S.vote.opts[tally.indexOf(Math.max(...tally))];
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.19-1514';   // stamped by build.py
+const APP_VERSION='2026.11.19-1534';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1480,7 +1480,7 @@ function renderHelp(){
   <li><b>Resting a tired player does not upset them</b> and costs them no form. Leaving out a fresh player still does.</li>
   <li>A small battery appears beside the name of a tired player in the gym, and your assistant warns you before the match.</li></ul>
   <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
-  <p><b>Injuries.</b> A player can get hurt in a match and miss the next one, two or three. It is mostly your doing: a fresh player almost never gets hurt, one sent out on tired legs often does, and a worn-out one much more often. Heavy and very tall bodies get hurt more, and a press or a fast game raises the risk a little. An injured player has a red cross in the gym and on the card, and cannot play: if you name them, the best player left takes their place, on the court or on the bench. Your result says who got hurt and for how long, and everybody can see the injured players of a team, like in real basketball. Injuries happen in the play-offs as well, and the break between two leagues heals everyone.</p>
+  <p><b>Injuries.</b> A player can get hurt during a match: they limp off at once, the best substitute comes on (with nobody on the bench, or under "Iron legs", the team plays on with two), and they miss the next one, two or three matches. They come back short of fitness, with two energy dots at most. It is mostly your doing: a fresh player almost never gets hurt, one sent out on tired legs often does, a worn-out one much more often, and the risk climbs as the match wears on. Heavy and very tall bodies get hurt more, and a press or a fast game raises the risk a little; now and then a very tall, heavy player has a body that hardly ever breaks. An injured player has a red cross in the gym and on the card, and cannot play: if you name them, the best player left takes their place, on the court or on the bench. Your result says who got hurt and for how long, and everybody can see the injured players of a team, like in real basketball. Injuries happen in the play-offs as well, and the break between two leagues heals everyone.</p>
   <h4><i>7</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>

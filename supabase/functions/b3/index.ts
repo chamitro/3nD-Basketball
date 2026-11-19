@@ -244,7 +244,7 @@ function nameKit(name){let x=7;for(const ch of String(name||''))x=(x*31+ch.codeP
 const kitOf=(kit,name)=>cleanKit(kit)||nameKit(name);
 const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R()*KIT_COLS.length);if(b===a)b=(b+1)%KIT_COLS.length;return {a,b,g:Math.floor(R()*BADGES.length)};};
 let NEXT_ID=1;
-function makePlayer(){const q=makePlayer0();quirks(q);return q;}
+function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()<INJ.toughOdds)q.tough=true;return q;}   // a rare very tall, fat body that seldom breaks (hidden)
 function makePlayer0(){
   const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
   const h=clamp(HT_H[ht]+(R()-0.5)*0.1,0,1),d4=()=>1+Math.floor(R()*4);
@@ -380,6 +380,9 @@ function playMatch(A,B,ruleKey){
     const rest=avail.filter(p=>!court.includes(p)).sort((a,b)=>noLineup?rating(a)-rating(b):rating(b)-rating(a));
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
+    // an injury among the named players: the bench is filled back up to the substitutes the manager named, with the best left
+    if([...(T.starters||[]),...(T.subs||[])].some(id=>{const p=T.players.find(q=>q.id===id);return p&&p.inj>0;})){
+      const want=Math.min(2,(T.subs||[]).length);for(const p of avail.filter(p=>!court.includes(p)&&!bench.includes(p)).sort((a,b)=>rating(b)-rating(a))){if(bench.length>=want)break;bench.push(p);}}
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0,reb:0,stl:0,dg:0,da:0};
     // the playing-time plan, as shares of the match, when it is whole and the rules allow substitutions
     const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&court.every(p=>T.starters.includes(p.id))&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
@@ -488,6 +491,18 @@ function playMatch(A,B,ruleKey){
   // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
   // the most tired starter was swapped for a substitute whatever their quality, so naming no substitutes paid 6 points.
   const worth=(X,p)=>rating(p)-3*X.st[p.id].f-2*tiredOf(p)+(rule==='bench'&&X.st[p.id].bench?4:0);
+  // an injury: the player limps off at once and the best substitute comes on; never fewer than two on the court
+  function hurt(X,i){
+    const sh=X.sheet,hard=1+(sh.tempo===2?0.2:sh.tempo===0?-0.15:0)+(sh.def===2?0.2:0)+(sh.boards===2?0.08:0);
+    for(const p of [...X.court]){const s=X.st[p.id];
+      if(!(R()<injRate(p,clamp(tiredOf(p)+0.4*s.f,0,1),hard)))continue;
+      const fresh=rule==='iron'?null:[...X.bench].sort((u,v)=>worth(X,v)-worth(X,u))[0];
+      if(!fresh&&X.court.length<=2)return;   // nobody can come on and only two are left: they play on
+      s.injured=i<half||half<0?'first half':'second half';s.injAt=i;X.hurt=(X.hurt||[]).concat(p.id);
+      const k=X.court.indexOf(p);
+      if(fresh){X.court[k]=fresh;X.bench.splice(X.bench.indexOf(fresh),1);}else X.court.splice(k,1);
+      if(X.keep===p.id)X.keep=null;
+      return;}}
   function subs(X){for(const p of X.bench)X.st[p.id].f=Math.max(0,X.st[p.id].f-0.25);
     if(!X.bench.length)return;
     const tired=[...X.court].filter(p=>p.id!==X.keep).sort((p,q)=>worth(X,p)-worth(X,q))[0];   // the player named at half-time stays on
@@ -524,7 +539,7 @@ function playMatch(A,B,ruleKey){
       if(o.k==='press')X.sheet.def=2;else if(o.k==='zone')X.sheet.def=1;else if(o.k==='slow')X.sheet.tempo=0;else if(o.k==='fast')X.sheet.tempo=2;else if(o.k==='outside')X.sheet.shots=2;
       else if(o.k==='fresh'){if(rule==='iron'||!X.bench.length){X.half.failed=rule==='iron'?'no substitutions under this rule':'nobody on the bench';continue;}for(const p of [...X.bench])bringOn(X,p);X.planOff=true;}   // the order outranks the playing-time plan
       else if(o.k==='star'){const p=X.court.find(q=>q.id===o.pid)||X.bench.find(q=>q.id===o.pid);
-        if(!p){X.half.failed='that player is not available';continue;}
+        if(!p){X.half.failed=X.st[o.pid]&&X.st[o.pid].injured?'that player is injured':'that player is not available';continue;}
         if(!X.court.includes(p)){if(rule==='iron'){X.half.failed='no substitutions under this rule';continue;}bringOn(X,p);X.planOff=true;}
         X.ball=p.id;X.sheet.off=1;X.half.pid=p.id;X.keep=p.id;}   // and they stay on the court to the end
       X.half.order=o.k;
@@ -534,9 +549,9 @@ function playMatch(A,B,ruleKey){
   for(let i=0;i<P;i++){
     if(i===half)halfTime();
     const late=i>=P*0.8&&Math.abs(a.score-b.score)<=ORDER_MARGIN;
-    possession(a,b,late);tire(a);rotate(a,i);
+    possession(a,b,late);tire(a);rotate(a,i);hurt(a,i);
     if(rule==='first11'&&a.score>=11)break;
-    possession(b,a,late);tire(b);rotate(b,i);
+    possession(b,a,late);tire(b);rotate(b,i);hurt(b,i);
     if(rule==='first11'&&b.score>=11)break;
     if(rule!=='first11'&&rule!=='iron'&&(i+1)%Math.ceil(P/4)===0&&i<P-1){if(!a.plan||a.planOff)subs(a);if(!b.plan||b.planOff)subs(b);}
     if(rule==='first11'&&(i+1)%5===0){subs(a);subs(b);}
@@ -772,20 +787,22 @@ function energyAfter(team,X){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
     p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);   // the body's tiring rate on the cost, the night's recovery for everybody
-    injuryAfter(p,share,hard);
+    injuryAfter(p,s);
   }
 }
-// Injuries (Harry, 19 Nov 2026; play-offs included). Mostly the manager's doing: a fresh player almost never gets hurt,
-// one sent out on tired legs often does, a heavy or very tall body more, a press or a fast game more. Out for 1 to 3
-// matches; the count goes down with every match day the team has (a rest day as well). An injured player cannot play:
-// the best one left starts in their place. `p.inj` is the matches still to miss, `p.hurt` marks a new injury for the result.
-const INJ={base:0.001,tired:0.05,len:[0.5,0.3,0.2]};   // per whole match: 0.1% fresh, about 0.3% at three energy dots, 1.5% at two, 5% at one (times body and plan)
-function injuryAfter(p,share,hard){
-  delete p.hurt;
-  if(p.inj>0&&!(share>0)){p.inj--;return;}
-  if(!(share>0))return;
-  const t0=clamp((4-(p.enWas===undefined?4:p.enWas))/3,0,1);   // how tired they were when the match began
-  if(R()<share*tireOf(p)*hard*(INJ.base+INJ.tired*t0*t0*t0)){p.inj=odds(INJ.len)+1;p.hurt=true;}
+// Injuries (Harry, 19 Nov 2026; play-offs included). They happen in the match: a player on the court may get hurt at any
+// possession and limps off at once; the best substitute comes on, and with nobody on the bench (or under "iron legs") the
+// team plays on with two. Mostly the manager's doing: the risk climbs steeply with tiredness (the energy the player started
+// with, and the match in their legs), a heavy or very tall body more, a press or a fast game more. A rare very tall, fat
+// player (`tough`, hidden, about one in eight of them) seldom gets hurt. Out for 1 to 3 matches; the count goes down with
+// every match day (a rest day as well), and the player comes back short of fitness (energy at most INJ.back).
+// `p.inj` is the matches still to miss; `p.hurt` and `p.hurtWhen` mark a new injury for the result.
+const INJ={base:0.0009,tired:0.043,len:[0.5,0.3,0.2],back:2,tough:0.3,toughOdds:0.12,poss:38};
+const injRate=(p,T,hard)=>tireOf(p)*(p.tough?INJ.tough:1)*hard*(INJ.base+INJ.tired*T*T*T)/INJ.poss;   // per possession on the court
+function injuryAfter(p,s){
+  delete p.hurt;delete p.hurtWhen;
+  if(s&&s.injured){p.inj=odds(INJ.len)+1;p.hurt=true;p.hurtWhen=s.injured;return;}
+  if(p.inj>0&&!(s&&s.min>0)){p.inj--;if(!p.inj){delete p.inj;p.en=Math.min(energyOf(p),INJ.back);}}   // back, but not fit yet
 }
 const injDays=n=>n===1?'the next match':'the next '+n+' matches';
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)
@@ -943,7 +960,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='22c3e32d';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='248a9960';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1009,7 +1026,7 @@ function fairPool(avoid,cap){let pool=null;for(let t=0;t<40;t++){pool=newPlayers
 function houseSeven(avoid){for(let t=0;t<30;t++){const s=capSeven(newPlayers(14,avoid),CAP);if(s)return s;}return newPlayers(7,avoid);}
 const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+money(squadValue(ps))+' and the cap is '+money(cap)+'. Let a dearer player go.':null;
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
-function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
+function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;delete q.tough;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
 function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
@@ -1288,7 +1305,8 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
-        for(const p of X.data.players)if(p.hurt)lines.push(`${p.n} got hurt${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
+        for(const p of X.data.players)if(p.hurt)lines.push(`${p.n} got hurt and limped off in the ${p.hurtWhen}${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
+        for(const id of ys.hurt||[]){const q=byId(Y.data,id);if(q)lines.push(`Their ${q.n} limped off injured in the ${ys.st[id].injured}.`);}
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppKit:kitOf(Y.pub.kit,Y.name),oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
@@ -1298,7 +1316,7 @@ async function runMatchday(store,lg,now){
     matches.push(rec);
   }
   // a rest day: a bye, or a series already decided this week; the players get back what a match off gives
-  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players){p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);delete p.hurt;if(p.inj>0)p.inj--;}weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
+  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players){p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);delete p.hurt;delete p.hurtWhen;if(p.inj>0){p.inj--;if(!p.inj){delete p.inj;p.en=Math.min(energyOf(p),INJ.back);}}}weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
   const poAfter=()=>poState(rows.filter(r=>!r.is_house),[...poRes,...matches.map(m=>({match_no:m.match_no,a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b,rule:m.rule,po:m.detail.po||null}))],lg.no);
   const humans=rows.filter(r=>!r.is_house);
   // the vote: managers chose the rule for the match after the one just played

@@ -151,12 +151,18 @@ with press, fast, outside or star). Check: `3nD-tests/comeback2.js`.
 
 ## Injuries (19 Nov 2026, Winter; play-offs included)
 
-`injuryAfter` (engine.js, called from `energyAfter` for every team after a match): a player who played gets hurt with
-probability share x tireOf(body) x hard(plan) x (INJ.base 0.001 + INJ.tired 0.05 x t0^3), t0 = tiredness before the match.
-Out for 1-3 matches (`p.inj`, 50/30/20%), `p.hurt` marks a new one for the result line. The count goes down every match
-day (rest days in `runMatchday` too); the end of a league heals everyone. `playMatch` leaves injured players out; the
-best player left starts, and the bench is filled back up to the substitutes named. Public (`pubPlayer` sends `inj`).
-Balance study: managers who rest tired players 0.3 injuries a season (none in 75%), who never rest about 3.
+In the match (`hurt` in playMatch, after every possession): a player on the court gets hurt with `injRate` = tireOf(body) x
+(tough? 0.3 : 1) x hard(plan) x (INJ.base 0.0009 + INJ.tired 0.043 x T^3) / 38, T = tiredness before the match + 0.4 x the
+match in their legs. They limp off at once (`st.injured` = 'first half'/'second half', `st.injAt`, `X.hurt`); the best
+substitute comes on; with nobody to come on (or "iron legs") the team plays on with two, never fewer. After the match
+`injuryAfter` (from `energyAfter`): out for 1-3 matches (`p.inj`, 50/30/20%), `p.hurt`/`p.hurtWhen` for the result line
+(and the opponent's: "Their X limped off"). The count goes down every match day (rest days in `runMatchday` too); on the
+way back energy is at most INJ.back (2). The end of a league heals everyone. Before a match `playMatch` leaves injured
+players out; the best player left starts, the bench is filled back up to the substitutes named. Public (`pubPlayer`).
+`tough`: about 12% of very tall, fat players, hidden (`ownPlayer` drops it), risk x0.3.
+Balance study (60 leagues): managers who rest tired players 0.3 injuries a season (none in 74%), who never rest about 3.
+Resting is worth about +4 wins a season with or without injuries: they are rare and short, a story more than a points
+swing (a "rusty" return, form down after an injury, was tried and changed nothing measurable, so it is not in).
 Checks: `3nD-tests/injury_test.js`, `3nD-tests/localseason/injury_league_test.js`.
 
 ## Range (19 Nov 2026, Winter)
