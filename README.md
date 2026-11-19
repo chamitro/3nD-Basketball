@@ -149,6 +149,13 @@ court is than the leaders' (0.3x to 1.7x); a team that was ahead loses `CB.ease`
 order fired. Teams 8+ down at half-time won 5% before, about 13% after (20% from 8-11 down, 25-30% for a stronger team
 with press, fast, outside or star). Check: `3nD-tests/comeback2.js`.
 
+## Range (19 Nov 2026, Winter)
+
+Every new player gets a hidden `rg` (true/false) at birth, with odds by height `RANGE_ODDS` = tiny 0.6, medium 0.4, tall 0.15,
+very tall 0.05. On a long shot `range3` adds +0.03 with range, and without it 0 / 0 / -0.04 / -0.08 by height (it replaces
+`TALL3` -0.03/-0.06 for new players; players without `rg` keep `TALL3`). Not in the player's value, never sent to a browser
+(`ownPlayer` drops it). Long shots made: tiny 36%, medium 35%, tall 31%, very tall 26% (a very tall one with range 36%).
+
 ## Play-offs (17 Nov 2026, from the Winter League; top eight and no Silver Cup since 19 Nov 2026)
 
 The last `CFG.PO_DAYS` (9) match days of a season league of at least `PO_MIN` (18) are play-offs, one round a week, best of three.

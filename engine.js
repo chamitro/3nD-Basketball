@@ -209,6 +209,12 @@ const TIRE_HT=[0.9,1,1.1,1.2],TIRE_BD=[0.9,1,1.2];   // how fast a body tires, i
 const FAT={reb:0.5,team:0.03,inside:0.04};
 const TALL3=[0,0,0.03,0.06];   // what a long shot loses by height: real centres shoot worse from range than guards (Harry, 12 Nov 2026)
 const tall3=p=>p.ht===undefined?0:TALL3[p.ht];
+// Range (Harry, 19 Nov 2026): a touch from outside that a player is born with or not, hidden; found out from the 3s in the
+// box scores. Most small players have it, few tall ones, very few very tall ones, so a giant who scores from outside is
+// rare and a real find. With range a long shot is a little better whatever the height; without it the tall shoot worse
+// and the very tall much worse. It does not change a player's value. Players from before it (no `rg`) keep TALL3.
+const RANGE_ODDS=[0.6,0.4,0.15,0.05],RANGE={yes:0.03,no:[0,0,0.04,0.08]};
+const range3=p=>p.ht===undefined?-tall3(p):p.rg===undefined?-tall3(p):p.rg?RANGE.yes:-RANGE.no[p.ht];   // what height and range add to a long shot
 // ───────────────────────── the wage cap ─────────────────────────
 // Every team has the same cap (Harry, 12 Nov 2026). A player's value comes from the dots they were drafted with (attack
 // most, then defence, then speed), their height and build, and a little from character; never from mood or form. The
@@ -246,7 +252,7 @@ function makePlayer0(){
   return {id:NEXT_ID++,n:makeName(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
     hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
     socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
-    sh,df,sp,base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
+    sh,df,sp,rg:R()<RANGE_ODDS[ht],base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
 }
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
@@ -438,7 +444,7 @@ function playMatch(A,B,ruleKey){
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
     const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
-    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0)-tall3(shooter);}   // the big ones shoot worse from range
+    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0)+range3(shooter);}   // range: most small players have it, few big ones
     else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
