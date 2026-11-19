@@ -345,7 +345,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.18-1459"></script>
+<script src="engine.js?v=2026.11.19-1018"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -610,7 +610,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.18-1459';   // stamped by build.py
+const APP_VERSION='2026.11.19-1018';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1035,7 +1035,7 @@ const DESC={
   shots:['Close shots. Height decides.','A bit of both.','Long shots. Attack dots decide.'],
   off:['Everyone shoots. Nobody for them to double. Bad if a starter is in no state to shoot.','Most balls go to your star. As good as the mood of your star today.','Rehearsed moves. Work only if the starters trust you. Spoiled by a fast tempo or by their press.'],
   def:['Each guards his man. Defence dots decide.','Guards the hoop, leaves long shots open and second shots to the attack. Hides weak defenders. Fuming players wander out of it.','Steals the ball, most of all from tall, slow or tired players. Tires you, gives easy shots when beaten. Fuming players love it, sulking ones jog.'],
-  guard:['Nobody special on their star.','Your best defender follows their star everywhere. Tiring, and their others get a little more room.','Two on their most dangerous player, your two best defenders: their star if they play star ball, their best shooter if they share or run set plays. Stops the star most of the time, but a star with more attack, or a buzzing, fresh one, beats it more often, and so does any star against weak or tired defenders. Leaves someone else open. Bad against a team that shares.'],
+  guard:['Nobody special on their star.','Your best defender follows their most dangerous player everywhere. A smaller bet than the double: it pays against a team that plays star ball, but against a team that shares or runs set plays their others get room, and it can cost you. Tiring for your defender.','Two on their most dangerous player, your two best defenders: their star if they play star ball, their best shooter if they share or run set plays. Stops the star most of the time, but a star with more attack, or a buzzing, fresh one, beats it more often, and so does any star against weak or tired defenders. Leaves someone else open. Bad against a team that shares.'],
   boards:['Run back after every shot. Stops their fast breaks, gives up second shots.','A bit of both.','Everyone to the hoop for second shots. A quick team runs past you. Tires legs.']};
 const heightWord=h=>h>0.75?'very tall':h>0.5?'tall':h>0.25?'short':'tiny';
 function render(){

@@ -439,7 +439,7 @@ function playMatch(A,B,ruleKey){
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
     let tag=0;
     if(!forceInside){
-      if(shadow){if(isF){pm+=-0.04-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=0.03;}
+      if(shadow){if(isF){pm+=0.01-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=[0.04,0.03,0.06][os.off];}   // the shadow is a smaller bet than the double (Harry, 19 Nov 2026: it gained against every attack, about +11 against star ball, +4 against sharing, +8 against set plays; on the twenty-minute match now about +5, -2, 0, the double +9, -5, +3)
       if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f,D)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.11,0.06,0.08][os.off];tag=3;O.openA++;}} // the star may beat the double; a sharing team finds the open man, a star-ball team does not (a wrong double costs less than a right one gains since 17 Nov 2026)
     }
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.08;   // a fighter shoots better when angry (0.11 until 14 Nov 2026: challenging a fighter was worth more than any other talk, and trash talk at fighters cost the sender 11 points; Harry: unfair)
