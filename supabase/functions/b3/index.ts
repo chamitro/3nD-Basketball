@@ -12,8 +12,8 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const ord=n=>n+(['st','nd','rd'][n-1]||'th');
 const SYL=['bo','mi','ra','te','ku','zi','lo','pa','nu','gri','fla','sno','wib','dub','zog','pim','tok','mog','bel','faz','yub','nib','ruk','sha','vee','oz','kip','dax','lum','wug'];
 const usedNames=new Set();
-// Names (Harry, 19 Nov 2026, Winter League): a funny first name and a funny surname (basketball puns until 20 Nov 2026: not liked), and now and then (3%) a
-// legend, a spoof of a film character, each at most once in a league. Film characters only, never real people. Letters,
+// Names (Harry, 19 Nov 2026, Winter League): a funny first name and a funny surname (basketball puns until 20 Nov 2026: not liked), and often (20%, Harry 20 Nov 2026;
+// 3% before) a legend, a spoof of a film character (92 of them), each at most once in a league. Film characters only, never real people. Letters,
 // spaces and hyphens only (an apostrophe can break the page). The gym shows the short form (`shortName`). Players from
 // before keep their old one-word names (SYL, kept for them).
 const FIRST=['Biff','Noodle','Gus','Pickles','Dorian','Waldo','Tibbs','Moxie','Sully','Ziggy','Bubba','Fergus','Mabel','Otis','Pip',
@@ -32,8 +32,20 @@ const LEGENDS=[['Donnie Darkio','Darkio'],['Donnie Dunko','Dunko'],['Dunk Skywal
   ['Jason Bounce','Bounce'],['Ace Rimtura','Ace'],['Austin Powerdunk','Austin'],['Sherlock Hoops','Sherlock'],['Harry Potshot','Potshot'],
   ['Gandalf the Swish','Gandalf'],['Frodo Bagshots','Frodo'],['Optimus Dunk','Optimus'],['James Bondball','Bondball'],['Jeffrey Lebounce','Lebounce'],
   ['Neo Dunkerson','Neo'],['The Dunkinator','Dunkinator'],['Maximus Rebound','Maximus'],['John Rimbo','Rimbo'],['Max Madball','Madball'],
-  ['Chewbounce','Chewbounce'],['Master Hooda','Hooda']];
-const LEGEND_ODDS=0.03,RECENT_LAST=[];
+  ['Chewbounce','Chewbounce'],['Master Hooda','Hooda'],['Princess Layup','Layup'],['Lando Calrimshot','Lando'],['Kylo Rebound','Kylo'],
+  ['Jabba the Hoop','Jabba'],['Legolas Longshot','Legolas'],['Aragorn Alleyoop','Aragorn'],['Samwise Swishgee','Samwise'],['Bilbo Bankshot','Bilbo'],
+  ['Hermione Grandunk','Hermione'],['Albus Dunkledore','Dunkledore'],['Severus Swipe','Severus'],['Hagrid Hooper','Hagrid'],['Bruce Wayneball','Wayneball'],
+  ['Clark Kentshot','Kentshot'],['Peter Parkhoop','Parkhoop'],['Tony Starkdunk','Starkdunk'],['Thor Odunkson','Odunkson'],['Loki Layup','Loki'],
+  ['Doc Brownball','Doc'],['Vito Dunkleone','Dunkleone'],['Maverick Swish','Maverick'],['Captain Hookshot','Hookshot'],['Shreck Rebound','Shreck'],
+  ['Buzz Rimyear','Rimyear'],['Sheriff Woodball','Woodball'],['Simba Swish','Simba'],['Mufasa Dunk','Mufasa'],['Aladdunk','Aladdunk'],
+  ['Genie Jumpshot','Genie'],['Peter Panball','Panball'],['Elsa Freezethrow','Elsa'],['Olaf Snowdunk','Olaf'],['Morpheus Rebound','Morpheus'],
+  ['Agent Swishmith','Swishmith'],['Trinity Treys','Trinity'],['The Predunktor','Predunktor'],['Dunkzilla','Dunkzilla'],['King Konk','Konk'],
+  ['ET Phonehoop','Phonehoop'],['John McSlam','McSlam'],['Vincent Vegadunk','Vegadunk'],['Dorothy Dunk','Dorothy'],['Scarecrow Swish','Scarecrow'],
+  ['Willy Wonkashot','Wonkashot'],['Mary Hoppins','Hoppins'],['Jack Dunkson','Dunkson'],['William Wallball','Wallball'],['Count Dunkula','Dunkula'],
+  ['Captain Kirkshot','Kirkshot'],['Mister Spockball','Spockball'],['Kung Fu Pandunk','Pandunk'],['Katniss Everdunk','Everdunk'],['Mrs Doubtswish','Doubtswish'],
+  ['Frankendunk','Frankendunk'],['Jaws Rebound','Jaws'],['Smeagol Swish','Smeagol'],['Goose Bounce','Goose'],['Daniel Layusso','Layusso'],
+  ['Ron Weaslam','Weaslam'],['The Ghostblocker','Ghostblock']];
+const LEGEND_ODDS=0.2,RECENT_LAST=[];
 function makeName(){
   if(R()<LEGEND_ODDS){const free=LEGENDS.filter(l=>!usedNames.has(l[0]));if(free.length){const n=pick(free)[0];usedNames.add(n);return n;}}
   for(let t=0;t<200;t++){const l=pick(LAST);if(t<60&&RECENT_LAST.includes(l))continue;const n=pick(FIRST)+' '+l;if(!usedNames.has(n)){usedNames.add(n);RECENT_LAST.push(l);if(RECENT_LAST.length>12)RECENT_LAST.shift();return n;}}   // no surname twice among the last twelve: a pool of fourteen is mixed
@@ -988,7 +1000,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='1a0d69d5';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='bdc45c14';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
