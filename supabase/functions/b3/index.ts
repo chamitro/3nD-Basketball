@@ -378,7 +378,7 @@ function playMatch(A,B,ruleKey){
     pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
     let tag=0;
     if(!forceInside){
-      if(shadow){if(isF){pm+=-0.04-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=0.03;}
+      if(shadow){if(isF){pm+=-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=[0.06,0.03,0.07][os.off];}   // the shadow is a smaller bet than the double: it pays against star ball and costs against a team that shares (Harry, 19 Nov 2026: shadow teams won 11 of 14 in League 1; it gained against every attack, +11 against star ball, +4 against sharing, +8 against set plays; now about +6, -3, 0, the double +9, -5, +3)
       if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f,D)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.13,0.06,0.09][os.off];tag=3;O.openA++;}} // the star may beat the double; a sharing team finds the open man, a star-ball team does not (a wrong double costs less than a right one gains since 17 Nov 2026)
     }
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.08;   // a fighter shoots better when angry (0.11 until 14 Nov 2026: challenging a fighter was worth more than any other talk, and trash talk at fighters cost the sender 11 points; Harry: unfair)
@@ -841,7 +841,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='d9073e23';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='b4a0a29a';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
