@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.19-1343"></script>
+<script src="engine.js?v=2026.11.19-1352"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -618,7 +618,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.19-1343';   // stamped by build.py
+const APP_VERSION='2026.11.19-1352';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1551,7 +1551,7 @@ function renderHelp(){
   <li><b>The rule of each game</b> is picked by the higher seed for games 1 and 3 and by the lower seed for game 2, in the locker room under the game plan; the other team sees it as soon as it is picked. Nothing picked: the rule of the week, which everyone still votes on and which the friendlies are played under.</li>
   <li><b>Ties in the table</b> are settled by points, then the matches between the teams level on points, then points difference, then points scored. The computer team never takes a place. With fewer teams the bracket shrinks: with 6 or 7 teams the top six play (3 v 6 and 4 v 5 in week one, while 1st and 2nd have a bye and rest), with 4 or 5 semi-finals in week two and a final, with 2 or 3 only a final in week three.</li>
   <li><b>Trash talk in the play-offs</b> works as always: the ban covers your next match, and that may be the next game of your series.</li>
-  <li><b>Where to see it.</b> In the last three weeks of the regular season the table tags the teams in a play-off place. Your result after the last regular-season match says where you finished and what comes next for you, and during the play-offs a banner at the top of the locker room tells you your seed, your next game or your friendlies, with a button to the brackets. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>
+  <li><b>Where to see it.</b> All season the table tags the teams in a play-off place, with a line under 8th, and in the last three weeks of the regular season a card on the Table tab says when the play-offs start. Your result after the last regular-season match says where you finished and what comes next for you, and during the play-offs a banner at the top of the locker room tells you your seed, your next game or your friendlies, with a button to the brackets. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>
   <div class="note">${ONLINE?'<b>Online league:</b> the league being played now is '+LG()+', '+V.league.of+' matches.'+(V.league.no===1?' It is a one-month trial before the first Winter League.':'')+' If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, a league is seven matches, and the next league starts with the same eight teams as soon as you press the button.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
