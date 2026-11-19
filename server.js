@@ -199,17 +199,18 @@ async function meetings(store,no,today){
 }
 // ───────────────────────── play-offs (Harry, 17 Nov 2026) ─────────────────────────
 // The last PO_DAYS match days of a seasonal league are play-offs, one round a week, every series best of three.
-// Title play-offs for 1st to 6th: 3 v 6 and 4 v 5, then 1 and 2 meet the winners in the semi-finals, then the final.
-// The Silver Cup is the same bracket for 7th to 12th. With fewer teams a bracket shrinks to four (1 v 4, 2 v 3 in week
-// two) or to a final (week three). Everyone else, and every team knocked out, plays friendlies; a team with a bye, or
+// The top eight (Harry, 19 Nov 2026, from a friend's sketch; the Silver Cup is gone): quarter-finals 1 v 8, 4 v 5, 3 v 6,
+// 2 v 7, semi-finals (1/8 v 4/5, 3/6 v 2/7), the final. 1st and 2nd get the weakest opponents, pick the rule of games 1
+// and 3 of every series, and cannot meet before the final. With fewer teams the bracket shrinks to six (3 v 6 and 4 v 5,
+// 1 and 2 have a bye), four (1 v 4, 2 v 3 in week two) or a final (week three). Everyone else, and every team knocked out, plays friendlies; a team with a bye, or
 // whose series of the week is already decided, rests. Seeds are kept in each team's data and pub (`po`), the series are
 // worked out from the match records (`detail.po`), so nothing new is stored in the league row.
 // The higher seed picks the rule of games 1 and 3, the lower seed game 2; if they pick nothing the voted rule applies.
-const PO_SHAPES={6:[['a',3,6,0],['b',4,5,0],['s1',1,'a',1],['s2',2,'b',1],['f','s1','s2',2]],4:[['s1',1,4,1],['s2',2,3,1],['f','s1','s2',2]],2:[['f',1,2,2]]};
-const PO_CUPS={t:'Title play-offs',s:'Silver Cup'};
+const PO_SHAPES={8:[['q1',1,8,0],['q2',4,5,0],['q3',3,6,0],['q4',2,7,0],['s1','q1','q2',1],['s2','q3','q4',1],['f','s1','s2',2]],6:[['a',3,6,0],['b',4,5,0],['s1',1,'a',1],['s2',2,'b',1],['f','s1','s2',2]],4:[['s1',1,4,1],['s2',2,3,1],['f','s1','s2',2]],2:[['f',1,2,2]]};
+const PO_CUPS={t:'Play-offs'};
 function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const len=leagueLength(lg);return len>=CFG.PO_MIN?{len,reg:len-CFG.PO_DAYS}:null;}
 const poDay=(P,m)=>P&&m>P.reg?m-P.reg:0;   // 1..9 in the play-offs, 0 before
-const poSize=n=>n>=6?6:n>=4?4:n>=2?2:0;
+const poSize=n=>n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;
 // the final order of the regular season: points, then the matches among the teams level on points, then +/-, then points scored
 function poOrder(teams,results){
   const s=[...teams].sort((a,b)=>b.pts-a.pts),out=[];
@@ -220,17 +221,17 @@ function poOrder(teams,results){
     out.push(...g);i=j;}
   return out;
 }
-// seeds for the teams in that order: [{id, cup:'t'|'s'|null, seed, pos}]
+// seeds for the teams in that order: [{id, cup:'t'|null, seed, pos}] (cup 's' was the Silver Cup, 17-19 Nov 2026, never played)
 function poSeeds(order){
-  const n=order.length,ts=poSize(n),ss=ts===6?poSize(n-6):0;
-  return order.map((t,i)=>({id:t.id,cup:i<ts?'t':i<ts+ss?'s':null,seed:i<ts?i+1:i<ts+ss?i-ts+1:null,pos:i+1}));
+  const ts=poSize(order.length);
+  return order.map((t,i)=>({id:t.id,cup:i<ts?'t':null,seed:i<ts?i+1:null,pos:i+1}));
 }
 const poOf=(t,no)=>{const po=(t.data&&t.data.po)||(t.pub&&t.pub.po);return po&&po.league===no?po:null;};
 // the brackets as they stand: {t:{size,series:{key:{k,r,hi,lo,wh,wl,games,win,lose}}}, s:...}; hi/lo are team ids
 function poState(teams,results,no){
-  const seeds={t:new Map(),s:new Map()},seedOf=new Map(),cups={};
-  for(const t of teams){const po=poOf(t,no);if(!po||!po.cup)continue;seeds[po.cup].set(po.seed,t.id);seedOf.set(t.id,po.seed);}
-  for(const c of ['t','s']){const shape=PO_SHAPES[seeds[c].size];if(!shape)continue;const ser={};
+  const seeds={t:new Map()},seedOf=new Map(),cups={};
+  for(const t of teams){const po=poOf(t,no);if(!po||!seeds[po.cup])continue;seeds[po.cup].set(po.seed,t.id);seedOf.set(t.id,po.seed);}
+  for(const c of ['t']){const shape=PO_SHAPES[seeds[c].size];if(!shape)continue;const ser={};
     for(const [k,h,l,r] of shape){
       const src=x=>typeof x==='number'?seeds[c].get(x)||null:(ser[x]&&ser[x].win)||null;
       let hi=src(h),lo=src(l);if(hi&&lo&&seedOf.get(lo)<seedOf.get(hi))[hi,lo]=[lo,hi];
@@ -349,8 +350,8 @@ async function runMatchday(store,lg,now){
       const lines=reportLines(xs,ys,won,rule);
       // in the play-offs: where the series stands after this game, or that it was a friendly
       if(ps){const ser=ps.ser,wid=r.a.score>r.b.score?A.id:B.id,wh=ser.wh+(wid===ser.hi?1:0),wl=ser.wl+(wid===ser.lo?1:0),my=X.id===ser.hi?wh:wl,th=X.id===ser.hi?wl:wh;
-        const rd=ps.s==='f'?'final':ps.s[0]==='s'?'semi-final':'round one';
-        lines.unshift(`${PO_CUPS[ps.c]}, ${rd}, game ${ps.g+1}: series ${my}–${th}.`+(my===2?(ps.s==='f'?(ps.c==='t'?' YOU ARE THE CHAMPIONS!':' You win the Silver Cup!'):' You are through!'):th===2?(ps.s==='f'?' You lost the final.':' You are out.'):''));}
+        const rd=ps.s==='f'?'final':ps.s[0]==='s'?'semi-final':ps.s[0]==='q'?'quarter-final':'round one';
+        lines.unshift(`${PO_CUPS[ps.c]}, ${rd}, game ${ps.g+1}: series ${my}–${th}.`+(my===2?(ps.s==='f'?' YOU ARE THE CHAMPIONS!':' You are through!'):th===2?(ps.s==='f'?' You lost the final.':' You are out.'):''));}
       else if(pday)lines.unshift('A friendly: it does not count in the table.');
       // trash talk, as the manager hears of it (the sender's ban starts now, a ban served this match ends)
       const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
@@ -391,7 +392,7 @@ async function runMatchday(store,lg,now){
     for(const x of poSeeds(poOrder(inLg,[...poRes,...today]))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
       if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no){t.data.last.po=po;
         const nth=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
-        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the ${x.cup==='t'?'title play-offs':'Silver Cup'}`+(x.seed<=2&&(x.cup==='t'?inLg.length>=6:inLg.length>=12)?', with a bye in week one.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
+        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed and pick the rule of games 1 and 3.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
   let reset=false;
   if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
     const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at,lg.no+1));
@@ -400,8 +401,8 @@ async function runMatchday(store,lg,now){
     if(P)tbl.sort((a,b)=>((poOf(a,lg.no)||{}).pos||999)-((poOf(b,lg.no)||{}).pos||999));
     const fin=P?poAfter():null,fw=c=>fin&&fin[c]&&fin[c].series.f?fin[c].series.f.win:null;
     const nameOf=id=>{const t=map.get(id)||tbl.find(x=>x.id===id);return t?t.name:'';};
-    const champId=fw('t')||(tbl[0]?tbl[0].id:null),silverId=fw('s');
-    const champ=champId?nameOf(champId):'',silver=silverId?nameOf(silverId):null,top=tbl[0]?tbl[0].name:'';
+    const champId=fw('t')||(tbl[0]?tbl[0].id:null);
+    const champ=champId?nameOf(champId):'',top=tbl[0]?tbl[0].name:'';
     // managers who played part of this league and then went away get their place recorded too
     const all=(await store.allTeams()).map(t=>map.get(t.id)||t);
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
@@ -410,10 +411,10 @@ async function runMatchday(store,lg,now){
     const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=n===14?fairPool([...taken,...(avoid||[])],CAP):newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league; a pool of fourteen is always draftable under the cap
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);
-      const title=P?(t.id===champId?'champion':t.id===silverId?'silver':null):null;
-      t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,silver,top,title,seen:false};
+      const title=P?(t.id===champId?'champion':null):null;
+      t.data.final={league:lg.no,name:endedName,next:nextName,place,of:tbl.length,champion:champ,top,title,seen:false};
       t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
-      t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,silver,title,ended:now}].slice(-80);
+      t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
@@ -428,7 +429,7 @@ async function runMatchday(store,lg,now){
     // the all-time list: how many leagues each team has won, of how many it finished
     const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
-    lg.final={no:lg.no,name:endedName,champion:champ,silver,top,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
+    lg.final={no:lg.no,name:endedName,champion:champ,top,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
     // Everyone goes back to zero, and nobody is in the next league yet: a team is in it once its manager enters it.
     // (league_no of a manager's team is the last league it entered; only the house team moves on by itself)
     for(const t of rows){t.w=t.l=t.pf=t.pa=t.pts=0;t.pub={...t.pub,lw:null};if(t.is_house)t.league_no=lg.no+1;}

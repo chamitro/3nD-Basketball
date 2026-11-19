@@ -149,17 +149,19 @@ court is than the leaders' (0.3x to 1.7x); a team that was ahead loses `CB.ease`
 order fired. Teams 8+ down at half-time won 5% before, about 13% after (20% from 8-11 down, 25-30% for a stronger team
 with press, fast, outside or star). Check: `3nD-tests/comeback2.js`.
 
-## Play-offs and the Silver Cup (17 Nov 2026, from the Winter League)
+## Play-offs (17 Nov 2026, from the Winter League; top eight and no Silver Cup since 19 Nov 2026)
 
 The last `CFG.PO_DAYS` (9) match days of a season league of at least `PO_MIN` (18) are play-offs, one round a week, best of three.
-Title play-offs for 1st-6th (3v6, 4v5; 1 and 2 have a bye and rest; semi-finals; final), the Silver Cup for 7th-12th, the same
-bracket (`PO_SHAPES`; four teams play semi-finals in week two, two only a final in week three). After the last regular match day
+The top eight play (`PO_SHAPES[8]`): quarter-finals 1v8, 4v5, 3v6, 2v7, semi-finals (1/8 v 4/5, 3/6 v 2/7), final. 1st and 2nd
+meet the weakest teams, pick the rule of games 1 and 3, and cannot meet before the final. With 6-7 teams the old six bracket
+(3v6, 4v5, 1 and 2 have a bye), with 4-5 semi-finals and a final, with 2-3 a final. Everyone else plays friendlies. The Silver Cup
+for 7th-12th (cup `s`) was dropped before it was ever played. After the last regular match day
 `poOrder` (points, head-to-head among teams level, +/-, points scored) and `poSeeds` put `{league,cup,seed,pos}` in each team's
-`data.po` and `pub.po`; the table is frozen from then on. Nothing new is stored in the league row: `poState` works the brackets out
+`data.po` and `pub.po`; the table is frozen from then on. Nothing new is stored in the league row: `poState` works the bracket out
 from the seeds and the match records, which carry `detail.po = {c, s, g}`. `poPair` pairs the series of the week, friendlies for the
 rest (`pairUp`), and leaves byes and decided series unpaired: they rest (energy as a match off) and are not given the computer team
 when they open the game. The higher seed picks the rule of games 1 and 3, the lower seed game 2 (action `porule`, kept in
 `data.poRule` for that match); nothing picked means the voted rule of the week, which also rules the friendlies. The champion is
-the title final's winner (`data.won`, history `title`); `final.top` keeps the top of the table, `final.silver` the Silver Cup.
+the final's winner (`data.won`, history `title`); `final.top` keeps the top of the table.
 Store query `leagueResults` (scores with the `po` tag). Page: the bracket and series sheet on the Table tab, zones in the table,
 the play-off box with the rule picker in the locker room, help section 14.

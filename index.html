@@ -62,6 +62,12 @@
   .bracket{display:grid;grid-template-columns:minmax(0,1fr) 9px minmax(0,1fr);grid-template-areas:"h1 . h2" "a la s1" "b lb s2" ". . j" "f f f";gap:10px 0;align-items:center;margin-top:12px}
   .bracket.b4{grid-template-areas:"h2 . h2b" "s1 . s2" ". . j" "f f f";grid-template-columns:minmax(0,1fr) 9px minmax(0,1fr)}
   .bracket.b2{grid-template-areas:"f";grid-template-columns:1fr}
+  .bracket.b8{grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr);grid-template-areas:"h1 . h2" "q1 p1 s1" "q2 p1 s1" "q3 p2 s2" "q4 p2 s2" ". . j" "f f f"}
+  .bracket .q1{grid-area:q1}.bracket .q2{grid-area:q2}.bracket .q3{grid-area:q3}.bracket .q4{grid-area:q4}.bracket .p1{grid-area:p1}.bracket .p2{grid-area:p2}
+  .bracket .pair{align-self:stretch;position:relative}
+  .bracket .pair::before{content:"";position:absolute;left:0;right:40%;top:25%;bottom:25%;border:3px solid var(--ink);border-left:0;border-radius:0 8px 8px 0}
+  .bracket .pair::after{content:"";position:absolute;left:60%;right:0;top:50%;height:3px;margin-top:-1.5px;background:var(--ink)}
+  .bracket.b8 .join{grid-column:1/4;grid-row:6}
   .bh{font-size:12px;font-weight:800;color:var(--soft);text-transform:uppercase;letter-spacing:.06em}
   .bh.h1{grid-area:h1}.bh.h2{grid-area:h2}.bh.h3{display:none}
   .bracket .a{grid-area:a}.bracket .b{grid-area:b}.bracket .s1{grid-area:s1}.bracket .s2{grid-area:s2}.bracket .f{grid-area:f}.bracket .la{grid-area:la}.bracket .lb{grid-area:lb}
@@ -73,6 +79,7 @@
   @media (min-width:620px){
     .bracket{grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr) 28px minmax(0,1fr);grid-template-areas:"h1 . h2 . h3" "a la s1 sj f" "b lb s2 sj f"}
     .bracket.b4{grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);grid-template-areas:"h2 . h3" "s1 sj f" "s2 sj f"}
+    .bracket.b8{grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr) 28px minmax(0,1fr);grid-template-areas:"h1 . h2 . h3" "q1 p1 s1 sj f" "q2 p1 s1 sj f" "q3 p2 s2 sj f" "q4 p2 s2 sj f"}
     .bh.h3{display:block;grid-area:h3}
     .bracket .join{display:none}
     .bracket .sjoin{display:block;grid-area:sj;align-self:stretch;position:relative}
@@ -98,6 +105,7 @@
     .poseg button{font-size:13px}
     .card.pocard{padding:12px 9px}
     .pocard .bracket{grid-template-columns:minmax(0,1fr) 7px minmax(0,1fr)}
+    .pocard .bracket.b8{grid-template-columns:minmax(0,1fr) 9px minmax(0,1fr)}
     .pocard .sb{padding:5px 5px 6px}
     .pocard .srow{font-size:12.5px;gap:3px}
     .pocard .srow .seed{width:9px;font-size:10px}
@@ -345,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.19-1214"></script>
+<script src="engine.js?v=2026.11.19-1343"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -610,7 +618,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.19-1214';   // stamped by build.py
+const APP_VERSION='2026.11.19-1343';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1232,37 +1240,39 @@ $('orders').addEventListener('change',e=>{
   save();renderPlan();
 });
 // ───────────────────────── play-offs (17 Nov 2026) ─────────────────────────
-// The last three weeks of a season league: title play-offs for 1st to 6th, the Silver Cup for 7th to 12th, best of three.
-const PO_ROUND=k=>k==='f'?'Final':k[0]==='s'?'Semi-final '+k[1]:'Round one';
+// The last three weeks of a season league: play-offs for the top eight (1 v 8, 4 v 5, 3 v 6, 2 v 7), best of three. The Silver Cup
+// for 7th to 12th (17-19 Nov 2026) is gone: Harry, 19 Nov 2026.
+const PO_ROUND=k=>k==='f'?'Final':k[0]==='s'?'Semi-final '+k[1]:k[0]==='q'?'Quarter-final '+k[1]:'Round one';
+const PO_Q={q1:'1 v 8',q2:'4 v 5',q3:'3 v 6',q4:'2 v 7'};
 const poInfo=()=>ONLINE&&V&&V.league&&V.league.po||null;
 const poPips=n=>`<span class="pips"><i class="${n>0?'w':''}"></i><i class="${n>1?'w':''}"></i></span>`;
-function poRow(sd,wins,ser,tbd){
+function poRow(sd,wins,ser,tbd){if(Array.isArray(tbd))tbd=tbd[0];
   if(!sd)return `<div class="srow tbd"><span class="seed"></span><span class="nm">${tbd}</span></div>`;
   const cls=[ser.win===sd.id?'won':'',ser.win&&ser.win!==sd.id?'lost':'',S.me&&sd.id===S.me.id?'me':''].join(' ');
   return `<div class="srow ${cls}"><span class="seed">${sd.seed||''}</span>${kitChip(sd.kit)}<span class="nm">${esc(sd.name)}</span>${poPips(wins)}</div>`;
 }
 function poBox(cup,k,cls){
   const ser=cup.series.find(x=>x.k===k);if(!ser)return '';const po=poInfo(),live=po.day>0&&ser.r===Math.floor((po.day-1)/3)&&ser.hi&&ser.lo&&!ser.win;
-  const lab=k==='a'?'3 v 6':k==='b'?'4 v 5':k==='f'?(cup.c==='s'?'Silver Cup final':'Final'):PO_ROUND(k);
-  const tbd=k==='s1'?'Winner of 3 v 6':k==='s2'?'Winner of 4 v 5':k==='f'?'Winner of a semi-final':'';
+  const lab=k==='a'?'3 v 6':k==='b'?'4 v 5':PO_Q[k]||(k==='f'?'Final':PO_ROUND(k));
+  const b8=cup.size===8,tbd=k==='s1'?(b8?['Winner of 1 v 8','Winner of 4 v 5']:['Winner of 3 v 6']):k==='s2'?(b8?['Winner of 3 v 6','Winner of 2 v 7']:['Winner of 4 v 5']):k==='f'?['Winner of semi-final 1','Winner of semi-final 2']:[''];
   const right=ser.win?'done':ser.games.length?ser.wh+'–'+ser.wl:'';
-  return `<button type="button" class="sb ${cls} ${live?'live':''}" data-pc="${cup.c}" data-pk="${k}"><div class="lbl"><span>${lab}</span><span>${right}</span></div>${poRow(ser.hi,ser.wh,ser,tbd)}${poRow(ser.lo,ser.wl,ser,tbd)}</button>`;
+  return `<button type="button" class="sb ${cls} ${live?'live':''}" data-pc="${cup.c}" data-pk="${k}"><div class="lbl"><span>${lab}</span><span>${right}</span></div>${poRow(ser.hi,ser.wh,ser,tbd[0])}${poRow(ser.lo,ser.wl,ser,tbd[tbd.length-1])}</button>`;
 }
 function poHtml(){
   const po=poInfo();if(!po)return '';
   if(!po.cups){if(S.sunday<=po.reg-9)return '';
     const when=new Date(po.startAt).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
-    return `<div class="card" style="margin-bottom:16px"><h3>The play-offs are coming</h3><div class="small" style="margin:0">After match ${po.reg} the table is final. The top six play the <b>title play-offs</b>, 7th to 12th the <b>Silver Cup</b>, from ${when}: three weeks, every series best of three. The tags in the table show where everyone stands now.</div></div>`;}
+    return `<div class="card" style="margin-bottom:16px"><h3>The play-offs are coming</h3><div class="small" style="margin:0">After match ${po.reg} the table is final. The top eight play the <b>play-offs</b> from ${when}: quarter-finals 1 v 8, 4 v 5, 3 v 6 and 2 v 7, then the semi-finals and the final, one round a week, every series best of three. The tags in the table show where everyone stands now.</div></div>`;}
   const mine=V.me&&V.me.po&&V.me.po.cup;if(!S.poCup||!po.cups.some(c=>c.c===S.poCup))S.poCup=po.cups.some(c=>c.c===mine)?mine:po.cups[0].c;
   const cup=po.cups.find(c=>c.c===S.poCup);
   let h=`<div class="card pocard" style="margin-bottom:16px"><h3>Play-offs</h3>`;
-  if(po.cups.length>1)h+=`<div class="seg poseg" style="margin-bottom:4px">${po.cups.map(c=>`<button type="button" data-cup="${c.c}" class="${c.c===S.poCup?'on':''}">${c.c==='t'?'Title play-offs · <span style="white-space:nowrap">1st–6th</span>':'Silver Cup · <span style="white-space:nowrap">7th–'+(6+c.size)+'th</span>'}</button>`).join('')}</div>`;
-  if(cup.size===6)h+=`<div class="bracket"><div class="bh h1">Round one</div><div class="bh h2">Semi-finals</div><div class="bh h3">Final</div>${poBox(cup,'a','a')}<div class="link la"></div>${poBox(cup,'s1','s1')}${poBox(cup,'b','b')}<div class="link lb"></div>${poBox(cup,'s2','s2')}<div class="join"></div><div class="sjoin"></div>${poBox(cup,'f','f final')}</div>`;
+  if(cup.size===8)h+=`<div class="bracket b8"><div class="bh h1">Quarter-finals</div><div class="bh h2">Semi-finals</div><div class="bh h3">Final</div>${poBox(cup,'q1','q1')}${poBox(cup,'q2','q2')}<div class="pair p1"></div>${poBox(cup,'s1','s1')}${poBox(cup,'q3','q3')}${poBox(cup,'q4','q4')}<div class="pair p2"></div>${poBox(cup,'s2','s2')}<div class="join"></div><div class="sjoin"></div>${poBox(cup,'f','f final')}</div>`;
+  else if(cup.size===6)h+=`<div class="bracket"><div class="bh h1">Round one</div><div class="bh h2">Semi-finals</div><div class="bh h3">Final</div>${poBox(cup,'a','a')}<div class="link la"></div>${poBox(cup,'s1','s1')}${poBox(cup,'b','b')}<div class="link lb"></div>${poBox(cup,'s2','s2')}<div class="join"></div><div class="sjoin"></div>${poBox(cup,'f','f final')}</div>`;
   else if(cup.size===4)h+=`<div class="bracket b4"><div class="bh h2">Semi-finals</div><div class="bh h3">Final</div>${poBox(cup,'s1','s1')}${poBox(cup,'s2','s2')}<div class="join"></div><div class="sjoin"></div>${poBox(cup,'f','f final')}</div>`;
   else h+=`<div class="bracket b2">${poBox(cup,'f','f final')}</div>`;
   const fin=cup.series.find(x=>x.k==='f');
-  if(fin&&fin.win){const w=fin.win===fin.hi.id?fin.hi:fin.lo;h+=`<div class="trophy"><span class="big">${cup.c==='t'?'🏆':'🥈'}</span><span>${kitChip(w.kit)} ${esc(w.name)} ${cup.c==='t'?'are the champions':'win the Silver Cup'}</span></div>`;}
-  h+=`<div class="small" style="margin-top:10px">${po.cups.length>1?'Two brackets at once: the top six play for the title, 7th to '+(6+po.cups[1].size)+'th for the Silver Cup. ':''}Tap a series for its games and the rule of each. ● is a win; two wins take the series. The table below is final.</div></div>`;
+  if(fin&&fin.win){const w=fin.win===fin.hi.id?fin.hi:fin.lo;h+=`<div class="trophy"><span class="big">🏆</span><span>${kitChip(w.kit)} ${esc(w.name)} are the champions</span></div>`;}
+  h+=`<div class="small" style="margin-top:10px">Tap a series for its games and the rule of each. ● is a win; two wins take the series. The table below is final.</div></div>`;
   return h;
 }
 function poSheet(c,k){
@@ -1284,7 +1294,7 @@ function renderAlert(){
     const m=S.me.mid,po=poInfo(),mp=V.me.po;
     if(m)h+=`<div class="alert"><div class="at"><b>The mid-season window is open</b>${m.left} change${m.left===1?'':'s'} left until match ${m.until} is played: seven free agents, under your ${money(V.me.capW||CAP_WINDOW)} window cap. They leave when the window closes.</div><button type="button" id="alMid">Go to the window</button></div>`;
     if(po&&po.day>0&&po.cups){
-      const cupName=c=>c==='s'?'Silver Cup':'title play-offs';let t;
+      const cupName=()=>'play-offs';let t;
       if(mp&&mp.role==='series'){const cup=po.cups.find(c=>c.c===mp.c),ser=cup.series.find(x=>x.k===mp.s),op=ser.hi&&ser.hi.id===S.me.id?ser.lo:ser.hi;t=`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}. ${DAY()}: ${PO_ROUND(mp.s).toLowerCase()}, game ${mp.g+1} against ${esc(op?op.name:'')}${mp.picker?'. You pick the rule':''}.`;}
       else if(mp&&mp.role==='rest')t=mp.bye?`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}, with a bye this week: you rest and come back fresh for the semi-final.`:`Your series this week is decided, so you rest on ${DAY()}.`;
       else if(mp&&mp.cup)t=`Your ${cupName(mp.cup)} run is over this season. You play friendlies until the end of the league; they do not count in the table.`;
@@ -1301,7 +1311,7 @@ function renderPo(){
   if(!po||S.phase!=='week'||S.out){el.innerHTML='';return;}
   let h='';
   if(po.day===0){if(S.sunday>po.reg-9){const left=po.reg-S.sunday+1;
-    h=`<div class="pobox"><div class="lab">The play-offs</div><div class="small" style="margin:2px 0 0">${left} match${left>1?'es':''} left in the regular season. Then the top six play for the title and 7th to 12th for the Silver Cup, best of three. You are ${ord(placeOf(S.me))} now.</div></div>`;}}
+    h=`<div class="pobox"><div class="lab">The play-offs</div><div class="small" style="margin:2px 0 0">${left} match${left>1?'es':''} left in the regular season. Then the top eight play the play-offs, best of three. You are ${ord(placeOf(S.me))} now.</div></div>`;}}
   else if(me&&me.role==='series'){const cup=po.cups.find(c=>c.c===me.c),ser=cup.series.find(x=>x.k===me.s),hi=ser.hi&&ser.hi.id===S.me.id,my=hi?ser.wh:ser.wl,th=hi?ser.wl:ser.wh;
     h=`<div class="pobox"><div class="lab">${cup.name} · ${PO_ROUND(me.s)} · game ${me.g+1}</div><div class="small" style="margin:2px 0 4px">Series ${my}–${th}. Best of three: the first to two wins goes on.</div>`;
     if(me.picker)h+=`<div class="small" style="margin:0"><b>You pick the rule of this game.</b> ${esc(nextOpp()?nextOpp().name:'They')} see it as soon as you pick.</div><select id="poRule"><option value="">Rule of the week: ${esc(ruleOf(V.league.rule).txt)}</option>${RULES.map(r=>`<option value="${r.k}" ${me.chosen&&me.rule===r.k?'selected':''}>${esc(r.txt)}</option>`).join('')}</select>`;
@@ -1533,15 +1543,15 @@ function renderHelp(){
   <li><b>Late is allowed.</b> You can enter a league that is already running. You start from zero points.</li>
   <li><b>Away is allowed too.</b> A team whose manager stops opening the game keeps playing every match until the league ends, with its last line-up, plan and orders, tiring and sulking like any team nobody talks to. That goes for the play-offs too: such a team plays its series, and when it is its turn to pick a rule, the rule of the week applies. It is not left out and not drafted for; the manager picks up where they left.</li>
   <li><b>The record.</b> The Table tab keeps every league your team finished ("1st once, 4th three times") and a list of <b>leagues won</b> by every team. From the Winter League on, a league is won by winning the play-offs.</li></ul>
-  <h4><i>14</i>Play-offs and the Silver Cup</h4>
+  <h4><i>14</i>Play-offs</h4>
   <p>The last three weeks of a season league are the play-offs, one round a week. The table is final after the regular season: play-off games and friendlies do not count in it. Every series is <b>best of three</b>: the first to two wins goes on, and a third game is played only if needed.</p>
-  <ul><li><b>Title play-offs, 1st to 6th.</b> Week one: 3rd v 6th and 4th v 5th. 1st and 2nd have a bye: they rest and come back with full energy. Week two: the semi-finals, 1st against the winner of 3 v 6 and 2nd against the winner of 4 v 5. Week three: the final. Its winner is the <b>champion</b> in the list of leagues won; finishing top of the table is shown as well.</li>
-  <li><b>The Silver Cup, 7th to 12th.</b> The same bracket and the same rules for the middle of the table, with its own trophy.</li>
-  <li><b>Everyone else plays friendlies</b>: the teams below 12th, and every team knocked out. A team whose series of the week is already decided rests on the day of the unneeded game.</li>
+  <ul><li><b>The top eight.</b> Week one, the quarter-finals: 1st v 8th, 4th v 5th, 3rd v 6th, 2nd v 7th. Week two, the semi-finals: the winner of 1 v 8 against the winner of 4 v 5, and the winner of 3 v 6 against the winner of 2 v 7. Week three: the final. Its winner is the <b>champion</b> in the list of leagues won; finishing top of the table is shown as well.</li>
+  <li><b>Finishing high pays.</b> The higher you finish, the weaker the team you meet first: 1st plays 8th, 2nd plays 7th. The higher seed picks the rule of games 1 and 3 of every series, so a deciding game is played under its rule. And 1st and 2nd are on opposite sides of the bracket: they can only meet in the final.</li>
+  <li><b>Everyone else plays friendlies</b>: the teams below 8th, and every team knocked out. They do not count in the table but they still move moods, form and energy. A team whose series of the week is already decided rests on the day of the unneeded game.</li>
   <li><b>The rule of each game</b> is picked by the higher seed for games 1 and 3 and by the lower seed for game 2, in the locker room under the game plan; the other team sees it as soon as it is picked. Nothing picked: the rule of the week, which everyone still votes on and which the friendlies are played under.</li>
-  <li><b>Ties in the table</b> are settled by points, then the matches between the teams level on points, then points difference, then points scored. The computer team never takes a place. With fewer teams the brackets shrink: with 4 or 5 teams the title play-offs are semi-finals in week two and a final, with 2 or 3 only a final in week three. The Silver Cup needs a full title bracket: with 8 or 9 teams it is a final between 7th and 8th, with 10 or 11 semi-finals and a final for 7th to 10th, from 12 teams the full bracket for 7th to 12th.</li>
+  <li><b>Ties in the table</b> are settled by points, then the matches between the teams level on points, then points difference, then points scored. The computer team never takes a place. With fewer teams the bracket shrinks: with 6 or 7 teams the top six play (3 v 6 and 4 v 5 in week one, while 1st and 2nd have a bye and rest), with 4 or 5 semi-finals in week two and a final, with 2 or 3 only a final in week three.</li>
   <li><b>Trash talk in the play-offs</b> works as always: the ban covers your next match, and that may be the next game of your series.</li>
-  <li><b>Where to see it.</b> In the last three weeks of the regular season the table tags each team Title or Silver by its place. Your result after the last regular-season match says where you finished and what comes next for you, and during the play-offs a banner at the top of the locker room tells you your seed, your next game, your bye or your friendlies, with a button to the brackets. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Title play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>
+  <li><b>Where to see it.</b> In the last three weeks of the regular season the table tags the teams in a play-off place. Your result after the last regular-season match says where you finished and what comes next for you, and during the play-offs a banner at the top of the locker room tells you your seed, your next game or your friendlies, with a button to the brackets. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>
   <div class="note">${ONLINE?'<b>Online league:</b> the league being played now is '+LG()+', '+V.league.of+' matches.'+(V.league.no===1?' It is a one-month trial before the first Winter League.':'')+' If the number of managers is odd, one computer team fills the gap, and it leaves as soon as another manager joins. Your team lives in this browser: use "Play this team on another device" in the Table tab before you clear your browser data.':'<b>Practice mode:</b> the seven rival teams are run by the computer, you press "Play Sunday!" instead of waiting for match day, a league is seven matches, and the next league starts with the same eight teams as soon as you press the button.'}</div>
   <button class="go" id="helpOk" style="animation:none">Got it</button>`;
   $('helpX').onclick=$('helpOk').onclick=()=>$('help').classList.add('hide');
@@ -1633,7 +1643,7 @@ function roundHtml(){
   for(const m of RD.matches){
     const open=RD.matches.length<=3||[m.a,m.b].includes(mine)||[m.a,m.b].includes(next);
     h+=`<details class="rd" ${open?'open':''}><summary><span>${kitChip(m.ra.kit)}${esc(m.an)}</span><span class="scb">${m.sa}–${m.sb}</span><span>${kitChip(m.rb.kit)}${esc(m.bn)}</span>${[m.a,m.b].includes(mine)?'<span class="tagx">your match</span>':[m.a,m.b].includes(next)?'<span class="tagx">your next opponent</span>':''}</summary>
-    ${m.po?`<div class="small" style="margin:4px 0 0"><b>${m.po.c==='s'?'Silver Cup':'Title play-offs'} · ${PO_ROUND(m.po.s)} · game ${m.po.g+1}</b> · rule: ${esc(ruleOf(m.rule)?ruleOf(m.rule).txt:m.rule)}</div>`:RD.matches.some(x=>x.po)?'<div class="small" style="margin:4px 0 0">A friendly: it does not count in the table.</div>':''}<div class="rdg">${team(m.a,m.an,m.sa>m.sb,m.ra)}${team(m.b,m.bn,m.sb>m.sa,m.rb)}</div></details>`;
+    ${m.po?`<div class="small" style="margin:4px 0 0"><b>Play-offs · ${PO_ROUND(m.po.s)} · game ${m.po.g+1}</b> · rule: ${esc(ruleOf(m.rule)?ruleOf(m.rule).txt:m.rule)}</div>`:RD.matches.some(x=>x.po)?'<div class="small" style="margin:4px 0 0">A friendly: it does not count in the table.</div>':''}<div class="rdg">${team(m.a,m.an,m.sa>m.sb,m.ra)}${team(m.b,m.bn,m.sb>m.sa,m.rb)}</div></details>`;
   }
   if(RD.more)h+=`<div class="small">Only the first ${RD.matches.length} matches of this match day are listed.</div>`;
   return h+`</div>`;
@@ -1665,8 +1675,8 @@ function renderLeague(){
   h+=poHtml();
   h+=roundHtml();
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th><th class="n" title="squad value under the wage cap">Value</th></tr>`;
-  const zoneOf=(()=>{const po=poInfo();if(!po)return ()=>null;if(S.poPos)return (t)=>(S.poPos.get(t.id)||{}).cup||null;const n=table().length,sz=x=>x>=6?6:x>=4?4:x>=2?2:0,ts=sz(n),ss=ts===6?sz(n-6):0;return (t,i)=>i<ts?'t':i<ts+ss?'s':null;})();let zPrev=null;
-  table().forEach((t,i)=>{const z=zoneOf(t,i),cut=i>0&&z!==zPrev;zPrev=z;h+=`<tr class="${t.human?'me':''} ${cut?'zcut':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${ONLINE&&t.id?`<span class="tlink" data-team="${t.id}">${esc(t.name)}</span>`:esc(t.name)}${z?`<span class="ztag ${z}">${z==='t'?'Title':'Silver'}</span>`:''}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td><td class="n">${t.human&&S.me?money(squadValue(S.me.players)):t.sv?money(t.sv):t.players&&t.players.length?money(squadValue(t.players)):'–'}</td></tr>`;});
+  const zoneOf=(()=>{const po=poInfo();if(!po)return ()=>null;if(S.poPos)return (t)=>(S.poPos.get(t.id)||{}).cup||null;const n=table().length,ts=n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;return (t,i)=>i<ts?'t':null;})();let zPrev=null;
+  table().forEach((t,i)=>{const z=zoneOf(t,i),cut=i>0&&z!==zPrev;zPrev=z;h+=`<tr class="${t.human?'me':''} ${cut?'zcut':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${ONLINE&&t.id?`<span class="tlink" data-team="${t.id}">${esc(t.name)}</span>`:esc(t.name)}${z?`<span class="ztag ${z}">Play-offs</span>`:''}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td><td class="n">${t.human&&S.me?money(squadValue(S.me.players)):t.sv?money(t.sv):t.players&&t.players.length?money(squadValue(t.players)):'–'}</td></tr>`;});
   if(ONLINE&&!table().length)h+=`<tr><td colspan="7" style="text-align:center;padding:14px 6px">No team has entered ${theName(LGS())} yet.</td></tr>`;
   h+=`</table>${ONLINE&&S.out?`<div class="note" style="margin-top:10px"><b>${S.me.name} is not in ${theName(LGS())} yet.</b> Every league starts with no teams. Go to the Locker room tab and press "Enter ${theName(LGS())}".</div>`:''}<div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+matchWhen()+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may change ${SWAP_WORDS} of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
@@ -1715,7 +1725,7 @@ function renderEnter(){
   const when=new Date(t).toLocaleString(undefined,{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
   let h='';
   if(fresh){
-    h+=`<div class="card pop" style="margin-top:16px;text-align:center"><h3 style="font-size:28px">${won?('You won '+theName(doneName(f))+'!').toUpperCase():cap(theName(doneName(f)))+' is over'}</h3><div>${won?'Somebody find a bigger shelf. That is '+(S.won||1)+' of '+(S.played||1)+' leagues won.':'You finished '+ord(f.place)+' of '+f.of+' in the table. '+(f.champion||'Nobody')+' took the title.'+(f.title==='silver'?' <b>And you won the Silver Cup!</b>':f.silver?' '+f.silver+' won the Silver Cup.':'')}${f.top&&f.top!==f.champion?' '+f.top+' finished top of the table.':''}</div>`;
+    h+=`<div class="card pop" style="margin-top:16px;text-align:center"><h3 style="font-size:28px">${won?('You won '+theName(doneName(f))+'!').toUpperCase():cap(theName(doneName(f)))+' is over'}</h3><div>${won?'Somebody find a bigger shelf. That is '+(S.won||1)+' of '+(S.played||1)+' leagues won.':'You finished '+ord(f.place)+' of '+f.of+' in the table. '+(f.champion||'Nobody')+' took the title.'}${f.top&&f.top!==f.champion?' '+f.top+' finished top of the table.':''}</div>`;
     if(lf&&lf.no===f.league&&lf.table&&lf.table.length){
       h+=`<table style="margin-top:12px;text-align:left"><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">Pts</th></tr>`;
       lf.table.forEach((x,i)=>{h+=`<tr class="${x.name===S.me.name?'me':''}"><td>${i+1}</td><td>${x.name}</td><td class="n">${x.w}</td><td class="n">${x.l}</td><td class="n"><b>${x.pts}</b></td></tr>`;});
