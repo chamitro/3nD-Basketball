@@ -143,6 +143,12 @@ doubled shot the star may beat the double (`beatChance`: the star's attack and s
 two best defenders on the court), a wrong double costs less than a right one gains, and the player named for everything
 through stays on the court.
 
+Comebacks (Winter, 19 Nov 2026, `CB` and `swing` in engine.js): in the second half a team that was behind at half-time
+gets `CB.push` (0.14) on its shots while still behind, if an order other than slow fired, scaled by how much better its
+court is than the leaders' (0.3x to 1.7x); a team that was ahead loses `CB.ease` (0.06) while still ahead, half that if an
+order fired. Teams 8+ down at half-time won 5% before, about 13% after (20% from 8-11 down, 25-30% for a stronger team
+with press, fast, outside or star). Check: `3nD-tests/comeback2.js`.
+
 ## Play-offs and the Silver Cup (17 Nov 2026, from the Winter League)
 
 The last `CFG.PO_DAYS` (9) match days of a season league of at least `PO_MIN` (18) are play-offs, one round a week, best of three.

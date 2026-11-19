@@ -142,6 +142,12 @@ const ORDER_MARGIN=8;   // behind or ahead from this many points on (5 with the 
 // match of before (Harry, 14 Nov 2026: scores were too small for the friends). In-match tiring per possession is halved
 // to keep a whole match worth the same.
 const POSS=[30,38,46],POSS_SCALE=0.5;
+// Comebacks (Harry, 19 Nov 2026: "around 15-20%", for a really good team whose manager gives good orders). A team behind
+// at half-time plays the second half with urgency while it is still behind, if its manager left an order for that case
+// (not "slow", which gives up the chase), worth more the better its players are than the leader's. A team ahead at
+// half-time eases off while it is still ahead, half as much if its manager left an order to keep it busy. Before this,
+// 5% of teams behind by 8+ won; now about 14%, 21% from 8-11 down, 25-30% for a stronger team with a fitting order.
+const CB={ease:0.06,push:0.14};
 const orderOf=k=>ORDERS.find(o=>o.k===k);
 // From 17 to 18 Nov 2026 the half-time card took up to two changes per case, {ch:{dial:value},free,star,talk}; Harry's friends
 // found it too complicated, so it is one order per case again. An order saved in that format becomes one order: the player
@@ -409,7 +415,7 @@ function playMatch(A,B,ruleKey){
     if(dbl&&isF)pTO+=0.03;
     if(rule==='slippery')pTO*=2;if(rule==='no_dribble')pTO*=1.4;
     if(R()<pTO){sst.to++;if(ds.def===2||rule==='defence'){D.steals++;const thief=D.st[wpick(D.court,d=>d.df+(d.mood==='angry'?1.5:0)+(d.mood==='sad'?-0.8:0)).id];thief.stl++;if(rule==='defence'){D.score++;D.rb++;thief.pts++;}}return;}
-    let q=O.lift||0;if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
+    let q=(O.lift||0)+swing(O,D);if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
     if(os.tempo===0)q+=m==='nervous'?0.04:-0.015; // a slow attack meets a set defence
     if(os.tempo===2)q+=m==='happy'?0.03:m==='sad'?-0.06:0;
     // how the attack is run
@@ -492,6 +498,11 @@ function playMatch(A,B,ruleKey){
   const bringOn=(X,p)=>{   // a bench player comes on for the most tired player on the court
     if(!X.bench.includes(p))return false;const tired=[...X.court].sort((u,v)=>X.st[v.id].f-X.st[u.id].f)[0];
     X.court[X.court.indexOf(tired)]=p;X.bench[X.bench.indexOf(p)]=tired;return true;};
+  const swing=(O,D)=>{if(!O.half||!D.half)return 0;const g=O.score-D.score;let s=0;
+    if(O.half.cond==='behind'&&g<0){const k=clamp(1+5*(avg(O.court,rating)/avg(D.court,rating)-1),0.3,1.7);   // the better the team, the more the urgency is worth
+      s+=(O.half.order&&O.half.order!=='slow'?CB.push*k:0)+CB.ease*(D.half.order?0.5:1);}
+    if(O.half.cond==='ahead'&&g>0)s-=CB.ease*(O.half.order?0.5:1);
+    return s;};
   const halfTime=()=>{
     const m=a.score-b.score;
     for(const [X,d] of [[a,m],[b,-m]]){
@@ -585,6 +596,10 @@ function reportLines(X,Y,won,rule){
   if(tiredAvg>0.62)bad.push([6,`${X.sheet.def===2?'The press':X.sheet.tempo===2?'Fast tempo':'A long game'} wore your players out by the end.`]);
   if(Y.oreb-X.oreb>=3)bad.push([Y.oreb-X.oreb+2,xs.boards===0?`You got back early and left them the rebounds: ${Y.oreb} second shots.`:`They owned the rebounds: ${Y.oreb} second shots.`]);
   const tos=ps.reduce((s,p)=>s+st(p).to,0);if(tos>=6&&!(Y.sheet.def===2&&Y.steals>=4))bad.push([tos,`You fumbled the ball away ${tos} times.`]);
+  if(X.half){const h=X.half,gap=Math.abs(h.us-h.them),chase=h.order&&h.order!=='slow';   // comebacks (see CB)
+    if(h.cond==='behind'&&won)good.push([30,`${gap} down at half-time and your players never stopped chasing${chase?": your order gave them something to chase":""}.`]);
+    if(h.cond==='behind'&&!won&&!chase)bad.push([7,`${gap} down at half-time with ${h.order==='slow'?'the game slowed down':'no order for it'}: nothing to chase with.`]);
+    if(h.cond==='ahead'&&!won)bad.push([30,`${gap} up at half-time, your players eased off${h.order?'':', with no order to keep them busy'}.`]);}
   good.sort((x,y)=>y[0]-x[0]);bad.sort((x,y)=>y[0]-x[0]);
   if(won){if(good[0])L.push(good[0][1]);if(good[1])L.push(good[1][1]);else if(bad[0])L.push('Even so: '+bad[0][1]);}
   else{if(bad[0])L.push(bad[0][1]);if(bad[1])L.push(bad[1][1]);else if(good[0])L.push('Still: '+good[0][1]);}
@@ -908,7 +923,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='37bbe898';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='8ad290ed';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
