@@ -151,7 +151,7 @@ with press, fast, outside or star). Check: `3nD-tests/comeback2.js`.
 
 ## Names (19 Nov 2026, Winter)
 
-`makeName` (engine.js): a first name from `FIRST` (60) and a basketball-pun surname from `LAST` (60), 3600 in all, unique in
+`makeName` (engine.js): a first name from `FIRST` (60) and a funny surname from `LAST` (60; basketball puns until 20 Nov 2026, Harry did not like them), 3600 in all, unique in
 the league (`usedNames`, filled by the server from every name in play); 3% of the time a legend from `LEGENDS` (32 spoofs of
 film characters, never real people), each at most once a league. Letters, spaces and hyphens only. The gym tag shows
 `shortName` (the surname, or the legend's own word; `gymTag` adds the initial when two teammates share it). Old one-word

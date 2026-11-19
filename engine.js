@@ -9,7 +9,7 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const ord=n=>n+(['st','nd','rd'][n-1]||'th');
 const SYL=['bo','mi','ra','te','ku','zi','lo','pa','nu','gri','fla','sno','wib','dub','zog','pim','tok','mog','bel','faz','yub','nib','ruk','sha','vee','oz','kip','dax','lum','wug'];
 const usedNames=new Set();
-// Names (Harry, 19 Nov 2026, Winter League): a funny first name and a basketball-pun surname, and now and then (3%) a
+// Names (Harry, 19 Nov 2026, Winter League): a funny first name and a funny surname (basketball puns until 20 Nov 2026: not liked), and now and then (3%) a
 // legend, a spoof of a film character, each at most once in a league. Film characters only, never real people. Letters,
 // spaces and hyphens only (an apostrophe can break the page). The gym shows the short form (`shortName`). Players from
 // before keep their old one-word names (SYL, kept for them).
@@ -17,12 +17,12 @@ const FIRST=['Biff','Noodle','Gus','Pickles','Dorian','Waldo','Tibbs','Moxie','S
   'Rufus','Bertie','Clem','Doris','Fifi','Gertie','Hank','Iggy','Lulu','Mungo','Nell','Ozzie','Percy','Rocco','Stan',
   'Vinnie','Wanda','Chuck','Dudley','Edna','Floyd','Gladys','Hector','Jasper','Lenny','Nigel','Olive','Reggie','Sid','Trudy',
   'Wilbur','Crumpet','Muffin','Taco','Pudding','Biscuit','Sprout','Waffles','Nugget','Bean','Dotty','Fizz','Gumbo','Tater','Yolanda'];
-const LAST=['Dunkworth','McRebound','Bricksley','Airball','Hoopington','Swishman','Backboard','Layupski','Dribbleton','Netley',
-  'Rimsworth','Bouncer','Alleyoop','Fastbreak','Jumpshot','Hangtime','Buzzer','Crossover','Fadeaway','Boxout',
-  'Pickroll','Floater','Bankshot','Hooper','Dunkley','Swishby','Rimrock','Brickman','Courtside','Benchley',
-  'Sneakers','Squeaks','Tipoff','Sixthman','Overtime','McHoop','Dunkerson','Shotclock','Freethrow','Splashley',
-  'Bucketson','Glassman','Paintley','Rimshaw','Dribbs','Hoopsley','Swooshley','Layupton','Bricksby','Netsworth',
-  'Timeout','Ballhog','Swatley','Stepback','Elbowski','Baseline','Wingspan','Bonksley','Hookshot','Jersey'];
+const LAST=['Snodgrass','Wobbles','Puddlefoot','Bumblesby','Noodleman','Picklesby','Waddleton','Wigglesby','Butterfoot','Pumpkinson',
+  'McWobble','Fizzwick','Gobbleton','Snorkel','Puddingham','Muddlesby','Grumbleton','Bottomley','Sniffles','Wonkers',
+  'Doodle','Fumbleton','Twiddle','Crumbsby','Jellybean','Pillowfort','Moonsock','Wafflesby','Toadley','Bogsworth',
+  'Plopsby','Squishy','Burpington','Snoozle','Tumbleweed','Gigglesby','Hiccupson','Sockless','Bananas','Fiddlewick',
+  'Honkwell','Quackers','Mumbles','Scramble','Bumbleford','Parsnip','Turnipseed','Spudsworth','Cabbage','Noodlehead',
+  'Fuzzbucket','Lollipop','Kerfuffle','Hullabaloo','Brouhaha','Malarkey','Shenanigan','Rigmarole','Gobbledy','Dumpling'];
 const LEGENDS=[['Donnie Darkio','Darkio'],['Donnie Dunko','Dunko'],['Dunk Skywalker','Skywalker'],['Hoop Solo','Solo'],['Darth Dribbler','Darth'],
   ['Forrest Dunk','Forrest'],['Rocky Rebound','Rocky'],['Indiana Hoops','Indiana'],['Marty McDunk','McDunk'],['Jack Sparrowball','Sparrowball'],
   ['Ferris Brickler','Ferris'],['Obi-Wan Swishobi','Obi-Wan'],['Hoopy Gilmore','Gilmore'],['Napoleon Dunkamite','Napoleon'],['Edward Swishorhands','Edward'],
@@ -30,10 +30,10 @@ const LEGENDS=[['Donnie Darkio','Darkio'],['Donnie Dunko','Dunko'],['Dunk Skywal
   ['Gandalf the Swish','Gandalf'],['Frodo Bagshots','Frodo'],['Optimus Dunk','Optimus'],['James Bondball','Bondball'],['Jeffrey Lebounce','Lebounce'],
   ['Neo Dunkerson','Neo'],['The Dunkinator','Dunkinator'],['Maximus Rebound','Maximus'],['John Rimbo','Rimbo'],['Max Madball','Madball'],
   ['Chewbounce','Chewbounce'],['Master Hooda','Hooda']];
-const LEGEND_ODDS=0.03;
+const LEGEND_ODDS=0.03,RECENT_LAST=[];
 function makeName(){
   if(R()<LEGEND_ODDS){const free=LEGENDS.filter(l=>!usedNames.has(l[0]));if(free.length){const n=pick(free)[0];usedNames.add(n);return n;}}
-  for(let t=0;t<200;t++){const n=pick(FIRST)+' '+pick(LAST);if(!usedNames.has(n)){usedNames.add(n);return n;}}
+  for(let t=0;t<200;t++){const l=pick(LAST);if(t<60&&RECENT_LAST.includes(l))continue;const n=pick(FIRST)+' '+l;if(!usedNames.has(n)){usedNames.add(n);RECENT_LAST.push(l);if(RECENT_LAST.length>12)RECENT_LAST.shift();return n;}}   // no surname twice among the last twelve: a pool of fourteen is mixed
   for(let t=0;t<80;t++){let n=pick(SYL)+pick(SYL)+pick(SYL);n=n[0].toUpperCase()+n.slice(1);if(!usedNames.has(n)){usedNames.add(n);return n;}}   // all 3600 taken: the old kind
   return 'Zed '+Math.floor(R()*9999);}
 const isLegend=n=>LEGENDS.some(l=>l[0]===n);
