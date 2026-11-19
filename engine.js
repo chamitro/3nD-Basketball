@@ -369,7 +369,7 @@ function boxOf(X){
 function playMatch(A,B,ruleKey){
   const rule=ruleKey;
   const mk=T=>{
-    let avail=T.players;if(rule==='tall_out'){const t=tallestId(T);avail=avail.filter(p=>p.id!==t);}
+    let avail=T.players.filter(p=>!(p.inj>0));if(avail.length<3)avail=[...avail,...T.players.filter(p=>p.inj>0).sort((a,b)=>a.inj-b.inj).slice(0,3-avail.length)];   // never fewer than three: the least hurt playif(rule==='tall_out'){const t=tallestId(T);avail=avail.filter(p=>p.id!==t);}
     const court=T.starters.map(id=>avail.find(p=>p.id===id)).filter(Boolean);
     // a manager who named nobody is punished: the three weakest players start (a line-up cut short by the rule of the
     // week is still filled with the best of the rest)
@@ -377,9 +377,12 @@ function playMatch(A,B,ruleKey){
     const rest=avail.filter(p=>!court.includes(p)).sort((a,b)=>noLineup?rating(a)-rating(b):rating(b)-rating(a));
     while(court.length<3&&rest.length)court.push(rest.shift());
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
+    // an injury among the named players: the bench is filled back up to the substitutes the manager named, with the best left
+    if([...(T.starters||[]),...(T.subs||[])].some(id=>{const p=T.players.find(q=>q.id===id);return p&&p.inj>0;})){
+      const want=Math.min(2,(T.subs||[]).length);for(const p of avail.filter(p=>!court.includes(p)&&!bench.includes(p)).sort((a,b)=>rating(b)-rating(a))){if(bench.length>=want)break;bench.push(p);}}
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0,reb:0,stl:0,dg:0,da:0};
     // the playing-time plan, as shares of the match, when it is whole and the rules allow substitutions
-    const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
+    const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&court.every(p=>T.starters.includes(p.id))&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
     return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
   };
   const a=mk(A),b=mk(B);
@@ -769,8 +772,22 @@ function energyAfter(team,X){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
     p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);   // the body's tiring rate on the cost, the night's recovery for everybody
+    injuryAfter(p,share,hard);
   }
 }
+// Injuries (Harry, 19 Nov 2026; play-offs included). Mostly the manager's doing: a fresh player almost never gets hurt,
+// one sent out on tired legs often does, a heavy or very tall body more, a press or a fast game more. Out for 1 to 3
+// matches; the count goes down with every match day the team has (a rest day as well). An injured player cannot play:
+// the best one left starts in their place. `p.inj` is the matches still to miss, `p.hurt` marks a new injury for the result.
+const INJ={base:0.001,tired:0.05,len:[0.5,0.3,0.2]};   // per whole match: 0.1% fresh, about 0.3% at three energy dots, 1.5% at two, 5% at one (times body and plan)
+function injuryAfter(p,share,hard){
+  delete p.hurt;
+  if(p.inj>0&&!(share>0)){p.inj--;return;}
+  if(!(share>0))return;
+  const t0=clamp((4-(p.enWas===undefined?4:p.enWas))/3,0,1);   // how tired they were when the match began
+  if(R()<share*tireOf(p)*hard*(INJ.base+INJ.tired*t0*t0*t0)){p.inj=odds(INJ.len)+1;p.hurt=true;}
+}
+const injDays=n=>n===1?'the next match':'the next '+n+' matches';
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)
 const QUIET_LIMIT={showoff:2,pleaser:2,joker:2,worrier:2,hothead:2,veteran:3,fighter:3,easygoing:4,loner:999};
 // how a match leaves one team: moods, then form (stats drift). X is that team's side of playMatch's result.

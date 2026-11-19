@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.19-1435"></script>
+<script src="engine.js?v=2026.11.19-1514"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -422,6 +422,7 @@ function playSunday(){
   S.lastSheets=S.teams.map(t=>({name:t.name,sheet:{...t.sheet},w:day[t.name].w,l:day[t.name].l,human:t.human}));
   // how the match left them feeling, and what it did to their form
   const moves=myX?aftermath(S.me,myX,res[0].won,conceded):[];
+  if(myX)for(const p of S.me.players)if(p.hurt)res[0].lines.push(`${p.n} got hurt${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
   // vote
   const tally=S.vote.opts.map(()=>0);for(let i=0;i<7;i++)tally[Math.floor(R()*3)]++;if(S.myVote!==null)tally[S.myVote]++;
   S.vote.tally=tally;S.vote.winner=S.vote.opts[tally.indexOf(Math.max(...tally))];
@@ -444,7 +445,7 @@ function newCup(){
   for(const id of S.swapIn.slice(0,outs.length)){const p=S.agents.find(a=>a.id===id);S.me.players.push(p);}
   for(const t of S.teams){t.w=t.l=t.pf=t.pa=0;if(!t.human&&R()<0.6){const worst=[...t.players].sort((a,b)=>rating(a)-rating(b))[0];t.players[t.players.indexOf(worst)]=makePlayer();}}
   S.me.starters=S.me.starters.filter(id=>byId(S.me,id));S.me.subs=S.me.subs.filter(id=>byId(S.me,id));
-  S.cup++;S.sunday=1;S.agents=[];S.sel=S.me.players[0].id;
+  S.cup++;S.sunday=1;S.agents=[];for(const p of S.me.players){delete p.inj;delete p.hurt;}S.sel=S.me.players[0].id;
   startWeek(false);
 }
 
@@ -618,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.19-1435';   // stamped by build.py
+const APP_VERSION='2026.11.19-1514';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -997,6 +998,7 @@ function drawGym(t,dt){
     else if(me.subs.includes(p.id)){g.fillStyle='#74c0fc';g.font='900 11px system-ui';pillH(g,p.x-20,p.y+38,40,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SUB',p.x,p.y+51);}
     else if(p.id===out){g.fillStyle='#ffb3b3';g.font='900 11px system-ui';pillH(g,p.x-32,p.y+38,64,18);g.fill();g.stroke();g.fillStyle=INK;g.fillText('SITS OUT',p.x,p.y+51);}
     if(hasEnergy(p)&&energyOf(p)<=2.5){const lvl=energyOf(p)<=1.5?1:2,bx=p.x-tw/2-22,by=p.y+15;g.lineWidth=2.5;g.strokeStyle=INK;g.fillStyle='#fff';g.fillRect(bx,by,17,11);g.strokeRect(bx,by,17,11);g.fillStyle=INK;g.fillRect(bx+17,by+3,3,5);g.fillStyle=lvl===1?'#ef476f':'#ff9f1c';g.fillRect(bx+2,by+2,lvl===1?4:8,7);g.lineWidth=3;}
+    if(p.inj>0){const bx=p.x-tw/2-24,by=p.y+3;g.fillStyle='#fff';g.strokeStyle=INK;g.lineWidth=2.5;g.beginPath();g.arc(bx+8,by+8,10,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#e03131';g.fillRect(bx+6,by+2,4,12);g.fillRect(bx+2,by+6,12,4);g.lineWidth=3;}
     if(p.talked){g.fillStyle='#4d9de0';g.beginPath();g.arc(p.x+tw/2+2,p.y+12,9,0,Math.PI*2);g.fill();g.stroke();g.fillStyle='#fff';g.font='900 12px system-ui';g.fillText('✓',p.x+tw/2+2,p.y+16);}
   }
   // the pass and the chat between two players, and the loose ball
@@ -1076,7 +1078,7 @@ function renderCard(){
   const me=S.me;let p=byId(me,S.sel);if(!p){p=me.players[0];S.sel=p.id;}
   const out=S.rule==='tall_out'&&tallestId(me)===p.id;const st=me.starters.includes(p.id),sb=me.subs.includes(p.id);
   const role=out?'sits out this '+DAY()+' (the rule)':st?'starts on '+DAY():sb?'is a substitute':'is not playing this '+DAY();
-  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${bodyLine(p)} Value ${money(valueOf(p))}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}${hasEnergy(p)?energyPips(p):''}</div>${hasEnergy(p)&&energyNote(p)?'<div class="small" style="margin:-4px 0 8px;color:#c2410c">'+energyNote(p)+'</div>':''}<div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
+  $('pcard').innerHTML=`<h3>${p.n} <span style="font-weight:700;color:var(--soft);font-size:16px">is ${WORD[p.mood]} · ${TRUSTW[p.trust+2]}</span></h3><div class="hint">${chip(p)} ${CHAR[p.temp][2]} ${bodyLine(p)} Value ${money(valueOf(p))}.</div><div class="small" style="color:var(--ink);margin-top:6px">${MOODTIP[p.mood]}</div><div class="pips">${pips(p.sh,'Attack',p.tr.sh)}${pips(p.df,'Defence',p.tr.df)}${pips(p.sp,'Speed',p.tr.sp)}${hasEnergy(p)?energyPips(p):''}</div>${hasEnergy(p)&&energyNote(p)?'<div class="small" style="margin:-4px 0 8px;color:#c2410c">'+energyNote(p)+'</div>':''}${p.inj>0?'<div class="small" style="margin:-4px 0 8px;color:#e03131;font-weight:800">✚ Injured: misses '+injDays(p.inj)+'. If you name '+(p.n)+' to start, the best player left starts instead.</div>':''}<div class="small" style="margin:0 0 8px">${p.n} ${role}.${p.idle>=1&&!st&&!sb?' Has not played for '+p.idle+' match'+(p.idle>1?'es':'')+'.':''}${(p.quiet||0)>=1&&!p.talked?' <b style="color:#c92a2a">You have not talked to '+p.n+' for '+Math.floor(p.quiet)+' match'+(Math.floor(p.quiet)>1?'es':'')+'.</b>':''}</div><div class="btns"><button id="bStart" class="${st?'on':''}" ${out?'disabled':''}>Starts</button><button id="bSub" class="${sb?'on':''}" ${out?'disabled':''}>Substitute</button><button id="bBall" class="${me.ball===p.id?'on':''}" ${st?'':'disabled'}>${me.ball===p.id?'★ Is the star':'Make the star'}</button></div><div class="small">The star is the one your attack looks for. He gets the ball most, and takes the last shots of a close game. One star, and only a starter.</div>`;
   $('pcard').classList.remove('pop');void $('pcard').offsetWidth;$('pcard').classList.add('pop');
   $('bStart').onclick=()=>{if(st){me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else if(me.starters.length<3){me.starters.push(p.id);me.subs=me.subs.filter(id=>id!==p.id);}else toast('Three start. Take someone off first.');save();renderCard();renderPlan();};
   $('bSub').onclick=()=>{if(sb){me.subs=me.subs.filter(id=>id!==p.id);}else if(me.subs.length<2){me.subs.push(p.id);me.starters=me.starters.filter(id=>id!==p.id);if(me.ball===p.id)me.ball=null;}else toast('Two substitutes at most.');save();renderCard();renderPlan();};
@@ -1111,6 +1113,10 @@ function planCheck(){
   const oSp=ov?A(ov.top,p=>p.sp):2.5,oH=ov?A(ov.top,p=>p.h):0.5,oSh=ov?A(ov.top,p=>p.sh):2.5;
   const noRun=S.rule==='no_dribble'||S.rule==='tiny_court';
   const ro=p=>MOODFX[p.mood][2]+0.08*p.trust;
+  // injuries (facts only): who cannot play, and who takes the place
+  {const hurt=me.players.filter(p=>p.inj>0&&(me.starters.includes(p.id)||me.subs.includes(p.id)));
+    if(hurt.length)L.push([-1,`${names(hurt)} ${are(hurt)} injured and cannot play on ${DAY()}. The best player left takes the place.`]);
+    const oh=op?(op.players||[]).filter(p=>p.inj>0):[];if(oh.length)L.push([0,`On their side ${names(oh)} ${are(oh)} injured.`]);}
   // energy
   if(hasEnergy(st[0])){
     const worn=st.filter(p=>energyOf(p)<=1.5),tired=st.filter(p=>energyOf(p)>1.5&&energyOf(p)<=2.5);
@@ -1474,6 +1480,7 @@ function renderHelp(){
   <li><b>Resting a tired player does not upset them</b> and costs them no form. Leaving out a fresh player still does.</li>
   <li>A small battery appears beside the name of a tired player in the gym, and your assistant warns you before the match.</li></ul>
   <p>Play the same five every match and they are tired after three matches and worn out after four. You have seven players for a reason.</p>
+  <p><b>Injuries.</b> A player can get hurt in a match and miss the next one, two or three. It is mostly your doing: a fresh player almost never gets hurt, one sent out on tired legs often does, and a worn-out one much more often. Heavy and very tall bodies get hurt more, and a press or a fast game raises the risk a little. An injured player has a red cross in the gym and on the card, and cannot play: if you name them, the best player left takes their place, on the court or on the bench. Your result says who got hurt and for how long, and everybody can see the injured players of a team, like in real basketball. Injuries happen in the play-offs as well, and the break between two leagues heals everyone.</p>
   <h4><i>7</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>

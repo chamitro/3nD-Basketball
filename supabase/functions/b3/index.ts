@@ -372,7 +372,7 @@ function boxOf(X){
 function playMatch(A,B,ruleKey){
   const rule=ruleKey;
   const mk=T=>{
-    let avail=T.players;if(rule==='tall_out'){const t=tallestId(T);avail=avail.filter(p=>p.id!==t);}
+    let avail=T.players.filter(p=>!(p.inj>0));if(avail.length<3)avail=[...avail,...T.players.filter(p=>p.inj>0).sort((a,b)=>a.inj-b.inj).slice(0,3-avail.length)];   // never fewer than three: the least hurt playif(rule==='tall_out'){const t=tallestId(T);avail=avail.filter(p=>p.id!==t);}
     const court=T.starters.map(id=>avail.find(p=>p.id===id)).filter(Boolean);
     // a manager who named nobody is punished: the three weakest players start (a line-up cut short by the rule of the
     // week is still filled with the best of the rest)
@@ -382,7 +382,7 @@ function playMatch(A,B,ruleKey){
     const bench=(T.subs||[]).map(id=>avail.find(p=>p.id===id)).filter(p=>p&&!court.includes(p)).slice(0,2);
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0,reb:0,stl:0,dg:0,da:0};
     // the playing-time plan, as shares of the match, when it is whole and the rules allow substitutions
-    const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
+    const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&court.every(p=>T.starters.includes(p.id))&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
     return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
   };
   const a=mk(A),b=mk(B);
@@ -772,8 +772,22 @@ function energyAfter(team,X){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
     p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);   // the body's tiring rate on the cost, the night's recovery for everybody
+    injuryAfter(p,share,hard);
   }
 }
+// Injuries (Harry, 19 Nov 2026; play-offs included). Mostly the manager's doing: a fresh player almost never gets hurt,
+// one sent out on tired legs often does, a heavy or very tall body more, a press or a fast game more. Out for 1 to 3
+// matches; the count goes down with every match day the team has (a rest day as well). An injured player cannot play:
+// the best one left starts in their place. `p.inj` is the matches still to miss, `p.hurt` marks a new injury for the result.
+const INJ={base:0.001,tired:0.05,len:[0.5,0.3,0.2]};   // per whole match: 0.1% fresh, about 0.3% at three energy dots, 1.5% at two, 5% at one (times body and plan)
+function injuryAfter(p,share,hard){
+  delete p.hurt;
+  if(p.inj>0&&!(share>0)){p.inj--;return;}
+  if(!(share>0))return;
+  const t0=clamp((4-(p.enWas===undefined?4:p.enWas))/3,0,1);   // how tired they were when the match began
+  if(R()<share*tireOf(p)*hard*(INJ.base+INJ.tired*t0*t0*t0)){p.inj=odds(INJ.len)+1;p.hurt=true;}
+}
+const injDays=n=>n===1?'the next match':'the next '+n+' matches';
 // how many matches of silence each character puts up with before feeling ignored (a loner never minds)
 const QUIET_LIMIT={showoff:2,pleaser:2,joker:2,worrier:2,hothead:2,veteran:3,fighter:3,easygoing:4,loner:999};
 // how a match leaves one team: moods, then form (stats drift). X is that team's side of playMatch's result.
@@ -929,7 +943,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='bd1f07af';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='22c3e32d';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -997,7 +1011,7 @@ const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
-function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
 function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
@@ -1274,6 +1288,7 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
+        for(const p of X.data.players)if(p.hurt)lines.push(`${p.n} got hurt${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppKit:kitOf(Y.pub.kit,Y.name),oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
@@ -1283,7 +1298,7 @@ async function runMatchday(store,lg,now){
     matches.push(rec);
   }
   // a rest day: a bye, or a series already decided this week; the players get back what a match off gives
-  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players)p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
+  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players){p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);delete p.hurt;if(p.inj>0)p.inj--;}weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
   const poAfter=()=>poState(rows.filter(r=>!r.is_house),[...poRes,...matches.map(m=>({match_no:m.match_no,a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b,rule:m.rule,po:m.detail.po||null}))],lg.no);
   const humans=rows.filter(r=>!r.is_house);
   // the vote: managers chose the rule for the match after the one just played
@@ -1325,6 +1340,7 @@ async function runMatchday(store,lg,now){
       t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
+      for(const p of t.data.players){delete p.inj;delete p.hurt;}   // the break between leagues heals everyone
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.

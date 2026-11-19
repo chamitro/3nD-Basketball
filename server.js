@@ -88,7 +88,7 @@ const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
-function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
 function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
@@ -365,6 +365,7 @@ async function runMatchday(store,lg,now){
       let moves=[];
       if(X.is_house)energyAfter(X.data,xs);   // the computer team tires like everyone else
       if(!X.is_house){moves=aftermath(X.data,xs,won,ys.score);weekReset(X.data,false);
+        for(const p of X.data.players)if(p.hurt)lines.push(`${p.n} got hurt${p.enWas<=2.5?', playing on tired legs':''}: out for ${injDays(p.inj)}.`);
         X.data.last={league:lg.no,match:lg.match_no,opp:Y.name,us:xs.score,them:ys.score,won,lines,moves,oppSheet:theirs.sheet,oppKit:kitOf(Y.pub.kit,Y.name),oppHalf:null,half,rule,pros:reps.get(X).pros,cons:reps.get(X).cons,box:boxOf(xs),oppBox:boxOf(ys)};}
       // pub.rep: this team's last match as everybody may see it (shown to its next opponent)
       // pub.sc: this team's league so far in numbers (one small record, updated after each match)
@@ -374,7 +375,7 @@ async function runMatchday(store,lg,now){
     matches.push(rec);
   }
   // a rest day: a bye, or a series already decided this week; the players get back what a match off gives
-  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players)p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
+  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players){p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);delete p.hurt;if(p.inj>0)p.inj--;}weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
   const poAfter=()=>poState(rows.filter(r=>!r.is_house),[...poRes,...matches.map(m=>({match_no:m.match_no,a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b,rule:m.rule,po:m.detail.po||null}))],lg.no);
   const humans=rows.filter(r=>!r.is_house);
   // the vote: managers chose the rule for the match after the one just played
@@ -416,6 +417,7 @@ async function runMatchday(store,lg,now){
       t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
+      for(const p of t.data.players){delete p.inj;delete p.hurt;}   // the break between leagues heals everyone
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.
