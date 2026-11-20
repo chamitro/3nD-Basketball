@@ -59,8 +59,8 @@ free plan allows; the scheduled job fails loudly from 350 on).
 - No accounts. A secret team key lives in the browser ("Play this team on another device" in the Table tab moves it).
 - Any number of managers. If the number is odd, one computer team fills the gap; a new manager takes its place.
 - Who meets whom: everyone should meet everyone. A team is paired first with teams it has not met yet in this
-  league (counted from `b3_matches`), then with those it has met least; among those, teams on similar points meet,
-  and nobody meets the same team twice running if it can be avoided. With 13 teams everyone has met everyone once
+  league (counted from `b3_matches`), then with those it has met least; nobody meets the same team twice running if it can be avoided, and
+  among those it is pure chance (`draw` in `pairUp`; teams on similar points met until 20 Nov 2026). With 13 teams everyone has met everyone once
   after 13 match days.
 - Match day needs no timer: the first request after the hour plays it.
 - A team is in the running league when its `league_no` is that league's number. Ending a league changes nobody's
