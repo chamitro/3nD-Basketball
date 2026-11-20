@@ -268,7 +268,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.19-0959"></script>
+<script src="engine.js?v=2026.11.20-1838"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -531,7 +531,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.19-0959';   // stamped by build.py
+const APP_VERSION='2026.11.20-1838';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1130,7 +1130,7 @@ function renderHelp(){
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
   <h4><i>11</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'two or three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
-  <ul><li><b>Who you play.</b> Everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, and teams on similar points meet when there is a choice. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
+  <ul><li><b>Who you play.</b> Everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, never the same team twice in a row, and among those the draw is pure chance: anyone can meet anyone, top or bottom. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
   <li>A win gives <b>3 points</b>, a loss <b>0</b>.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>11</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>

@@ -841,7 +841,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='b4a0a29a';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='7dff8eb4';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
@@ -944,12 +944,15 @@ function roundRobinPairs(order,met,roundsLeft,cost){
     if(--budget<0)throw 0;
     if(!free){for(const [i,j] of pairs)used.add(ek(i,j));const ok=rounds(k+1,pairs);if(!ok)for(const [i,j] of pairs)used.delete(ek(i,j));return ok;}
     let i=0;while(!(free&(1<<i)))i++;
-    for(const j of adj[i]){if(!(free&(1<<j))||used.has(ek(i,j)))continue;pairs.push([i,j]);if(matching(free&~(1<<i)&~(1<<j),pairs,k))return true;pairs.pop();}
+    for(const j of adj[i]){if(!(free&(1<<j))||used.has(ek(i,j))||(k===0&&noPrev&&order[i]._prev===order[j].id))continue;pairs.push([i,j]);if(matching(free&~(1<<i)&~(1<<j),pairs,k))return true;pairs.pop();}
     return false;
   };
   const rounds=(k,pairs)=>{if(k===1)first=pairs.map(x=>[...x]);if(k===deg)return true;return matching((1<<n)-1,[],k);};
-  try{if(!rounds(0,[]))return null;}catch(e){return null;}
-  return first.map(([i,j])=>[order[i],order[j]]);
+  // the match day being drawn never repeats the last one's pairs if that can be helped (20 Nov 2026: the last two teams
+  // left were paired whatever, and at the start of a second round robin they had sometimes just met)
+  let noPrev=true;
+  for(const np of [true,false]){noPrev=np;used.clear();first=null;budget=200000;try{if(rounds(0,[]))return first.map(([i,j])=>[order[i],order[j]]);}catch(e){}}
+  return null;
 }
 function pairUp(list,house,met,roundsLeft){
   met=met||new Map();const timesMet=(x,y)=>met.get(pairKey(x,y))||0;roundsLeft=roundsLeft||0;
@@ -958,8 +961,10 @@ function pairUp(list,house,met,roundsLeft){
   const order=[...list].sort((a,b)=>standing(a,b));
   if(order.length%2===1)order.push(house);               // the house team takes part only when the number is odd, at the bottom of the table
   if(!order.length){delete house._prev;return;}
-  const rank=new Map(order.map((t,i)=>[t.id,i]));
-  const cost=(a,b)=>timesMet(a.id,b.id)*10+(a._prev===b.id?5:0)+Math.abs(rank.get(a.id)-rank.get(b.id))*0.01;
+  // who meets whom (Harry, 20 Nov 2026): someone you have not played yet, then not the one you just played, and among
+  // those pure chance. Until then the closest in the table was preferred, so the top teams kept meeting each other.
+  const luck=new Map(),draw=(a,b)=>{const k=pairKey(a.id,b.id);if(!luck.has(k))luck.set(k,R());return luck.get(k);};
+  const cost=(a,b)=>timesMet(a.id,b.id)*10+(a._prev===b.id?5:0)+draw(a,b)*0.01;
   const total=pairs=>pairs.reduce((s,[a,b])=>s+cost(a,b),0);
   const rr=roundRobinPairs(order,met,roundsLeft,cost);
   if(rr){for(const [a,b] of rr){a.next_opp=b.id;b.next_opp=a.id;}for(const t of list)delete t._prev;delete house._prev;return;}
