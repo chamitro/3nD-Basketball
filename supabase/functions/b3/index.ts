@@ -1002,7 +1002,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='38f42d10';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='fc832bb0';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1187,12 +1187,12 @@ async function meetings(store,no,today){
 // ───────────────────────── play-offs (Harry, 17 Nov 2026) ─────────────────────────
 // The last PO_DAYS match days of a seasonal league are play-offs, one round a week, every series best of three.
 // The top eight (Harry, 19 Nov 2026, from a friend's sketch; the Silver Cup is gone): quarter-finals 1 v 8, 4 v 5, 3 v 6,
-// 2 v 7, semi-finals (1/8 v 4/5, 3/6 v 2/7), the final. 1st and 2nd get the weakest opponents, pick the rule of games 1
-// and 3 of every series, and cannot meet before the final. With fewer teams the bracket shrinks to six (3 v 6 and 4 v 5,
+// 2 v 7, semi-finals (1/8 v 4/5, 3/6 v 2/7), the final. 1st and 2nd get the weakest opponents and cannot meet before the
+// final. With fewer teams the bracket shrinks to six (3 v 6 and 4 v 5,
 // 1 and 2 have a bye), four (1 v 4, 2 v 3 in week two) or a final (week three). Everyone else, and every team knocked out, plays friendlies; a team with a bye, or
 // whose series of the week is already decided, rests. Seeds are kept in each team's data and pub (`po`), the series are
 // worked out from the match records (`detail.po`), so nothing new is stored in the league row.
-// The higher seed picks the rule of games 1 and 3, the lower seed game 2; if they pick nothing the voted rule applies.
+// The rule of every play-off game is drawn at random (poRandomRule); the friendlies keep the voted rule.
 const PO_SHAPES={8:[['q1',1,8,0],['q2',4,5,0],['q3',3,6,0],['q4',2,7,0],['s1','q1','q2',1],['s2','q3','q4',1],['f','s1','s2',2]],6:[['a',3,6,0],['b',4,5,0],['s1',1,'a',1],['s2',2,'b',1],['f','s1','s2',2]],4:[['s1',1,4,1],['s2',2,3,1],['f','s1','s2',2]],2:[['f',1,2,2]]};
 const PO_CUPS={t:'Play-offs'};
 function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const len=leagueLength(lg);return len>=CFG.PO_MIN?{len,reg:len-CFG.PO_DAYS}:null;}
@@ -1246,8 +1246,10 @@ function poRole(cups,day,id){
     if(mine.some(s=>s.r>r)&&ser.some(s=>s.r===r))return {role:'rest',bye:true};}   // a bye: this cup plays this week, this team starts later
   return {role:'friendly'};
 }
-// the rule of a match: in a series the picker's choice for that game, else the rule of the week
-const poRuleChoice=(row,no,match)=>{const x=row&&row.data&&row.data.poRule;return x&&x.league===no&&x.match===match&&RULES.some(r=>r.k===x.rule)?x.rule:null;};
+// the rule of a play-off game (Harry, 21 Nov 2026): drawn at random for every game. It is worked out from the league, the
+// match day and the series, so it is the same on every request and nothing is stored; managers see it as soon as the pairs
+// are made. Until then the higher seed picked games 1 and 3 and the lower seed game 2. Friendlies keep the voted rule.
+function poRandomRule(no,match,c,s){let h=2166136261;for(const ch of no+':'+match+':'+c+':'+s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)>>>0;}return RULES[h%RULES.length].k;}
 // pairs for play-off day `day`: the series of the week, friendlies for everyone else, rest for byes and decided series
 function poPair(cups,day,humans,house,met){
   for(const t of humans)t.next_opp=null;
@@ -1309,9 +1311,9 @@ async function runMatchday(store,lg,now){
   while(orphans.length>=2){const A=orphans.shift(),B=orphans.shift();done.add(A.id);done.add(B.id);pairs.push([A,B]);}
   if(orphans.length&&house&&!done.has(house.id)){const A=orphans.shift();done.add(A.id);done.add(house.id);pairs.push([A,house]);}
   for(const [A,B] of pairs){
-    // a play-off game is played under the rule its picker chose, or the rule of the week
+    // a play-off game is played under its own rule, drawn at random
     const ps=cups?poSeriesOf(cups,pday,A.id,B.id):null;
-    const rule=ps?(poRuleChoice(map.get(ps.picker),lg.no,lg.match_no)||lg.rule):lg.rule;
+    const rule=ps?poRandomRule(lg.no,lg.match_no,ps.c,ps.s):lg.rule;
     if(ps){if(!A.is_house)enforceRule(A.data,rule);if(!B.is_house)enforceRule(B.data,rule);}
     if(A.is_house)botPrepare(A.data,B.data,rule,B.pub.ls||null);
     if(B.is_house)botPrepare(B.data,A.data,rule,A.pub.ls||null);
@@ -1381,7 +1383,7 @@ async function runMatchday(store,lg,now){
     for(const x of poSeeds(poOrder(inLg,[...poRes,...today]))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
       if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no){t.data.last.po=po;
         const nth=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
-        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed and pick the rule of games 1 and 3.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
+        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
   let reset=false;
   if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
     const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at,lg.no+1));
@@ -1495,8 +1497,7 @@ async function poView(store,lg,tbl,row){
   const po=poOf(row,lg.no);let me=po?{cup:po.cup,seed:po.seed,pos:po.pos}:{};
   if(day>0){const role=poRole(cups,day,row.id);me={...me,role:role.role,bye:!!role.bye};
     if(role.role==='series'&&row.next_opp===role.opp){const ps=poSeriesOf(cups,day,row.id,role.opp);
-      const pk=ps.picker===row.id?row:await store.teamById(ps.picker),chosen=poRuleChoice(pk,lg.no,lg.match_no);
-      me={...me,c:ps.c,s:ps.s,g:ps.g,picker:ps.picker===row.id,pickerName:pk?pk.name:'',rule:chosen||lg.rule,chosen:!!chosen};}}
+      me={...me,c:ps.c,s:ps.s,g:ps.g,rule:poRandomRule(lg.no,lg.match_no,ps.c,ps.s),random:true};}}
   return {info,me};
 }
 async function makeView(store,row,lg,now,extra){
@@ -1689,15 +1690,8 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
   }else if(a==='vote'){
     if(![0,1,2].includes(req.i))return {error:'bad vote'};
     d.vote=req.i;dirty=true;
-  }else if(a==='porule'){   // the rule of the next play-off game, picked by the higher seed for games 1 and 3, the lower seed for game 2; null = the rule of the week
-    const day=poDay(poLen(lg),lg.match_no);if(!day)return {error:'There are no play-offs on the next match day.'};
-    if(!row.next_opp)return {error:'You have no match on the next match day.'};
-    const ps=poSeriesOf(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,row.id,row.next_opp);
-    if(!ps)return {error:'Your next match is not a play-off game.'};
-    if(ps.picker!==row.id)return {error:'The other team picks the rule of this game.'};
-    if(req.rule==null)d.poRule=null;
-    else{if(!RULES.some(r=>r.k===req.rule))return {error:'bad rule'};d.poRule={league:lg.no,match:lg.match_no,rule:req.rule};}
-    enforceRule(d,req.rule||lg.rule);dirty=true;
+  }else if(a==='porule'){   // older pages may still ask: the rule of a play-off game is drawn at random since 21 Nov 2026
+    return {error:'In the play-offs the rule of every game is drawn at random.'};
   }else if(a==='mid'){   // the mid-season window: up to MID_SWAPS changes in all, one free agent in for each player out, under the window cap
     if(!midOpen(d,lg))return {error:'The mid-season window is not open.'};
     const outs=Array.isArray(req.outs)?[...new Set(req.outs)]:[],ins=Array.isArray(req.ins)?[...new Set(req.ins)]:[];

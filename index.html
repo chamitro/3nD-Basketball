@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.20-1839"></script>
+<script src="engine.js?v=2026.11.21-1354"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -488,7 +488,7 @@ async function api(a,body,tries){
 }
 // turn the server's answer into the state the screens draw from
 function applyView(v){
-  V=v;S.rule=(v.me&&v.me.po&&v.me.po.rule)||v.league.rule;S.cup=v.league.no;S.sunday=v.league.match_no;   // in a play-off series the rule of the next game is the picker's
+  V=v;S.rule=(v.me&&v.me.po&&v.me.po.role==='series'&&v.me.po.rule)||v.league.rule;S.cup=v.league.no;S.sunday=v.league.match_no;   // in a play-off series the next game has its own rule, drawn at random
   if(v.phase==='draft'){
     const had=new Set((S.pool||[]).filter(p=>p.picked).map(p=>p.id));
     S.phase='draft';S.me=null;S.teams=[];S.opp=null;S.pool=v.pool.map(p=>({...p,picked:had.has(p.id)}));return;
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.20-1839';   // stamped by build.py
+const APP_VERSION='2026.11.21-1354';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1065,7 +1065,7 @@ function render(){
   $('chipCup').innerHTML=ONLINE&&S.out?`${LGS()} · <b>not entered yet</b>`:S.phase==='cupend'?`${ONLINE&&S.me.final?doneName(S.me.final):'League '+S.cup} is over`:`${LGS()} · ${ONLINE?'Match':'Sunday'} <b>${S.sunday}</b> of ${ONLINE?V.league.of:7}${nextOpp()&&S.phase==='week'?' · vs '+nextOpp().name:''}`;
   const rule=ruleOf(ONLINE&&S.phase==='results'&&S.lastResults?S.lastResults.rule:S.rule);$('ruleLab').textContent=S.phase==='cupend'?(ONLINE?'RULE OF THE NEXT MATCH':'FIRST RULE OF THE NEXT LEAGUE'):S.phase==='results'?'THIS MATCH WAS PLAYED UNDER':ONLINE?'RULE OF THE NEXT MATCH':'RULE OF THE WEEK';$('ruleTxt').textContent=rule.txt;$('ruleWhy').textContent=rule.why;
   {const mp=ONLINE&&S.phase==='week'&&V&&V.me&&V.me.po;if(mp&&mp.role==='series'){$('ruleLab').textContent='RULE OF YOUR NEXT PLAY-OFF GAME';
-    $('ruleWhy').textContent+=' '+(mp.picker?(mp.chosen?'You picked it.':'You pick it, under the game plan; until you do, the rule of the week applies.'):(mp.chosen?'Picked by '+mp.pickerName+'.':mp.pickerName+' picks it; until they do, the rule of the week applies.'));}}
+    $('ruleWhy').textContent+=' Drawn at random for this play-off game.';}}
   $('weekUI').classList.toggle('hide',S.phase!=='week');
   $('resUI').classList.toggle('hide',S.phase==='week');
   renderAlert();
@@ -1286,9 +1286,9 @@ function poSheet(c,k){
   const nm=sd=>sd?esc(sd.name):'to be decided';
   let h=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="small" style="margin:0">${cup.name} · ${PO_ROUND(k)}</div><h3 style="margin:2px 0 0">${ser.hi&&ser.lo?nm(ser.hi)+' v '+nm(ser.lo):'Waiting for the round before'}</h3></div><button type="button" id="poX">Close</button></div>`;
   if(ser.hi&&ser.lo)h+=`<div style="font-size:17px;font-weight:900">${kitChip(ser.hi.kit)}${ser.hi.seed}. ${nm(ser.hi)} <span style="font-size:22px;margin:0 6px">${ser.wh}–${ser.wl}</span> ${ser.lo.seed}. ${nm(ser.lo)} ${kitChip(ser.lo.kit)}</div>`;
-  for(let i=0;i<3;i++){const g=ser.games[i],picker=i===1?ser.lo:ser.hi;
-    if(g){const w=g.hi>g.lo?ser.hi:ser.lo;h+=`<div class="pogame"><div class="small" style="margin:0">Game ${i+1} · match ${g.m} · rule picked by ${nm(picker)}: ${esc(ruleOf(g.rule)?ruleOf(g.rule).txt:g.rule)}</div><div style="font-size:18px;font-weight:900">${nm(ser.hi)} ${g.hi}–${g.lo} ${nm(ser.lo)}</div><div class="small" style="margin:0">${nm(w)} win. <button type="button" data-rep="${g.m}" style="font-size:13px;padding:3px 10px;margin-left:4px">Match report</button></div></div>`;}
-    else{const over=!!ser.win;h+=`<div class="pogame todo"><div class="small" style="margin:0">Game ${i+1}${i===2?' · only if needed':''}</div><div style="font-weight:900">${over?'Not needed':ser.hi&&ser.lo?'To play':'Waiting'}</div>${!over&&ser.hi&&ser.lo?`<div class="small" style="margin:0">The rule is picked by ${nm(picker)}; if they pick nothing, the rule of the week.</div>`:''}</div>`;}}
+  for(let i=0;i<3;i++){const g=ser.games[i];
+    if(g){const w=g.hi>g.lo?ser.hi:ser.lo;h+=`<div class="pogame"><div class="small" style="margin:0">Game ${i+1} · match ${g.m} · rule: ${esc(ruleOf(g.rule)?ruleOf(g.rule).txt:g.rule)}</div><div style="font-size:18px;font-weight:900">${nm(ser.hi)} ${g.hi}–${g.lo} ${nm(ser.lo)}</div><div class="small" style="margin:0">${nm(w)} win. <button type="button" data-rep="${g.m}" style="font-size:13px;padding:3px 10px;margin-left:4px">Match report</button></div></div>`;}
+    else{const over=!!ser.win;h+=`<div class="pogame todo"><div class="small" style="margin:0">Game ${i+1}${i===2?' · only if needed':''}</div><div style="font-weight:900">${over?'Not needed':ser.hi&&ser.lo?'To play':'Waiting'}</div>${!over&&ser.hi&&ser.lo?`<div class="small" style="margin:0">The rule is drawn at random when the game is next.</div>`:''}</div>`;}}
   const v=document.createElement('div');v.className='poveil';const sh=document.createElement('div');sh.className='posheet';sh.setAttribute('role','dialog');sh.innerHTML=`<div class="in">${h}</div>`;
   const close=()=>{v.remove();sh.remove();};v.onclick=close;document.body.append(v,sh);sh.querySelector('#poX').onclick=close;
   sh.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{close();loadRound({league:V.league.no,match:+b.dataset.rep});setTimeout(()=>{const c=[...document.querySelectorAll('#league .card')].find(x=>x.textContent.startsWith('Match reports'));if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},400);});
@@ -1301,7 +1301,7 @@ function renderAlert(){
     if(m)h+=`<div class="alert"><div class="at"><b>The mid-season window is open</b>${m.left} change${m.left===1?'':'s'} left until match ${m.until} is played: seven free agents, under your ${money(V.me.capW||CAP_WINDOW)} window cap. They leave when the window closes.</div><button type="button" id="alMid">Go to the window</button></div>`;
     if(po&&po.day>0&&po.cups){
       const cupName=()=>'play-offs';let t;
-      if(mp&&mp.role==='series'){const cup=po.cups.find(c=>c.c===mp.c),ser=cup.series.find(x=>x.k===mp.s),op=ser.hi&&ser.hi.id===S.me.id?ser.lo:ser.hi;t=`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}. ${DAY()}: ${PO_ROUND(mp.s).toLowerCase()}, game ${mp.g+1} against ${esc(op?op.name:'')}${mp.picker?'. You pick the rule':''}.`;}
+      if(mp&&mp.role==='series'){const cup=po.cups.find(c=>c.c===mp.c),ser=cup.series.find(x=>x.k===mp.s),op=ser.hi&&ser.hi.id===S.me.id?ser.lo:ser.hi;t=`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}. ${DAY()}: ${PO_ROUND(mp.s).toLowerCase()}, game ${mp.g+1} against ${esc(op?op.name:'')}, under a rule drawn at random: ${esc(ruleOf(mp.rule)?ruleOf(mp.rule).txt:'')}`;}
       else if(mp&&mp.role==='rest')t=mp.bye?`You are the ${ord(mp.seed)} seed in the ${cupName(mp.cup)}, with a bye this week: you rest and come back fresh for the semi-final.`:`Your series this week is decided, so you rest on ${DAY()}.`;
       else if(mp&&mp.cup)t=`Your ${cupName(mp.cup)} run is over this season. You play friendlies until the end of the league; they do not count in the table.`;
       else t=`You finished ${ord((mp&&mp.pos)||placeOf(S.me))}, outside the brackets: friendlies until the end of the league. They do not count in the table.`;
@@ -1311,7 +1311,7 @@ function renderAlert(){
   if($('alMid'))$('alMid').onclick=()=>{const c=$('midUI');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});};
   if($('alPo'))$('alPo').onclick=()=>{S.tab='league';render();setTimeout(()=>{const c=document.querySelector('#league .pocard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},100);};
 }
-// the play-off box in the locker room: the series, the rule picker, a bye or a friendly
+// the play-off box in the locker room: the series and its rule (drawn at random), a bye or a friendly
 function renderPo(){
   const el=$('poUI');if(!el)return;const po=poInfo(),me=V&&V.me&&V.me.po;
   if(!po||S.phase!=='week'||S.out){el.innerHTML='';return;}
@@ -1320,13 +1320,11 @@ function renderPo(){
     h=`<div class="pobox"><div class="lab">The play-offs</div><div class="small" style="margin:2px 0 0">${left} match${left>1?'es':''} left in the regular season. Then the top eight play the play-offs, best of three. You are ${ord(placeOf(S.me))} now.</div></div>`;}}
   else if(me&&me.role==='series'){const cup=po.cups.find(c=>c.c===me.c),ser=cup.series.find(x=>x.k===me.s),hi=ser.hi&&ser.hi.id===S.me.id,my=hi?ser.wh:ser.wl,th=hi?ser.wl:ser.wh;
     h=`<div class="pobox"><div class="lab">${cup.name} · ${PO_ROUND(me.s)} · game ${me.g+1}</div><div class="small" style="margin:2px 0 4px">Series ${my}–${th}. Best of three: the first to two wins goes on.</div>`;
-    if(me.picker)h+=`<div class="small" style="margin:0"><b>You pick the rule of this game.</b> ${esc(nextOpp()?nextOpp().name:'They')} see it as soon as you pick.</div><select id="poRule"><option value="">Rule of the week: ${esc(ruleOf(V.league.rule).txt)}</option>${RULES.map(r=>`<option value="${r.k}" ${me.chosen&&me.rule===r.k?'selected':''}>${esc(r.txt)}</option>`).join('')}</select>`;
-    else h+=`<div class="small" style="margin:0"><b>${esc(me.pickerName)}</b> picks the rule of this game${me.chosen?': <b>'+esc(ruleOf(me.rule).txt)+'</b>':'. Until they do, the rule of the week applies'}.</div>`;
+    h+=`<div class="small" style="margin:0">The rule of this game, drawn at random: <b>${esc(ruleOf(me.rule)?ruleOf(me.rule).txt:me.rule)}</b>. ${esc(ruleOf(me.rule)?ruleOf(me.rule).why:'')}</div>`;
     h+='</div>';}
   else if(me&&me.role==='rest')h=`<div class="pobox"><div class="lab">No match on ${DAY()}</div><div class="small" style="margin:2px 0 0">${me.bye?'You have a bye this week: your players rest and come back with full energy for the semi-final.':'Your series this week is decided, so your players rest.'} Talks still count for their moods.</div></div>`;
   else h=`<div class="pobox"><div class="lab">A friendly</div><div class="small" style="margin:2px 0 0">The table is final, so ${DAY()}'s match does not count in it: it is for moods, form and energy.${me&&me.cup?' Your play-off run is over this season.':''} The brackets are on the Table tab.</div></div>`;
   el.innerHTML=h;
-  const sel=$('poRule');if(sel)sel.onchange=()=>{if(netBusy)return;netBusy++;api('porule',{rule:sel.value||null}).then(v=>{applyView(v);toast(sel.value?'Picked. Your opponent sees it now.':'Back to the rule of the week.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
 }
 // trash talk: one line to the other dugout, the last word before tip-off (online only)
 function renderTrash(){
@@ -1415,7 +1413,7 @@ function renderHelp(){
   $('helpBody').innerHTML=`<button class="x" id="helpX">Close ✕</button>
   <h2>How the game is played</h2>
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
-  <div class="qs"><b>Before every match, in this order</b><ol><li>Look at your players: energy, mood, who is in form.</li><li>Talk to each of them in the tone their character wants, and once to the team.</li><li>Read the next opponent under the game plan: their last plan, their star, their numbers.</li><li>Set the line-up and the playing time, the six dials, the star, the half-time changes and talk.</li><li>Vote for the rule after the next match, and decide whether a trash talk is worth the ban.</li><li>In the play-offs, pick the rule of your game when it is your turn (section 14).</li></ol>Everything is saved as you set it. Open the game after the match for the result, the box score and the reports.</div>
+  <div class="qs"><b>Before every match, in this order</b><ol><li>Look at your players: energy, mood, who is in form.</li><li>Talk to each of them in the tone their character wants, and once to the team.</li><li>Read the next opponent under the game plan: their last plan, their star, their numbers.</li><li>Set the line-up and the playing time, the six dials, the star, the half-time changes and talk.</li><li>Vote for the rule after the next match, and decide whether a trash talk is worth the ban.</li><li>In the play-offs, look at the rule of your next game: it is drawn at random (section 14).</li></ol>Everything is saved as you set it. Open the game after the match for the result, the box score and the reports.</div>
   <h4><i>1</i>Pick your team</h4>
   <p>Choose <b>7 players</b> out of 14 (every player in the league is one of a kind: no two share a name, a funny first name and a funny surname, and about one player in five a legend straight out of the films, each at most once in a league; the fourteen are offered once, and a new or cleared browser on the same connection sees the same fourteen until one of them joins, so nobody can fish for better players) <b>under the wage cap</b>: every player has a value in millions, from the dots they were drafted with, their height and build and a little from character (never from mood or form), and the <b>sum</b> of your seven may not pass ${money(CAP)}. It is not money you spend, only a line the squad's total stays under. Seven stars do not fit; who you take is the first real decision (see section 13). Then give your team a name (a name that is an insult is refused: it stands on a table everybody sees), and pick its two colours and its badge (you can change the colours and the badge later in the Table tab; they change nothing in a match). Look at the players' stats, their bodies and their character.</p>
   <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and the player's body: how tall and how heavy (see 2). <b>The dots count for a lot.</b> Attack decides the shots, defence what the other team makes against you, height the close shots and the rebounds, speed the fast breaks and the press. Choose with care: a squad with better dots wins more over a season, and the same goes for the one player you may change between leagues.</li>
@@ -1518,7 +1516,7 @@ function renderHelp(){
   <p>Measured on the twenty-minute match: a line at a court of worriers and pleasers is worth about +12 points of win chance to the sender, at a court of fighters about -7, at a court of old hands about -9. Then comes the ban.</p>
   <h4><i>10</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most, so read it before you pick the starters.</p>
-  <p>In the play-offs each series game has its own rule, picked by one of the two teams (section 14); the voted rule of the week still rules the friendlies, and every series game whose picker picks nothing.</p>
+  <p>In the play-offs every series game has its own rule, drawn at random and shown as soon as the pairs are made (section 14); the voted rule of the week still rules the friendlies.</p>
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
   <h4><i>11</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>The match</b> is twenty minutes of three-on-three: about forty possessions a side, twos and threes only, no free throws, so 36–30 is a normal score and 60 points a blowout; a slow tempo makes it thirty possessions, a fast one forty-six. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
@@ -1554,9 +1552,9 @@ function renderHelp(){
   <h4><i>14</i>Play-offs</h4>
   <p>The last three weeks of a season league are the play-offs, one round a week. The table is final after the regular season: play-off games and friendlies do not count in it. Every series is <b>best of three</b>: the first to two wins goes on, and a third game is played only if needed.</p>
   <ul><li><b>The top eight.</b> Week one, the quarter-finals: 1st v 8th, 4th v 5th, 3rd v 6th, 2nd v 7th. Week two, the semi-finals: the winner of 1 v 8 against the winner of 4 v 5, and the winner of 3 v 6 against the winner of 2 v 7. Week three: the final. Its winner is the <b>champion</b> in the list of leagues won; finishing top of the table is shown as well.</li>
-  <li><b>Finishing high pays.</b> The higher you finish, the weaker the team you meet first: 1st plays 8th, 2nd plays 7th. The higher seed picks the rule of games 1 and 3 of every series, so a deciding game is played under its rule. And 1st and 2nd are on opposite sides of the bracket: they can only meet in the final.</li>
+  <li><b>Finishing high pays.</b> The higher you finish, the weaker the team you meet first: 1st plays 8th, 2nd plays 7th. And 1st and 2nd are on opposite sides of the bracket: they can only meet in the final.</li>
   <li><b>Everyone else plays friendlies</b>: the teams below 8th, and every team knocked out. They do not count in the table but they still move moods, form and energy. A team whose series of the week is already decided rests on the day of the unneeded game.</li>
-  <li><b>The rule of each game</b> is picked by the higher seed for games 1 and 3 and by the lower seed for game 2, in the locker room under the game plan; the other team sees it as soon as it is picked. Nothing picked: the rule of the week, which everyone still votes on and which the friendlies are played under.</li>
+  <li><b>The rule of each game is drawn at random</b>, game by game: two series on the same day can have different rules, and game 3 of a series is drawn afresh. You see it as soon as the pairs are made, in the banner and under the game plan, so you can plan for it. The friendlies are played under the rule of the week, which everyone still votes on.</li>
   <li><b>Ties in the table</b> are settled by points, then the matches between the teams level on points, then points difference, then points scored. The computer team never takes a place. With fewer teams the bracket shrinks: with 6 or 7 teams the top six play (3 v 6 and 4 v 5 in week one, while 1st and 2nd have a bye and rest), with 4 or 5 semi-finals in week two and a final, with 2 or 3 only a final in week three.</li>
   <li><b>Trash talk in the play-offs</b> works as always: the ban covers your next match, and that may be the next game of your series.</li>
   <li><b>Where to see it.</b> All season the table tags the teams in a play-off place, with a line under 8th, and in the last three weeks of the regular season a card on the Table tab says when the play-offs start. Your result after the last regular-season match says where you finished and what comes next for you, and during the play-offs a banner at the top of the locker room tells you your seed, your next game or your friendlies, with a button to the brackets. From the play-offs on, the Table tab shows the brackets; tap a series for its games, the rule of each and the match reports. Your result says where your series stands, for example "Play-offs, semi-final, game 2: series 1–1", and the locker room shows your series, your bye or your friendly under the game plan.</li></ul>

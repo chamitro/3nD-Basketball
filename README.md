@@ -193,15 +193,16 @@ very tall 0.05. On a long shot `range3` adds +0.03 with range, and without it 0 
 
 The last `CFG.PO_DAYS` (9) match days of a season league of at least `PO_MIN` (18) are play-offs, one round a week, best of three.
 The top eight play (`PO_SHAPES[8]`): quarter-finals 1v8, 4v5, 3v6, 2v7, semi-finals (1/8 v 4/5, 3/6 v 2/7), final. 1st and 2nd
-meet the weakest teams, pick the rule of games 1 and 3, and cannot meet before the final. With 6-7 teams the old six bracket
+meet the weakest teams and cannot meet before the final. With 6-7 teams the old six bracket
 (3v6, 4v5, 1 and 2 have a bye), with 4-5 semi-finals and a final, with 2-3 a final. Everyone else plays friendlies. The Silver Cup
 for 7th-12th (cup `s`) was dropped before it was ever played. After the last regular match day
 `poOrder` (points, head-to-head among teams level, +/-, points scored) and `poSeeds` put `{league,cup,seed,pos}` in each team's
 `data.po` and `pub.po`; the table is frozen from then on. Nothing new is stored in the league row: `poState` works the bracket out
 from the seeds and the match records, which carry `detail.po = {c, s, g}`. `poPair` pairs the series of the week, friendlies for the
 rest (`pairUp`), and leaves byes and decided series unpaired: they rest (energy as a match off) and are not given the computer team
-when they open the game. The higher seed picks the rule of games 1 and 3, the lower seed game 2 (action `porule`, kept in
-`data.poRule` for that match); nothing picked means the voted rule of the week, which also rules the friendlies. The champion is
+when they open the game. The rule of every play-off game is drawn at random (`poRandomRule`: a hash of league, match day and series, so nothing is
+stored and it is known as soon as the pairs are made; until 21 Nov 2026 the higher seed picked games 1 and 3). The friendlies
+keep the voted rule. The action `porule` now only answers that the rule is drawn. The champion is
 the final's winner (`data.won`, history `title`); `final.top` keeps the top of the table.
 Store query `leagueResults` (scores with the `po` tag). Page: the bracket and series sheet on the Table tab, zones in the table,
 the play-off box with the rule picker in the locker room, help section 14.
