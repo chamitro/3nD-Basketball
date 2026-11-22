@@ -161,7 +161,7 @@ const TRASH=[
   {txt:'Your star could not hit the sea from the beach.',at:'star',tone:'joke'},
   {txt:'Everybody knows your star folds when it matters.',at:'star',tone:'challenge'},
 ];
-const TRASH_REACH={team:0.7,star:0.95,others:0.3};   // a line at the team reaches each named player seven times in ten (an opponent's words land
+const TRASH_REACH={team:0.7,star:0.95,others:0.3},TRASH_FIRE=0.4;   // a line at the team reaches each named player seven times in ten (an opponent's words land
 // at 70% of the coach's own, Alex); a line at the star reaches the star almost surely and the others three times in ten
 const trashGood=(m,t)=>m==='happy'||m==='cool'||(m==='angry'&&t==='fighter');   // fired up; sad, nervous and (for all but fighters) angry are rattled
 const trashMood=(l,p)=>l.fx?(l.fx[p.temp]||null):(TEMPS[p.temp]&&TEMPS[p.temp].r[l.tone]?TEMPS[p.temp].r[l.tone][1]:null);
@@ -174,10 +174,10 @@ function trashTeam(team,line,starId,heard){
     const mood=trashMood(l,p);if(!mood||mood==='ok'||p.mood===mood)continue;
     const up=trashGood(mood,p.temp),isStar=p.id===starId;
     const reach=l.at==='star'?(isStar?TRASH_REACH.star:TRASH_REACH.others):TRASH_REACH.team;
-    // a player who trusts the coach, or is buzzing or locked in, shrugs most of it off (22 Nov 2026: trash talk was worth
-    // +12 to +16 points of win chance against a well-managed team, wiping out a week of good talks)
-    const calm=(p.mood==='happy'||p.mood==='cool'?0.4:1)*(1-0.25*Math.max(0,p.trust||0));
-    const chance=up?reach:calm*reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
+    // an opponent's words rattle more easily than they inspire: firing up 0.4 as often as rattling (23 Nov 2026, measured over
+    // whole leagues with the ban: a random line now and then comes out even over a season; the protection for well-run
+    // teams of 22 Nov is not needed with tones and the ban, and made every line a loss)
+    const chance=up?reach*TRASH_FIRE:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle
     if(R()>=chance)continue;
     p.mood=mood;(up?fired:rattled).push(p.n);
   }
@@ -1011,7 +1011,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='19ab86fa';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='33297cca';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
