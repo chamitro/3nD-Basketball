@@ -157,6 +157,19 @@ film characters, never real people), each at most once a league. Letters, spaces
 `shortName` (the surname, or the legend's own word; `gymTag` adds the initial when two teammates share it). Old one-word
 names stay. Check: 3nD-tests/names_test.js (200 leagues: 3.0% legends, no repeats).
 
+## Trash talk by tone (22-23 Nov 2026, Winter; Alex's idea)
+
+`TRASH` (engine.js) holds four lines, each a talk tone said by the other coach: praise ("the big stage"), challenge ("our
+substitutes"), calm ("nobody expects anything") and joke ("we laughed"). `trashTeam`: each player named for the match
+(starters and substitutes) reacts as their character reacts to that tone (`TEMPS`, the help's talk table): rattled with
+`TRASH_REACH.team` 0.7 (divided by how often the team has heard that manager), fired up with 0.7 x `TRASH_FIRE` 0.4.
+Each line rattles about as many characters as it fires up and all four are about +2 to +3 points of win chance in their
+match against an ordinary team, so none is the obvious one (shout was +14 and left out). Old hands and easy-going players
+are never rattled. The other team's characters are not sent to the page (`pubPlayer` has no `temp`). The sender is banned
+for the next match (no talks, team talk, half-time talk or trash talk). Measured over whole leagues of managers who talk
+well, a line now and then comes out about even over a season; sent at every chance it costs 2-3 wins (half the talks).
+Studies: `3nD-tests/localseason/trash_study.js` + `trash_analyse.py`; checks `trash_tone_test.js`, `trash_league_test.js`.
+
 ## No twins (20 Nov 2026, Winter)
 
 Names are unique across every team, its free agents (end of league and mid-season window), redraft pools and open draft
