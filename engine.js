@@ -146,17 +146,16 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
 // match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
 // Trash talk (Alex's idea, Harry 22 Nov 2026): each line is one of the talk tones, said by the other coach. Each of their named
-// players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help) seven
-// times in ten. Harry chose the six lines and two at the star; old hands and easy-going players are never rattled by them.
+// players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help): rattled
+// seven times in ten, fired up three in ten. Four lines (Harry, 23 Nov 2026), each rattling about as many characters as it
+// fires up, all about the same strength (+2 to +3 points of win chance in their match against an ordinary team), so no line is
+// the obvious one; shout (+14) and the others that hit one side much more were left out. Old hands and easy-going players are
+// never rattled.
 const TRASH=[
   {txt:'Hope you are ready for the big stage: everyone will be watching.',at:'team',tone:'praise'},
-  {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
   {txt:'Our substitutes would beat you.',at:'team',tone:'challenge'},
-  {txt:'Enjoy the bottom of the table. It suits you.',at:'team',tone:'honest'},
-  {txt:'Bring tissues on match day.',at:'team',tone:'comfort'},
-  {txt:'WHAT A JOKE OF A TEAM!',at:'team',tone:'shout'},
-  {txt:'Your star could not hit the sea from the beach.',at:'star',tone:'joke'},
-  {txt:'Everybody knows your star folds when it matters.',at:'star',tone:'challenge'},
+  {txt:'Relax. Nobody expects anything from you.',at:'team',tone:'calm'},
+  {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
 ];
 const TRASH_REACH={team:0.7,star:0.95,others:0.3},TRASH_FIRE=0.4;   // a line at the team reaches each named player seven times in ten (an opponent's words land
 // at 70% of the coach's own, Alex); a line at the star reaches the star almost surely and the others three times in ten

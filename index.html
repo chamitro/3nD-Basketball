@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.22-2304"></script>
+<script src="engine.js?v=2026.11.22-2309"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.22-2304';   // stamped by build.py
+const APP_VERSION='2026.11.22-2309';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1429,7 +1429,7 @@ function renderHelp(){
   <li><b>Comebacks:</b> a team 8 down at half-time can come back with the right order and good players; a team 8 up eases off without one (section 8).</li>
   <li><b>The double team and the shadow</b> go on their most dangerous player, and a star in good shape can beat a double (section 7).</li>
   <li><b>Who you play is drawn at random</b> among the teams you have not met yet (section 11).</li>
-  <li><b>Trash talk by tone:</b> each line is a talk tone; it rattles some characters and fires others up, and you cannot see their characters. The ban stays (section 9).</li>
+  <li><b>Trash talk by tone:</b> four lines, each a talk tone that rattles some characters and fires others up; you cannot see their characters. The ban stays (section 9).</li>
   <li><b>Play-offs:</b> the top eight, best of three, every game under a rule drawn at random. The winner is the champion (section 14).</li>
   </ul></div>
   <h4><i>1</i>Pick your team</h4>
@@ -1519,11 +1519,11 @@ function renderHelp(){
   <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
   <li>Orders and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week. A manager banned for trash talk gives no half-time talk that match.</li></ul>
   <h4><i>9</i>Trash talk</h4>
-  <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. <b>Each line is one of your talk tones, said by you to their players</b>: praise, a joke, a challenge, being honest, comfort or a shout. Each of their players named for the match (starters and substitutes) takes it exactly as their character takes that tone from a coach (the table in section 4), moods only, but less surely than a coach's words (see below). So a line rattles some characters and fires others up.</p>
+  <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. <b>Each line is one of your talk tones, said by you to their players</b>: praise, a challenge, calm or a joke. Each of their players named for the match (starters and substitutes) takes it exactly as their character takes that tone from a coach (the table in section 4), moods only, but less surely than a coach's words (see below). So a line rattles some characters and fires others up.</p>
   <ul><li><b>The risk.</b> You do not see the other team's characters, so you never know for sure who you are talking to: the line that rattles one team fires up the next. What you can go on is what you have seen: the match reports say who was rattled and who was fired up by every line, yours and everyone else's.</li>
   <li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
   <li>One line per match; you can take it back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
-  <li>Six lines are aimed at the whole team, two at their star: a line at the star reaches the star almost surely and the others three times in ten.</li>
+  <li><b>Four lines, none the obvious one.</b> Each rattles about as many characters as it fires up, and all four are about as strong: which one pays depends only on who is on the other team.</li>
   <li><b>Rattled more easily than fired up.</b> A line rattles a player it can rattle seven times in ten, but fires up a player it can fire up only about three times in ten: an opponent's words unsettle more easily than they inspire. A team that has heard you before is harder to rattle.</li>
   <li><b>Old hands and easy-going players are never rattled</b> by these lines, as they are hard to upset for their own coach; but some lines fire them up.</li></ul>
   <p><b>What each line does</b>, from the same table as your own talks (moods in section 5):</p>
