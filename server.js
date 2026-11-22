@@ -17,6 +17,7 @@ const CFG={
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
+  LEAGUE_START:{2:Date.UTC(2026,11,11,18,0)},   // a league that starts later than the next match day: the Winter League on Friday 11 December 2026 (Harry, 23 Nov 2026: time for new players to join)
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
@@ -454,6 +455,7 @@ async function runMatchday(store,lg,now){
   }
   lg.rule=newRule;lg.vote_opts=threeRules(newRule);
   lg.next_match_at=nextMatchTime(lg.next_match_at,lg.no);lg.busy_until=null;   // lg.no is already the next league's number if one just ended
+  if(reset&&CFG.LEAGUE_START[lg.no]&&CFG.LEAGUE_START[lg.no]>lg.next_match_at)lg.next_match_at=CFG.LEAGUE_START[lg.no];   // a set start date for the new league
   // next pairings, among the managers who are still around
   if(reset){for(const t of rows)t.next_opp=null;}   // the new league starts empty
   else{

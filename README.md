@@ -157,6 +157,12 @@ film characters, never real people), each at most once a league. Letters, spaces
 `shortName` (the surname, or the legend's own word; `gymTag` adds the initial when two teammates share it). Old one-word
 names stay. Check: 3nD-tests/names_test.js (200 leagues: 3.0% legends, no repeats).
 
+## The Winter League's start (23 Nov 2026)
+
+`CFG.LEAGUE_START[2]`: the Winter League's first match is Friday 11 December 2026, 18:00 UTC, not the next match day after
+League 1's last match (Sunday 6 December), to give new players time to join. It has 35 matches: 26 in the regular season
+(the last on Sunday 7 February), play-offs from match 27, the final on Sunday 28 February; the window after match 18.
+
 ## Trash talk by tone (22-23 Nov 2026, Winter; Alex's idea)
 
 `TRASH` (engine.js) holds four lines, each a talk tone said by the other coach: praise ("the big stage"), challenge ("our

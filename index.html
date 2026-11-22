@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.22-2309"></script>
+<script src="engine.js?v=2026.11.22-2316"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.22-2309';   // stamped by build.py
+const APP_VERSION='2026.11.22-2316';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1425,7 +1425,7 @@ function renderHelp(){
   <li><b>A fresh draft for everyone</b> under a <b>$125M wage cap</b>, and players are <b>one of a kind</b>, with funny names and, one in five, a legend from the films (sections 1 and 13).</li>
   <li><b>Bodies:</b> four heights and three builds. Tall players win close shots and rebounds but tire faster; small ones run all day. A hidden <b>range</b> decides who can shoot from outside: most small players, very few giants (section 2).</li>
   <li><b>Injuries:</b> tired players get hurt during a match and miss one to three matches. A rare giant hardly ever breaks (section 6).</li>
-  <li><b>Twenty-minute matches, three a week</b> (Sunday, Wednesday, Friday), 37 matches in all, and a <b>mid-season window</b> to change two players (sections 11 and 13).</li>
+  <li><b>Starts Friday 11 December.</b> <b>Twenty-minute matches, three a week</b> (Sunday, Wednesday, Friday), 35 matches in all, and a <b>mid-season window</b> to change two players (sections 11 and 13).</li>
   <li><b>Comebacks:</b> a team 8 down at half-time can come back with the right order and good players; a team 8 up eases off without one (section 8).</li>
   <li><b>The double team and the shadow</b> go on their most dangerous player, and a star in good shape can beat a double (section 7).</li>
   <li><b>Who you play is drawn at random</b> among the teams you have not met yet (section 11).</li>
@@ -1548,14 +1548,14 @@ function renderHelp(){
   <p><b>A league is wiped when it ends.</b> Scores, reports and box scores are kept only while the league runs. When it ends they are all deleted; what stays is every team with its players, the champion, and each team's record line (section 13).</p>
   <p>Match reports are part of the online league; the box score is also shown in practice.</p>
   <h4><i>13</i>The league</h4>
-  <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, 36 to 39 matches, three a week: Sunday, Wednesday and Friday. The last three weeks are the <b>play-offs</b> (section 14): the play-off winner is the champion. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
+  <p>There are <b>four leagues a year</b>, one for each season. Each lasts three months, about 35 to 39 matches, three a week: Sunday, Wednesday and Friday. The last three weeks are the <b>play-offs</b> (section 14): the play-off winner is the champion. Before the first Winter League there is one shorter trial league, three matches a week, in which every team meets every other once.</p>
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
   <ul><li><b>Every new league starts with no teams.</b> When a league ends, open the game: you see how it ended, and you press <b>Enter the league</b> to put your team in the next one. A team whose manager does not press the button is not in it.</li>
   <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name.</li>
   <li><b>The fresh draft, once.</b> When League 1 ends, every team drafts seven new players from fourteen for the Winter League, the players with heights and builds, so everyone starts the Winter League on equal terms. It happens only that once: from then on the seven stay together from league to league, with the one change between leagues and the two at the mid-season window.</li>
   <li><b>One change.</b> Before you enter you may change <b>${SWAP_WORDS}</b> of your seven players for a free agent, as long as the squad stays under the wage cap: to sign a dearer player you let a good one go.</li>
-  <li><b>The mid-season window.</b> In a season league, once half the matches are played (in the Winter League, after match 19 of 37, open for matches 20 and 21), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. A yellow banner at the top of the locker room says while the window is open, with a button that takes you to it. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
+  <li><b>The mid-season window.</b> In a season league, once half the matches are played (in the Winter League, after match 18 of 35, open for matches 19 and 20), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. A yellow banner at the top of the locker room says while the window is open, with a button that takes you to it. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)}, at a draft and at the two windows alike (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
   <li><b>What a change means under the cap.</b> Say your seven are worth $118M and you want a $25M free agent at a window. Let a $14M player go and the squad becomes $129M: over the line, refused. Let a $18M player go instead and it becomes $125M: allowed, a good player traded for a better one. With one change per window, the only question is which of your own must go to make room, and whether that trade is worth it. There is no saving up and no buying two.</li>
   <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the change before the next league, so the league stays close. At the <b>mid-season window</b> it is the lower half of the table at the moment the window opens that gets the ${money(CAP_BONUS)}. The locker room shows your squad value and your room under the game plan; the Table tab shows every squad's value.</li>
