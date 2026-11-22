@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.22-2118"></script>
+<script src="engine.js?v=2026.11.22-2137"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.22-2118';   // stamped by build.py
+const APP_VERSION='2026.11.22-2137';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1327,14 +1327,28 @@ function renderPo(){
   el.innerHTML=h;
 }
 // trash talk: one line to the other dugout, the last word before tip-off (online only)
+// the help's trash-talk table, made from the lines themselves so that it always says what the game does
+function trashHelpTable(){
+  const nm=t=>CHAR[t][0];
+  const rows=TRASH.map(l=>{const r=[],f=[];for(const t of Object.keys(CHAR)){const m=trashMood(l,{temp:t});if(!m||m==='ok')continue;(trashGood(m,t)?f:r).push(nm(t));}
+    return `<tr><td>"${esc(l.txt)}"<br><span class="small" style="margin:0">${l.tone?TONE_LABEL[l.tone]:'about their old hands'}${l.at==='star'?', at their star':''}</span></td><td>${r.join(', ')||'nobody'}</td><td>${f.join(', ')||'nobody'}</td></tr>`;}).join('');
+  return `<table class="ht"><tr><th>Line</th><th>Rattles</th><th>Fires up</th></tr>${rows}</table>`;
+}
+// the other team's players with their characters, for picking a line (characters are public, moods are not)
+function trashSquadHtml(op){
+  if(!op||!op.players||!op.players.length)return '';const st=new Set(op.starters||[]);
+  const row=p=>`<span style="display:inline-block;margin:2px 8px 2px 0;white-space:nowrap">${esc(p.n)}${p.id===op.ball?' ★':''} ${chip(p)}${st.has(p.id)?' <span class="small" style="margin:0">started last time</span>':''}${p.inj>0?' <b style="color:#e03131">injured</b>':''}</span>`;
+  return `<div class="small" style="margin:8px 0 0"><b>Their players and their characters</b> (★ their star last time). A line reaches only the players they name for the match.</div><div style="font-size:13px;line-height:1.5">${[...op.players].sort((a,b)=>(st.has(b.id)?1:0)-(st.has(a.id)?1:0)).map(row).join('')}</div>`;
+}
 function renderTrash(){
   const el=$('trashUI');if(!el)return;const me=S.me,op=nextOpp();
   if(!ONLINE||S.phase!=='week'||S.out||!op){el.innerHTML='';return;}
   if((me.ban||0)>0){el.innerHTML=`<div class="banned">Banned for this match${me.banFor?' for trash-talking '+esc(me.banFor):''}: no talks with your players, no team talk, no half-time talk, no trash talk. The plan, the line-up and the orders are yours as usual. The ban ends when ${DAY()}'s match is played.</div>`;return;}
   const sent=me.trash!==null&&me.trash!==undefined&&TRASH[me.trash];
-  el.innerHTML=`<div class="trash"><div class="lab">Trash talk the other dugout</div><div class="small" style="margin:2px 0 4px">One line to ${esc(op.name)}, delivered right before tip-off. Their players take it by character: some get rattled, some get fired up. <b>You are banned for the next match:</b> no talks with your players, no team talk, no half-time talk. The plan stays yours.</div>
+  el.innerHTML=`<div class="trash"><div class="lab">Trash talk the other dugout</div><div class="small" style="margin:2px 0 4px">One line to ${esc(op.name)}, delivered right before tip-off. Each line is one of your tones, said by you to their players named for the match: each takes it as their character takes that tone (section 4), some rattled, some fired up. <b>You are banned for the next match:</b> no talks with your players, no team talk, no half-time talk. The plan stays yours.</div>
     ${sent?`<div style="margin:6px 0"><b>Sent:</b> "${esc(TRASH[me.trash].txt)}" <button id="trashBack" style="background:#fff">Take it back</button></div>`
-    :`<select id="trashSel">${TRASH.map((l,i)=>`<option value="${i}">${esc(l.txt)}${l.at==='star'?' (at their star)':''}</option>`).join('')}</select><button id="trashGo">Send it</button>`}</div>`;
+    :`<select id="trashSel">${TRASH.map((l,i)=>`<option value="${i}">${esc(l.txt)} (${l.tone?TONE_LABEL[l.tone].toLowerCase():'at their old hands'}${l.at==='star'?', at their star':''})</option>`).join('')}</select><button id="trashGo">Send it</button>`}
+    ${trashSquadHtml(op)}</div>`;
   const go=$('trashGo'),back=$('trashBack');
   if(go)go.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:+$('trashSel').value}).then(v=>{applyView(v);toast('Sent. It lands right before tip-off. You will be banned for the next match.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
   if(back)back.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:null}).then(v=>{applyView(v);toast('Taken back.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
@@ -1425,13 +1439,14 @@ function renderHelp(){
   <table class="ht"><tr><th>Character</th><th>Right talk</th><th>Needs</th><th>Weak spot</th></tr>
   <tr><td>Old hand</td><td>challenge, demand, honest</td><td>little: three quiet matches before sulking</td><td>praise after a bad game</td></tr>
   <tr><td>Easy-going</td><td>honest, joke</td><td>almost nothing: four quiet matches</td><td>talks move them less</td></tr>
-  <tr><td>Loner</td><td>honest, challenge</td><td>nothing: never minds silence</td><td>praise; half the time put off by trash talk</td></tr>
+  <tr><td>Loner</td><td>honest, challenge</td><td>nothing: never minds silence</td><td>praise</td></tr>
   <tr><td>Fighter</td><td>challenge, demand, shout</td><td>the right tone: comfort and praise backfire</td><td>ignores the plan when angry</td></tr>
-  <tr><td>Worrier</td><td>comfort, calm, honest</td><td>a talk every week</td><td>trash talk, shouting, the last minutes of a close game</td></tr>
+  <tr><td>Worrier</td><td>comfort, calm, honest</td><td>a talk every week</td><td>shouting, the last minutes of a close game</td></tr>
   <tr><td>People-pleaser</td><td>praise, comfort, calm</td><td>a talk every week</td><td>the same, and demands</td></tr>
-  <tr><td>Proud (show-off)</td><td>praise, challenge</td><td>a start: sulks on the bench</td><td>shouting, being ignored, trash talk</td></tr>
-  <tr><td>Hot-tempered</td><td>comfort, joke</td><td>calm handling</td><td>challenge, demand, shout, "calm down", trash talk</td></tr>
-  <tr><td>Joker</td><td>joke, praise, comfort</td><td>fun</td><td>demands, shouting; half the time put off by trash talk</td></tr></table>
+  <tr><td>Proud (show-off)</td><td>praise, challenge</td><td>a start: sulks on the bench</td><td>shouting, being ignored</td></tr>
+  <tr><td>Hot-tempered</td><td>comfort, joke</td><td>calm handling</td><td>challenge, demand, shout, "calm down"</td></tr>
+  <tr><td>Joker</td><td>joke, praise, comfort</td><td>fun</td><td>demands, shouting</td></tr></table>
+  <p class="small">Which trash-talk line rattles or fires up each character: section 9. It follows these same reactions.</p>
   <h4><i>2</i>Bodies: height and build</h4>
   <p>Every player has one of four heights (<b>tiny, medium, tall, very tall</b>) and one of three builds (<b>slim, normal, fat</b>). You see both in the gym, and both matter.</p>
   <ul><li><b>Height</b> wins the close shots and the rebounds, as before. But <b>the taller, the faster a player tires</b>, in a match and from match to match: a very tall player tires about a third faster than a tiny one, as real centres play about a quarter fewer minutes than guards. And <b>tall and very tall players usually shoot worse from long range</b>, as real centres do: give them the close shots.</li>
@@ -1500,21 +1515,14 @@ function renderHelp(){
   <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
   <li>Orders and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week. A manager banned for trash talk gives no half-time talk that match.</li></ul>
   <h4><i>9</i>Trash talk</h4>
-  <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. Each of them takes it by character, moods only: worriers, people-pleasers, proud and hot-tempered players lose their heads; fighters and old hands get sharper; jokers and loners are put off half the time; easy-going players shrug. A line aimed at their star reaches the star for sure and the others less. A team that has heard you before is harder to rattle, and so is a well-run one: a player who trusts his coach, or is buzzing or locked in, shrugs most of it off.</p>
+  <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. <b>Each line is one of your talk tones, said by you to their players</b>: praise, a joke, a challenge, giving space, being honest, comfort, plus one line about their old hands. Each of their players named for the match (starters and substitutes) takes it exactly as their character takes that tone from a coach (the table in section 4), moods only, but an opponent's words land only seven times in ten. So a line rattles some characters and fires others up: look at who they are before you send it. Their players and their characters are listed in the trash-talk box.</p>
   <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
-  <li>One line per match. Four of the six lines are aimed at the whole team, two at their star. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
-  <li>Real research on trash talk says it mostly fires the target up and only sometimes rattles them. In the game a line reaches about seven in ten of the players it can rattle (worriers, people-pleasers, the proud, the hot-tempered) when they are in an ordinary mood and unsure of their coach, far fewer when they trust you or are buzzing or locked in (about three in ten, or one in ten with full trust), about half of the players it fires up (fighters, old hands), and jokers and loners half the time; aimed at their star it reaches the star almost surely and the others three times in ten. Look at who you are talking to before you send it.</li></ul>
-  <p><b>What a line does to each character</b>, moods only, for that match (see the mood table in section 5). Each player is reached by chance: those who lose their heads about 70 times in 100 (in an ordinary mood and unsure of their coach; about 30 when buzzing or locked in, far fewer when they trust you), those who get sharper about 45; a line at the star reaches the star almost surely.</p>
-  <table class="ht"><tr><th>Character</th><th>Turns</th><th>Which means</th></tr>
-  <tr><td>Worrier, people-pleaser</td><td>anxious</td><td>shoots worse, loses the ball more, misses late in a close game</td></tr>
-  <tr><td>Proud, hot-tempered</td><td>fuming</td><td>shoots a bit worse and goes alone half the time</td></tr>
-  <tr><td>Fighter</td><td>fuming, and for a fighter that is fuel</td><td>shoots better, hounds the ball on a press: fired up</td></tr>
-  <tr><td>Old hand</td><td>locked in</td><td>better defence, fewer ball losses, total obedience: fired up</td></tr>
-  <tr><td>Joker (half the time)</td><td>sulking</td><td>the worst shooting mood, slower, fewer rebounds</td></tr>
-  <tr><td>Loner (half the time)</td><td>anxious</td><td>as the worrier</td></tr>
-  <tr><td>Easy-going</td><td>nothing</td><td>shrugs</td></tr></table>
-  <p>Measured on the twenty-minute match: a line at a court of worriers and pleasers is worth about +12 points of win chance to the sender, at a court of fighters about -7, at a court of old hands about -9. Then comes the ban.</p>
-  <h4><i>10</i>The rule of the week</h4>
+  <li>One line per match. Seven lines are aimed at the whole team, two at their star: a line at the star reaches the star almost surely and the others three times in ten. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
+  <li><b>A well-run team is hard to rattle.</b> A player who trusts his coach, or is buzzing or locked in, shrugs most of it off: a buzzing or locked-in player is rattled less than half as often, and each step of trust protects a quarter more. A team that has heard you before is harder to rattle too. Firing up is not stopped by any of that.</li>
+  <li><b>Nobody is immune but the easy-going.</b> Every character can be rattled by one line or another, old hands only by the line about them; easy-going players shrug at everything, as they do with their own coach.</li></ul>
+  <p><b>What each line does</b>, from the same table as your own talks (moods in section 5):</p>
+  ${trashHelpTable()}
+  <p>Measured on the twenty-minute match: a line picked without looking gains nothing on average and often backfires; the right line for their characters is worth about +5 or +6 points of win chance, a bit less against a well-run team. Then comes the ban.</p><h4><i>10</i>The rule of the week</h4>
   <p>Every match is played under one funny rule, shown at the top of the locker room, for example "Attack counts double" or "The ceiling is very low". The rule changes which players and which tactics are worth most, so read it before you pick the starters.</p>
   <p>In the play-offs every series game has its own rule, drawn at random and shown as soon as the pairs are made (section 14); the voted rule of the week still rules the friendlies.</p>
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>

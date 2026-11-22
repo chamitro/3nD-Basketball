@@ -145,31 +145,38 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // pleasers, the proud and the hot-tempered lose their heads; jokers and loners are put off half the time. A line aimed at their star reaches the star for sure and
 // the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
 // match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
+// Trash talk (Alex's idea, Harry 22 Nov 2026): each line is one of the talk tones, said by the other coach. Each of their named
+// players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help) seven
+// times in ten, or as `fx` says. Old hands are rattled only by the line about them; easy-going players shrug at everything.
 const TRASH=[
-  {txt:'We have watched your matches. We laughed.',at:'team'},
-  {txt:'Our substitutes would beat you.',at:'team'},
-  {txt:'Enjoy the bottom of the table. It suits you.',at:'team'},
-  {txt:'Bring tissues on match day.',at:'team'},
-  {txt:'Your star could not hit the sea from the beach.',at:'star'},
-  {txt:'Everybody knows your star folds when it matters.',at:'star'},
+  {txt:'Hope you are ready for the big stage: everyone will be watching.',at:'team',tone:'praise'},
+  {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
+  {txt:'Our substitutes would beat you.',at:'team',tone:'challenge'},
+  {txt:'Nobody will even notice you are on the court.',at:'team',tone:'space'},
+  {txt:'Enjoy the bottom of the table. It suits you.',at:'team',tone:'honest'},
+  {txt:'Bring tissues on match day.',at:'team',tone:'comfort'},
+  {txt:'Your old hands are past it.',at:'team',tone:null,fx:{veteran:'nervous',fighter:'angry'}},
+  {txt:'Your star could not hit the sea from the beach.',at:'star',tone:'joke'},
+  {txt:'Everybody knows your star folds when it matters.',at:'star',tone:'challenge'},
 ];
-const TRASH_REACH={rattle:0.7,fire:0.45};   // chance that a player is reached: the ones who lose their heads, the ones who get sharper (fire 0.6 until 14 Nov 2026: a line at three fighters cost the sender 7 points, at three old hands 8; now about 5 and 6, Harry: the risk should sting, not decide the match) (a line aimed at the star: the star 0.95, the others 0.3). Measured 10 Nov 2026: about +2.5 points of win chance against a court that rattles, -4 against one that fires up, +1 on average.
-// what a character does with an insult from the other dugout: [mood, fired up?]
-const TRASH_FX={showoff:['angry',false],worrier:['nervous',false],pleaser:['nervous',false],hothead:['angry',false],
-  fighter:['angry',true],veteran:['cool',true],joker:['sad',false],loner:['nervous',false],easygoing:['ok',false]};
-// a joker wilts when it gets serious and a loner hates the attention, but only half the time, and never get sharper (Harry, 10 Nov 2026)
-const TRASH_CAP={joker:0.5,loner:0.5};
+const TRASH_REACH={team:0.7,star:0.95,others:0.3};   // a line at the team reaches each named player seven times in ten (an opponent's words land
+// at 70% of the coach's own, Alex); a line at the star reaches the star almost surely and the others three times in ten
+const trashGood=(m,t)=>m==='happy'||m==='cool'||(m==='angry'&&t==='fighter');   // fired up; sad, nervous and (for all but fighters) angry are rattled
+const trashMood=(l,p)=>l.fx?(l.fx[p.temp]||null):(TEMPS[p.temp]&&TEMPS[p.temp].r[l.tone]?TEMPS[p.temp].r[l.tone][1]:null);
 // apply one trash line to a team; `heard` = how often this team has heard that manager before. Returns who was rattled and who was fired up.
 function trashTeam(team,line,starId,heard){
   const rattled=[],fired=[];const l=TRASH[line];if(!l)return {rattled,fired};
-  for(const p of team.players){
-    const isStar=p.id===starId;const [mood,up]=TRASH_FX[p.temp]||['ok',false];if(mood==='ok')continue;
-    const reach=Math.min(l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle),TRASH_CAP[p.temp]||1);
-    // a player who trusts the coach, or is buzzing or locked in, shrugs most of it off (Harry, 22 Nov 2026: trash talk was
-    // worth +12 to +16 points of win chance against a well-managed team, wiping out a week of good talks; now about +3.5)
+  // only the players named for the match hear it (Harry, 22 Nov 2026: it used to land on players who did not even play)
+  const named=new Set([...(team.starters||[]),...(team.subs||[])]);const ps=named.size?team.players.filter(p=>named.has(p.id)):team.players;
+  for(const p of ps){
+    const mood=trashMood(l,p);if(!mood||mood==='ok'||p.mood===mood)continue;
+    const up=trashGood(mood,p.temp),isStar=p.id===starId;
+    const reach=l.at==='star'?(isStar?TRASH_REACH.star:TRASH_REACH.others):TRASH_REACH.team;
+    // a player who trusts the coach, or is buzzing or locked in, shrugs most of it off (22 Nov 2026: trash talk was worth
+    // +12 to +16 points of win chance against a well-managed team, wiping out a week of good talks)
     const calm=(p.mood==='happy'||p.mood==='cool'?0.4:1)*(1-0.25*Math.max(0,p.trust||0));
     const chance=up?reach:calm*reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
-    if(R()>=chance||p.mood===mood)continue;
+    if(R()>=chance)continue;
     p.mood=mood;(up?fired:rattled).push(p.n);
   }
   return {rattled,fired};
