@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.22-2137"></script>
+<script src="engine.js?v=2026.11.22-2254"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.22-2137';   // stamped by build.py
+const APP_VERSION='2026.11.22-2254';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1334,21 +1334,14 @@ function trashHelpTable(){
     return `<tr><td>"${esc(l.txt)}"<br><span class="small" style="margin:0">${l.tone?TONE_LABEL[l.tone]:'about their old hands'}${l.at==='star'?', at their star':''}</span></td><td>${r.join(', ')||'nobody'}</td><td>${f.join(', ')||'nobody'}</td></tr>`;}).join('');
   return `<table class="ht"><tr><th>Line</th><th>Rattles</th><th>Fires up</th></tr>${rows}</table>`;
 }
-// the other team's players with their characters, for picking a line (characters are public, moods are not)
-function trashSquadHtml(op){
-  if(!op||!op.players||!op.players.length)return '';const st=new Set(op.starters||[]);
-  const row=p=>`<span style="display:inline-block;margin:2px 8px 2px 0;white-space:nowrap">${esc(p.n)}${p.id===op.ball?' ★':''} ${chip(p)}${st.has(p.id)?' <span class="small" style="margin:0">started last time</span>':''}${p.inj>0?' <b style="color:#e03131">injured</b>':''}</span>`;
-  return `<div class="small" style="margin:8px 0 0"><b>Their players and their characters</b> (★ their star last time). A line reaches only the players they name for the match.</div><div style="font-size:13px;line-height:1.5">${[...op.players].sort((a,b)=>(st.has(b.id)?1:0)-(st.has(a.id)?1:0)).map(row).join('')}</div>`;
-}
 function renderTrash(){
   const el=$('trashUI');if(!el)return;const me=S.me,op=nextOpp();
   if(!ONLINE||S.phase!=='week'||S.out||!op){el.innerHTML='';return;}
   if((me.ban||0)>0){el.innerHTML=`<div class="banned">Banned for this match${me.banFor?' for trash-talking '+esc(me.banFor):''}: no talks with your players, no team talk, no half-time talk, no trash talk. The plan, the line-up and the orders are yours as usual. The ban ends when ${DAY()}'s match is played.</div>`;return;}
   const sent=me.trash!==null&&me.trash!==undefined&&TRASH[me.trash];
-  el.innerHTML=`<div class="trash"><div class="lab">Trash talk the other dugout</div><div class="small" style="margin:2px 0 4px">One line to ${esc(op.name)}, delivered right before tip-off. Each line is one of your tones, said by you to their players named for the match: each takes it as their character takes that tone (section 4), some rattled, some fired up. <b>You are banned for the next match:</b> no talks with your players, no team talk, no half-time talk. The plan stays yours.</div>
+  el.innerHTML=`<div class="trash"><div class="lab">Trash talk the other dugout</div><div class="small" style="margin:2px 0 4px">One line to ${esc(op.name)}, delivered right before tip-off. Each line is one of your tones, said by you to their players named for the match: each takes it as their character takes that tone from a coach (section 4), some rattled, some fired up. You do not see their characters, so it is a risk. <b>You are banned for the next match:</b> no talks with your players, no team talk, no half-time talk. The plan stays yours.</div>
     ${sent?`<div style="margin:6px 0"><b>Sent:</b> "${esc(TRASH[me.trash].txt)}" <button id="trashBack" style="background:#fff">Take it back</button></div>`
-    :`<select id="trashSel">${TRASH.map((l,i)=>`<option value="${i}">${esc(l.txt)} (${l.tone?TONE_LABEL[l.tone].toLowerCase():'at their old hands'}${l.at==='star'?', at their star':''})</option>`).join('')}</select><button id="trashGo">Send it</button>`}
-    ${trashSquadHtml(op)}</div>`;
+    :`<select id="trashSel">${TRASH.map((l,i)=>`<option value="${i}">${esc(l.txt)} (${l.tone?TONE_LABEL[l.tone].toLowerCase():'at their old hands'}${l.at==='star'?', at their star':''})</option>`).join('')}</select><button id="trashGo">Send it</button>`}</div>`;
   const go=$('trashGo'),back=$('trashBack');
   if(go)go.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:+$('trashSel').value}).then(v=>{applyView(v);toast('Sent. It lands right before tip-off. You will be banned for the next match.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
   if(back)back.onclick=()=>{if(netBusy)return;netBusy++;api('trash',{i:null}).then(v=>{applyView(v);toast('Taken back.');render();}).catch(e=>toast(e.message)).finally(()=>netBusy--);};
@@ -1515,11 +1508,13 @@ function renderHelp(){
   <li>Your result says when an order kicked in, what your talk did and what the second half brought. The match reports show everybody's half-time score, the talk and the order they used. Your assistant has no opinion on orders: this one is yours.</li>
   <li>Orders and talk stay set from match to match until you change them. No half-time under "First to eleven". No substitutions under "Iron legs", so fresh legs or a star from the bench cannot be followed that week. A manager banned for trash talk gives no half-time talk that match.</li></ul>
   <h4><i>9</i>Trash talk</h4>
-  <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. <b>Each line is one of your talk tones, said by you to their players</b>: praise, a joke, a challenge, giving space, being honest, comfort, plus one line about their old hands. Each of their players named for the match (starters and substitutes) takes it exactly as their character takes that tone from a coach (the table in section 4), moods only, but an opponent's words land only seven times in ten. So a line rattles some characters and fires others up: look at who they are before you send it. Their players and their characters are listed in the trash-talk box.</p>
-  <ul><li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
-  <li>One line per match. Seven lines are aimed at the whole team, two at their star: a line at the star reaches the star almost surely and the others three times in ten. You can take a line back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
+  <p>In the online league you may send one line from a menu to the other dugout before a match. It is the last word before tip-off: whatever you and the other manager said to your players during the week comes first, then your line lands on their players. <b>Each line is one of your talk tones, said by you to their players</b>: praise, a joke, a challenge, being honest, comfort or a shout. Each of their players named for the match (starters and substitutes) takes it exactly as their character takes that tone from a coach (the table in section 4), moods only, but an opponent's words land only seven times in ten. So a line rattles some characters and fires others up.</p>
+  <ul><li><b>The risk.</b> You do not see the other team's characters, so you never know for sure who you are talking to: the line that rattles one team fires up the next. What you can go on is what you have seen: the match reports say who was rattled and who was fired up by every line, yours and everyone else's.</li>
+  <li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
+  <li>One line per match; you can take it back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
+  <li>Six lines are aimed at the whole team, two at their star: a line at the star reaches the star almost surely and the others three times in ten.</li>
   <li><b>A well-run team is hard to rattle.</b> A player who trusts his coach, or is buzzing or locked in, shrugs most of it off: a buzzing or locked-in player is rattled less than half as often, and each step of trust protects a quarter more. A team that has heard you before is harder to rattle too. Firing up is not stopped by any of that.</li>
-  <li><b>Nobody is immune but the easy-going.</b> Every character can be rattled by one line or another, old hands only by the line about them; easy-going players shrug at everything, as they do with their own coach.</li></ul>
+  <li><b>Old hands and easy-going players are never rattled</b> by these lines, as they are hard to upset for their own coach; but some lines fire them up.</li></ul>
   <p><b>What each line does</b>, from the same table as your own talks (moods in section 5):</p>
   ${trashHelpTable()}
   <p>Measured on the twenty-minute match: a line picked without looking gains nothing on average and often backfires; the right line for their characters is worth about +5 or +6 points of win chance, a bit less against a well-run team. Then comes the ban.</p><h4><i>10</i>The rule of the week</h4>

@@ -150,15 +150,14 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
 // Trash talk (Alex's idea, Harry 22 Nov 2026): each line is one of the talk tones, said by the other coach. Each of their named
 // players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help) seven
-// times in ten, or as `fx` says. Old hands are rattled only by the line about them; easy-going players shrug at everything.
+// times in ten. Harry chose the six lines and two at the star; old hands and easy-going players are never rattled by them.
 const TRASH=[
   {txt:'Hope you are ready for the big stage: everyone will be watching.',at:'team',tone:'praise'},
   {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
   {txt:'Our substitutes would beat you.',at:'team',tone:'challenge'},
-  {txt:'Nobody will even notice you are on the court.',at:'team',tone:'space'},
   {txt:'Enjoy the bottom of the table. It suits you.',at:'team',tone:'honest'},
   {txt:'Bring tissues on match day.',at:'team',tone:'comfort'},
-  {txt:'Your old hands are past it.',at:'team',tone:null,fx:{veteran:'nervous',fighter:'angry'}},
+  {txt:'WHAT A JOKE OF A TEAM!',at:'team',tone:'shout'},
   {txt:'Your star could not hit the sea from the beach.',at:'star',tone:'joke'},
   {txt:'Everybody knows your star folds when it matters.',at:'star',tone:'challenge'},
 ];
@@ -1012,7 +1011,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='3c6d3c1b';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='19ab86fa';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1080,7 +1079,7 @@ const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;delete q.tough;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
-function pubPlayer(p){return {id:p.id,n:p.n,temp:p.temp,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}
+function pubPlayer(p){return {id:p.id,n:p.n,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}   // no character (Harry, 22 Nov 2026: another team's characters are not shown; trash talk is a risk)
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
 function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
@@ -1356,7 +1355,7 @@ async function runMatchday(store,lg,now){
       const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
       if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
       if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match: no talks with your players, no half-time talk.`);
-      if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}
+      if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}   // the sender is banned for the next match (Harry, 22 Nov 2026: the ban stays)
       // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
       const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
       const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,talk:xs.half.talk||null,

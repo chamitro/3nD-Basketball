@@ -147,15 +147,14 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
 // Trash talk (Alex's idea, Harry 22 Nov 2026): each line is one of the talk tones, said by the other coach. Each of their named
 // players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help) seven
-// times in ten, or as `fx` says. Old hands are rattled only by the line about them; easy-going players shrug at everything.
+// times in ten. Harry chose the six lines and two at the star; old hands and easy-going players are never rattled by them.
 const TRASH=[
   {txt:'Hope you are ready for the big stage: everyone will be watching.',at:'team',tone:'praise'},
   {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
   {txt:'Our substitutes would beat you.',at:'team',tone:'challenge'},
-  {txt:'Nobody will even notice you are on the court.',at:'team',tone:'space'},
   {txt:'Enjoy the bottom of the table. It suits you.',at:'team',tone:'honest'},
   {txt:'Bring tissues on match day.',at:'team',tone:'comfort'},
-  {txt:'Your old hands are past it.',at:'team',tone:null,fx:{veteran:'nervous',fighter:'angry'}},
+  {txt:'WHAT A JOKE OF A TEAM!',at:'team',tone:'shout'},
   {txt:'Your star could not hit the sea from the beach.',at:'star',tone:'joke'},
   {txt:'Everybody knows your star folds when it matters.',at:'star',tone:'challenge'},
 ];
