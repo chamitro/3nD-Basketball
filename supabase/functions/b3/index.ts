@@ -128,7 +128,10 @@ function trashTeam(team,line,starId,heard){
   for(const p of team.players){
     const isStar=p.id===starId;const [mood,up]=TRASH_FX[p.temp]||['ok',false];if(mood==='ok')continue;
     const reach=Math.min(l.at==='star'?(isStar?0.95:0.3):(up?TRASH_REACH.fire:TRASH_REACH.rattle),TRASH_CAP[p.temp]||1);
-    const chance=up?reach:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
+    // a player who trusts the coach, or is buzzing or locked in, shrugs most of it off (Harry, 22 Nov 2026: trash talk was
+    // worth +12 to +16 points of win chance against a well-managed team, wiping out a week of good talks; now about +3.5)
+    const calm=(p.mood==='happy'||p.mood==='cool'?0.4:1)*(1-0.25*Math.max(0,p.trust||0));
+    const chance=up?reach:calm*reach/(1+(heard||0));   // a team that has heard it before is harder to rattle, fire still catches
     if(R()>=chance||p.mood===mood)continue;
     p.mood=mood;(up?fired:rattled).push(p.n);
   }
@@ -841,7 +844,7 @@ const CFG={
   HOUSE_NAME:'The House Team',
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='7dff8eb4';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='83b40f72';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const matchDays=no=>no>=CFG.SEASONS_FROM?CFG.MATCH_DAYS:CFG.TEST_DAYS;
