@@ -168,7 +168,7 @@ League 1's last match (Sunday 6 December), to give new players time to join. It 
 `TRASH` (engine.js) holds four lines, each a talk tone said by the other coach: praise ("the big stage"), challenge ("our
 substitutes"), calm ("nobody expects anything") and joke ("we laughed"). `trashTeam`: each player named for the match
 (starters and substitutes) reacts as their character reacts to that tone (`TEMPS`, the help's talk table): rattled with
-`TRASH_REACH.team` 0.7 (divided by how often the team has heard that manager), fired up with 0.7 x `TRASH_FIRE` 0.4.
+`TRASH_REACH.team` 0.7 (divided by how often the team has heard that manager), fired up with 0.7 x `TRASH_FIRE` 0.28 (about two in ten).
 Each line rattles about as many characters as it fires up and all four are about +2 to +3 points of win chance in their
 match against an ordinary team, so none is the obvious one (shout was +14 and left out). Old hands and easy-going players
 are never rattled. The other team's characters are not sent to the page (`pubPlayer` has no `temp`). The sender is banned

@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.22-2316"></script>
+<script src="engine.js?v=2026.11.22-2325"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.22-2316';   // stamped by build.py
+const APP_VERSION='2026.11.22-2325';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1524,7 +1524,7 @@ function renderHelp(){
   <li><b>The price.</b> You are banned for the next match: no talks with your players, no team talk, no half-time talk, no trash talk. You still set the whole plan: starters, substitutes, star, dials and half-time orders; only the half-time tone menus are locked, and a tone you had set before the ban comes back after it. The ban ends when that match is played. Everybody sees it in the match reports.</li>
   <li>One line per match; you can take it back any time before the match. Nobody sees it until the match is played; then both managers read in their result who was rattled and who was fired up, and so does everybody in the match reports.</li>
   <li><b>Four lines, none the obvious one.</b> Each rattles about as many characters as it fires up, and all four are about as strong: which one pays depends only on who is on the other team.</li>
-  <li><b>Rattled more easily than fired up.</b> A line rattles a player it can rattle seven times in ten, but fires up a player it can fire up only about three times in ten: an opponent's words unsettle more easily than they inspire. A team that has heard you before is harder to rattle.</li>
+  <li><b>Rattled more easily than fired up.</b> A line rattles a player it can rattle seven times in ten, but fires up a player it can fire up only about two times in ten: an opponent's words unsettle more easily than they inspire. A team that has heard you before is harder to rattle.</li>
   <li><b>Old hands and easy-going players are never rattled</b> by these lines, as they are hard to upset for their own coach; but some lines fire them up.</li></ul>
   <p><b>What each line does</b>, from the same table as your own talks (moods in section 5):</p>
   ${trashHelpTable()}

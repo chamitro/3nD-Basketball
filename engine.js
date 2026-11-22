@@ -147,7 +147,7 @@ const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'chall
 // match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
 // Trash talk (Alex's idea, Harry 22 Nov 2026): each line is one of the talk tones, said by the other coach. Each of their named
 // players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help): rattled
-// seven times in ten, fired up three in ten. Four lines (Harry, 23 Nov 2026), each rattling about as many characters as it
+// seven times in ten, fired up two in ten. Four lines (Harry, 23 Nov 2026), each rattling about as many characters as it
 // fires up, all about the same strength (+2 to +3 points of win chance in their match against an ordinary team), so no line is
 // the obvious one; shout (+14) and the others that hit one side much more were left out. Old hands and easy-going players are
 // never rattled.
@@ -157,7 +157,7 @@ const TRASH=[
   {txt:'Relax. Nobody expects anything from you.',at:'team',tone:'calm'},
   {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
 ];
-const TRASH_REACH={team:0.7,star:0.95,others:0.3},TRASH_FIRE=0.4;   // a line at the team reaches each named player seven times in ten (an opponent's words land
+const TRASH_REACH={team:0.7,star:0.95,others:0.3},TRASH_FIRE=0.28;   // firing up about two times in ten (0.4 until 23 Nov 2026: the four lines lost about 0.1 of a win per use; now a random line now and then is even over a season, +0.1 +-0.35)   // a line at the team reaches each named player seven times in ten (an opponent's words land
 // at 70% of the coach's own, Alex); a line at the star reaches the star almost surely and the others three times in ten
 const trashGood=(m,t)=>m==='happy'||m==='cool'||(m==='angry'&&t==='fighter');   // fired up; sad, nervous and (for all but fighters) angry are rattled
 const trashMood=(l,p)=>l.fx?(l.fx[p.temp]||null):(TEMPS[p.temp]&&TEMPS[p.temp].r[l.tone]?TEMPS[p.temp].r[l.tone][1]:null);
