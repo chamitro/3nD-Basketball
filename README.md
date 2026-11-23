@@ -17,6 +17,29 @@ and choose the tactics. The match plays by itself.
 
 The rules are explained inside the game under **? How to play**.
 
+## The Winter League: everything new (index, 23 Nov 2026)
+
+Every change a manager meets in the Winter League, with where it lives. The managers' version is 3nD-Winter-update.md
+(outside the repo) and the in-game help ("New in the Winter League" and sections 1-14); test scripts are in 3nD-tests.
+- Start: Fri 11 Dec 2026 (`CFG.LEAGUE_START`), first week drawn 24 h before (`CFG.FIRST_DRAW`, `firstDraw`), see "The Winter League's start".
+- Fresh start after League 1: fresh draft and an optional new name (`enter` with `name`, `data.formerly`, hall `was`).
+- Three twenty-minute matches a week, Sunday, Wednesday and Friday (`CFG.MATCH_DAYS [0,3,5]`), 35 matches, 26 regular.
+- The week's fixtures drawn after every Sunday match among teams not yet met (`drawWeek`, `useWeek`, `pairUp`), see "The week's fixtures".
+- Wage cap $125M at the draft and at the windows (`CAP`), $8M more for the lower half (`CAP_BONUS`): at the mid-season window the
+  lower half of the table when it opens, for the change between leagues the lower half of the final table. Values from dots, body
+  and character (`valueOf`, `CHAR_VALUE`); the locker room shows the cap line.
+- Mid-season window after match 18 of 35, two changes for two match days.
+- Absent teams keep playing with their last line-up and plan until the league ends.
+- A team's season: tap a team in the table for every match it played (`leagueResults`).
+- Table without the value column; "Leagues won" lists only teams with a title (`hallHtml`).
+- Bodies (heights and builds against real figures), range (hidden), age (talks, recovery, speed; old hands mostly over 30),
+  injuries (in-match, tough giants), names and legends, no twins: their own sections below.
+- Half-time: one order per case, the double team, the shadow (a smaller bet than the double, same as League 1), free the star,
+  everything through; comebacks for a trailing team with an order (`CB`, `swing`), see "Half-time orders".
+- Trash talk by tone, four lines, characters hidden, named players only, the ban kept: "Trash talk by tone".
+- Play-offs: top eight, best of three, a random rule every game, no Silver Cup: "Play-offs".
+- Help: first day, how often to come back, New in Winter, the rules list, fold-out details.
+
 ## Files
 
 | file | what it is |
