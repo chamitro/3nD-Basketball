@@ -354,7 +354,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.23-1826"></script>
+<script src="engine.js?v=2026.11.23-1835"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -620,7 +620,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.23-1826';   // stamped by build.py
+const APP_VERSION='2026.11.23-1835';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1466,7 +1466,7 @@ function renderHelp(){
   <tr><td>Joker</td><td>joke, praise, comfort</td><td>fun</td><td>demands, shouting</td></tr></table>
   <p class="small">Which trash-talk line rattles or fires up each character: section 9. It follows these same reactions.</p>
   <h4><i>2</i>Bodies: height and build</h4>
-  <p><b>Age.</b> Every player has an age, shown on the card and in the draft: most are between 21 and 29, a few are young (18 to 20) and a few are veterans (30 to 34). One year is a whole season of four leagues, Winter, Spring, Summer and Autumn: everybody turns a year older at the start of each Winter League. Age matters in three ways:</p>
+  <p><b>Age.</b> Every player has an age, shown on the card and in the draft: most are between 21 and 29, a few are young (18 to 20) and a few are veterans (30 to 34). Old hands have been around: most of them are over 30. One year is a whole season of four leagues, Winter, Spring, Summer and Autumn: everybody turns a year older at the start of each Winter League. Age matters in three ways:</p>
   <ul><li><b>Young players are easier to move.</b> Your talks, team talks, half-time talks and the other side's trash talk all reach them more often, and a good talk lifts them a little more. Older players have heard it all: a talk sometimes just gets a nod, for better and for worse.</li>
   <li><b>Young players get their energy back faster</b> between matches; older ones need a little longer.</li>
   <li><b>Speed goes with the years.</b> Players over 28 are more often slow, and every Winter, when everybody turns a year older, a player over 28 may lose a little speed.</li></ul>

@@ -248,7 +248,8 @@ season of four leagues: everybody turns a year older when an Autumn League ends 
 fresh draft. `AGE_FX` in engine.js:
 - `ageImp` (x1.3 at 18 down to x0.65 at 34): talks, team and half-time talks and trash talk reach the young more often,
   and a good talk lifts them a little more; an older player sometimes just nods at a personal talk.
-- `ageRec` (x1.25 young down to x0.85 old): younger players get their energy back faster.
+- `ageRec` (x1.2 young down to x0.9 old): younger players get their energy back faster.
+- Old hands are mostly over 30 (74%; `AGE_ODDS_OLDHAND`).
 - Speed: players over 28 are born slower more often, and may lose half a dot of base speed at each birthday.
-Measured (3nD-tests/localseason/age_study.js, 112 leagues): a squad 4 years older wins -0.4 to +0.2 games a season, the
+Measured (3nD-tests/localseason/age_study.js, 112 leagues with the final values): a squad 4 years older wins +0.4 games a season (noise), old hands 13.9-14.2 wins whatever their number; the
 same for managers who never talk, talk at random, talk well or trash talk. age_year_test.js checks the yearly birthday.

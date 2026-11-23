@@ -300,13 +300,15 @@ const AGE_ODDS=[[18,1],[19,2],[20,3],[21,5],[22,6],[23,7],[24,7],[25,7],[26,7],[
 //  - impressionability `ageImp`: talks, team and half-time talks and trash talk move young players more and older ones less
 //  - recovery `ageRec`: younger players get their energy back more easily, older ones more slowly
 //  - speed: older players are born with less speed more often, and lose a little each Winter (the birthday)
-const AGE_FX={imp:0.04,impMin:0.65,impMax:1.3,rec:0.025,recMin:0.85,recMax:1.25,spFrom:28,spBirth:0.12,spYear:0.08};
+const AGE_FX={imp:0.04,impMin:0.65,impMax:1.3,rec:0.02,recMin:0.9,recMax:1.2,spFrom:28,spBirth:0.12,spYear:0.08};
 const ageImp=p=>p&&p.age?clamp(1+AGE_FX.imp*(25-p.age),AGE_FX.impMin,AGE_FX.impMax):1;
 const ageRec=p=>p&&p.age?clamp(1+AGE_FX.rec*(25-p.age),AGE_FX.recMin,AGE_FX.recMax):1;   // the young get their energy back more easily (Harry, 23 Nov 2026)
 function birthday(p){if(!p.age)return;p.age++;   // a year older; from 29 on a growing chance of half a dot less speed (on the base, talks and form stay)
   if(p.age>AGE_FX.spFrom&&R()<AGE_FX.spYear*(p.age-AGE_FX.spFrom)){p.base=p.base||{};if(p.base.sp===undefined)p.base.sp=p.sp;
     p.base.sp=Math.max(1,p.base.sp-0.5);const t=(p.tk&&p.tk.sp)||0,f=(p.fm&&p.fm.sp)||0;p.sp=clamp(clamp(p.base.sp+t+f,p.base.sp-STAT_BAND,p.base.sp+STAT_BAND),1,4);}}
-const newAge=()=>{let x=R()*AGE_ODDS.reduce((s,a)=>s+a[1],0);for(const [a,w] of AGE_ODDS){x-=w;if(x<=0)return a;}return 25;};
+// old hands have seen it all because they have been around: most are over 30, a few 27 to 29 (Harry, 23 Nov 2026)
+const AGE_ODDS_OLDHAND=[[27,1],[28,1.5],[29,2],[30,3],[31,3],[32,3],[33,2.5],[34,2]];
+const newAge=temp=>{const T=temp==='veteran'?AGE_ODDS_OLDHAND:AGE_ODDS;let x=R()*T.reduce((s,a)=>s+a[1],0);for(const [a,w] of T){x-=w;if(x<=0)return a;}return 25;};
 function makePlayer0(){
   const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
   const h=clamp(HT_H[ht]+(R()-0.5)*0.1,0,1),d4=()=>1+Math.floor(R()*4);
@@ -314,7 +316,7 @@ function makePlayer0(){
   // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
   let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);if(R()<BD_SP[bd])sp=clamp(sp+(bd===0?1:-1),1,4);
-  const age=newAge();if(age>AGE_FX.spFrom&&R()<AGE_FX.spBirth*(age-AGE_FX.spFrom))sp=clamp(sp-1,1,4);   // the years take the speed first
+  const age=newAge(temp);if(age>AGE_FX.spFrom&&R()<AGE_FX.spBirth*(age-AGE_FX.spFrom))sp=clamp(sp-1,1,4);   // the years take the speed first
   return {id:NEXT_ID++,n:makeName(),age,temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
     hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
     socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
