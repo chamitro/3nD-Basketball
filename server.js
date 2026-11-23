@@ -438,7 +438,7 @@ async function runMatchday(store,lg,now){
     // the wage cap: the lower half of the table gets a little extra room for the next league, the rest none
     for(const t of [...humans,...away]){const place=placeOf(t.id);t.data.capBonus=place>Math.ceil(tbl.length/2)?CAP_BONUS:0;}
     // the all-time list: how many leagues each team has won, of how many it finished
-    const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,won:t.data.won||0,played:t.data.played||0}))
+    const hall=all.filter(t=>(t.data.played||0)>0).map(t=>({id:t.id,name:t.name,was:(t.data.formerly||[]).slice(-1)[0]||null,won:t.data.won||0,played:t.data.played||0}))   // `was`: the name before a rename, so a title won under it is recognised
       .sort((a,b)=>b.won-a.won||a.played-b.played||(a.name<b.name?-1:1)).slice(0,CFG.HALL_SIZE);
     lg.final={no:lg.no,name:endedName,champion:champ,top,table:tbl.slice(0,10).map(t=>({name:t.name,w:t.w,l:t.l,pts:t.pts})),hall};
     // Everyone goes back to zero, and nobody is in the next league yet: a team is in it once its manager enters it.

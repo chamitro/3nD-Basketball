@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.23-0814"></script>
+<script src="engine.js?v=2026.11.23-0816"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.23-0814';   // stamped by build.py
+const APP_VERSION='2026.11.23-0816';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1685,7 +1685,7 @@ function hallHtml(){
   let h=`<div class="card" style="margin-top:16px"><h3>Leagues won · all teams</h3>`;
   if(!hall.length)return h+`<div class="small" style="margin:0">No league has finished yet. When one ends, the titles of every team are counted here.</div></div>`;
   h+=`<table><tr><th>#</th><th>team</th><th class="n">leagues won</th><th class="n">leagues played</th></tr>`;
-  hall.forEach((t,i)=>{h+=`<tr class="${t.id===S.me.id?'me':''}"><td>${i+1}</td><td>${t.name}</td><td class="n"><b>${t.won}</b></td><td class="n">${t.played}</td></tr>`;});
+  hall.forEach((t,i)=>{h+=`<tr class="${t.id===S.me.id?'me':''}"><td>${i+1}</td><td>${esc(t.name)}${t.was?` <span class="small" style="margin:0">(formerly ${esc(t.was)})</span>`:''}</td><td class="n"><b>${t.won}</b></td><td class="n">${t.played}</td></tr>`;});
   if(!hall.some(t=>t.id===S.me.id)&&(S.played||0)>0)h+=`<tr class="me"><td></td><td>${S.me.name}</td><td class="n"><b>${S.won||0}</b></td><td class="n">${S.played}</td></tr>`;
   return h+`</table><div class="small">Counted each time a league ends. A team keeps its record from league to league.</div></div>`;
 }
