@@ -452,7 +452,7 @@ async function runMatchday(store,lg,now){
     matches.push(rec);
   }
   // a rest day: a bye, or a series already decided this week; the players get back what a match off gives
-  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players){p.en=clamp(energyOf(p)+ENERGY.REST+ENERGY.NIGHT,1,4);delete p.hurt;delete p.hurtWhen;if(p.inj>0){p.inj--;if(!p.inj){delete p.inj;p.en=Math.min(energyOf(p),INJ.back);}}}weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
+  for(const t of rows)if(t._rest){delete t._rest;for(const p of t.data.players){p.en=clamp(energyOf(p)+(ENERGY.REST+ENERGY.NIGHT)*ageRec(p),1,4);delete p.hurt;delete p.hurtWhen;if(p.inj>0){p.inj--;if(!p.inj){delete p.inj;p.en=Math.min(energyOf(p),INJ.back);}}}weekReset(t.data,false);t.data.rested={league:lg.no,match:lg.match_no};}
   const poAfter=()=>poState(rows.filter(r=>!r.is_house),[...poRes,...matches.map(m=>({match_no:m.match_no,a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b,rule:m.rule,po:m.detail.po||null}))],lg.no);
   const humans=rows.filter(r=>!r.is_house);
   // the vote: managers chose the rule for the match after the one just played
@@ -486,6 +486,10 @@ async function runMatchday(store,lg,now){
     const away=all.filter(t=>!map.has(t.id)&&t.league_no===lg.no&&t.w+t.l>0);
     for(const t of away){rows.push(t);map.set(t.id,t);}
     const redraft=CFG.REDRAFT_AFTER.includes(lg.no);
+    // the birthday: when an Autumn League ends (the next is a Winter League) every player turns a year older, and from 29 on
+    // may lose a little speed (age, 23 Nov 2026; players born for the first Winter League are not a year older at its start)
+    if(isSeasonal(lg.no)&&seasonOf(nextMatchTime(lg.next_match_at,lg.no+1)).i===0&&!redraft){
+      for(const t of new Set([...all,...rows]))for(const p of ((t.data&&t.data.players)||[]))birthday(p);}
     const taken=await takenNames(store,true);const fresh=(n,avoid)=>{const ps=n===14?fairPool([...taken,...(avoid||[])],CAP):newPlayers(n,[...taken,...(avoid||[])]);for(const p of ps)taken.add(p.n);return ps;};   // new players never repeat a name in the league; a pool of fourteen is always draftable under the cap
     for(const t of [...humans,...away]){
       const place=placeOf(t.id);

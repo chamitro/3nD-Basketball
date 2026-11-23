@@ -240,3 +240,15 @@ keep the voted rule. The action `porule` now only answers that the rule is drawn
 the final's winner (`data.won`, history `title`); `final.top` keeps the top of the table.
 Store query `leagueResults` (scores with the `po` tag). Page: the bracket and series sheet on the Table tab, zones in the table,
 the play-off box with the rule picker in the locker room, help section 14.
+
+## Age (Winter League, 23 Nov 2026)
+
+Every player is born with an age (18-34: 8% young, 76% 21-29, 16% veterans), public like the body. One year is a whole
+season of four leagues: everybody turns a year older when an Autumn League ends (`birthday`), not at the League 1 -> Winter
+fresh draft. `AGE_FX` in engine.js:
+- `ageImp` (x1.3 at 18 down to x0.65 at 34): talks, team and half-time talks and trash talk reach the young more often,
+  and a good talk lifts them a little more; an older player sometimes just nods at a personal talk.
+- `ageRec` (x1.25 young down to x0.85 old): younger players get their energy back faster.
+- Speed: players over 28 are born slower more often, and may lose half a dot of base speed at each birthday.
+Measured (3nD-tests/localseason/age_study.js, 112 leagues): a squad 4 years older wins -0.4 to +0.2 games a season, the
+same for managers who never talk, talk at random, talk well or trash talk. age_year_test.js checks the yearly birthday.

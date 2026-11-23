@@ -173,7 +173,7 @@ function trashTeam(team,line,starId,heard){
     // an opponent's words rattle more easily than they inspire: firing up 0.4 as often as rattling (23 Nov 2026, measured over
     // whole leagues with the ban: a random line now and then comes out even over a season; the protection for well-run
     // teams of 22 Nov is not needed with tones and the ban, and made every line a loss)
-    const chance=up?reach*TRASH_FIRE:reach/(1+(heard||0));   // a team that has heard it before is harder to rattle
+    const chance=Math.min(0.95,(up?reach*TRASH_FIRE:reach/(1+(heard||0)))*ageImp(p));   // the young are moved more, the old less   // a team that has heard it before is harder to rattle
     if(R()>=chance)continue;
     p.mood=mood;(up?fired:rattled).push(p.n);
   }
@@ -296,6 +296,16 @@ function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()
 // season of four leagues (Winter, Spring, Summer, Autumn): everybody turns a year older at the start of each Winter League.
 // What age does (young players improve, older ones slow down, careers end) comes before the Spring League.
 const AGE_ODDS=[[18,1],[19,2],[20,3],[21,5],[22,6],[23,7],[24,7],[25,7],[26,7],[27,6],[28,6],[29,5],[30,4],[31,3],[32,2],[33,1.5],[34,1]];
+// What age does (Harry, 23 Nov 2026, in the Winter League; tuned by simulated leagues):
+//  - impressionability `ageImp`: talks, team and half-time talks and trash talk move young players more and older ones less
+//  - recovery `ageRec`: younger players get their energy back more easily, older ones more slowly
+//  - speed: older players are born with less speed more often, and lose a little each Winter (the birthday)
+const AGE_FX={imp:0.04,impMin:0.65,impMax:1.3,rec:0.025,recMin:0.85,recMax:1.25,spFrom:28,spBirth:0.12,spYear:0.08};
+const ageImp=p=>p&&p.age?clamp(1+AGE_FX.imp*(25-p.age),AGE_FX.impMin,AGE_FX.impMax):1;
+const ageRec=p=>p&&p.age?clamp(1+AGE_FX.rec*(25-p.age),AGE_FX.recMin,AGE_FX.recMax):1;   // the young get their energy back more easily (Harry, 23 Nov 2026)
+function birthday(p){if(!p.age)return;p.age++;   // a year older; from 29 on a growing chance of half a dot less speed (on the base, talks and form stay)
+  if(p.age>AGE_FX.spFrom&&R()<AGE_FX.spYear*(p.age-AGE_FX.spFrom)){p.base=p.base||{};if(p.base.sp===undefined)p.base.sp=p.sp;
+    p.base.sp=Math.max(1,p.base.sp-0.5);const t=(p.tk&&p.tk.sp)||0,f=(p.fm&&p.fm.sp)||0;p.sp=clamp(clamp(p.base.sp+t+f,p.base.sp-STAT_BAND,p.base.sp+STAT_BAND),1,4);}}
 const newAge=()=>{let x=R()*AGE_ODDS.reduce((s,a)=>s+a[1],0);for(const [a,w] of AGE_ODDS){x-=w;if(x<=0)return a;}return 25;};
 function makePlayer0(){
   const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
@@ -304,7 +314,8 @@ function makePlayer0(){
   // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
   let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);if(R()<BD_SP[bd])sp=clamp(sp+(bd===0?1:-1),1,4);
-  return {id:NEXT_ID++,n:makeName(),age:newAge(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+  const age=newAge();if(age>AGE_FX.spFrom&&R()<AGE_FX.spBirth*(age-AGE_FX.spFrom))sp=clamp(sp-1,1,4);   // the years take the speed first
+  return {id:NEXT_ID++,n:makeName(),age,temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
     hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
     socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
     sh,df,sp,rg:R()<RANGE_ODDS[ht],base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
@@ -584,7 +595,7 @@ function playMatch(A,B,ruleKey){
       const o=oneOrder(X.T.orders&&X.T.orders[cond]);if(!o)continue;   // an order saved in the two-change format of 17-18 Nov 2026 counts as one order
       if(TONES.includes(o.talk)&&(X.T.ban||0)>0)X.half.gagged=true;
       else if(TONES.includes(o.talk)){X.half.talk=o.talk;X.lift=TALK_LIFT[TALK_SHARP[o.talk]||0];
-        for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<TALK_REACH&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
+        for(const p of X.T.players){const r=replyTo(p,o.talk);if(R()<Math.min(0.95,TALK_REACH*ageImp(p))&&p.mood!==r[1]){const was=p.mood;p.mood=r[1];
           const good=m=>m==='happy'||m==='cool',bad=m=>m==='sad'||m==='angry'||m==='nervous';
           if(good(p.mood)||(bad(was)&&!bad(p.mood)))X.half.up.push(p.n);else if(bad(p.mood)&&p.temp!=='fighter')X.half.down.push(p.n);}}}
       if(!orderOf(o.k))continue;
@@ -805,14 +816,17 @@ function replyTo(p,tone){
 function react(p,tone,strength){
   let r=replyTo(p,tone);
   if(strength>=1){if(p.lastTone===tone)r=[pick(['You said that last time, coach.','Yes, yes. Heard it.','Is this the same speech?']),'ok',0];p.lastTone=tone;}
-  const before=p.mood;
-  if(strength>=1||R()<0.6){p.mood=r[1];}
-  const dt=strength>=1?r[2]:(Math.abs(r[2])>=2?Math.sign(r[2]):0);
+  const before=p.mood,imp=ageImp(p);
+  // age: an older player sometimes just nods (a talk lands with chance imp when imp<1); the team talk reaches the young more
+  if(strength>=1&&imp<1&&R()>=imp){p.fx=null;return [pick(['Mm.','Heard you, coach.','Right.']),p.mood,0];}
+  if(strength>=1||R()<Math.min(0.95,0.6*imp)){p.mood=r[1];}
+  let dt=strength>=1?r[2]:(Math.abs(r[2])>=2?Math.sign(r[2]):0);
+  if(dt>0&&imp>1&&R()<imp-1)dt++;   // a good talk sticks a little more with the young
   p.trust=clamp(p.trust+dt,-2,2);
   p.fx=null;
   if(p.mood===r[1]&&(p.mood!==before||strength>=1)){const k=strength>=1?1:0.5;
     const FX={happy:['sh',0.2],cool:['df',0.2],nervous:['sh',-0.2],sad:['sp',-0.2],angry:p.temp==='fighter'?['sh',0.2]:['df',-0.2]}[r[1]];
-    if(FX){bump(p,FX[0],FX[1]*k,'talk');p.fx=FX;}}
+    if(FX){const m=FX[1]>0?Math.max(1,imp):1;bump(p,FX[0],FX[1]*k*m,'talk');p.fx=[FX[0],FX[1]*m];}}   // the young gain a little more from a good talk
   return r;
 }
 // one private talk with one player
@@ -838,7 +852,7 @@ function energyAfter(team,X){
   for(const p of team.players){
     const s=X.st[p.id],share=s?s.min/tot:0;
     p.enWas=energyOf(p);
-    p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+(share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT,1,4);   // the body's tiring rate on the cost, the night's recovery for everybody
+    p.en=clamp(p.enWas-ENERGY.COST*hard*share*tireOf(p)+((share>0?ENERGY.PART_REST*(1-share):ENERGY.REST)+ENERGY.NIGHT)*ageRec(p),1,4);   // younger players recover more easily   // the body's tiring rate on the cost, the night's recovery for everybody
     injuryAfter(p,s);
   }
 }
