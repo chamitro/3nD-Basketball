@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.23-0841"></script>
+<script src="engine.js?v=2026.11.23-0904"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.23-0841';   // stamped by build.py
+const APP_VERSION='2026.11.23-0904';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1266,7 +1266,10 @@ function poBox(cup,k,cls){
 }
 // the week's fixtures (23 Nov 2026): drawn after each Sunday match for the coming week
 const wkDay=t=>new Date(t).toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
-function myWeekHtml(){const w=ONLINE&&V&&V.week;if(!w||!w.days||!w.days.length)return '';
+function myWeekHtml(){const w=ONLINE&&V&&V.week;
+  if((!w||!w.days||!w.days.length)&&ONLINE&&V&&V.league&&V.league.no>=2&&V.league.match_no===1){const at=V.league.next_match_at-24*3600000;
+    return `<div class="small" style="margin:8px 0 0;color:var(--ink)"><b>The first week is drawn on ${new Date(at).toLocaleString(undefined,{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}</b>, a day before the first match, for every team that has entered by then. Until then the opponent shown may change as managers enter; after it, a manager who enters takes the computer team's place.</div>`;}
+  if(!w||!w.days||!w.days.length)return '';
   return `<div class="small" style="margin:8px 0 0;color:var(--ink)"><b>Your week:</b> ${w.days.map(d=>`${wkDay(d.at)} ${d.opp?'v <b>'+esc(d.opp)+'</b>':'no match'}`).join(' · ')}. The whole week is drawn after each Sunday match; a new manager takes the computer team's place.</div>`;}
 function weekHtml(){const w=ONLINE&&V&&V.week;if(!w||!w.days||!w.days.length)return '';
   return `<div class="card" style="margin-bottom:16px"><h3>This week's fixtures</h3>${w.days.map(d=>`<div style="margin:6px 0"><b>${wkDay(d.at)}</b> <span class="small" style="margin:0">match ${d.m}</span><div class="small" style="margin:2px 0 0;color:var(--ink)">${d.pairs.map(p=>`${esc(p[0])} v ${esc(p[1])}`).join(' · ')}</div></div>`).join('')}<div class="small">Drawn after each Sunday match for the week ahead: teams you have not met yet, never the same team twice in a row, otherwise chance. A manager who joins during the week takes the computer team's place.</div></div>`;}
@@ -1540,7 +1543,7 @@ function renderHelp(){
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
   <h4><i>11</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>The match</b> is twenty minutes of three-on-three: about forty possessions a side, twos and threes only, no free throws, so 36–30 is a normal score and 60 points a blowout; a slow tempo makes it thirty possessions, a fast one forty-six. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
-  <ul><li><b>Who you play.</b> In the regular season everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, never the same team twice in a row, and among those the draw is pure chance: anyone can meet anyone, top or bottom. <b>The week ahead is drawn at once:</b> after each Sunday match the next three matches (Wednesday, Friday, Sunday) are drawn for everybody, so you see your whole week under the game plan and every fixture of the week in the Table tab. A manager who joins during the week takes the computer team's place in its fixtures, so nobody else's week changes. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
+  <ul><li><b>Who you play.</b> In the regular season everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, never the same team twice in a row, and among those the draw is pure chance: anyone can meet anyone, top or bottom. <b>The first week of a league is drawn a day before its first match</b> (for the Winter League: Thursday 10 December at 18:00 UTC), for every team that has entered by then; until then managers are paired as they enter. <b>The week ahead is drawn at once:</b> after each Sunday match the next three matches (Wednesday, Friday, Sunday) are drawn for everybody, so you see your whole week under the game plan and every fixture of the week in the Table tab. A manager who joins during the week takes the computer team's place in its fixtures, so nobody else's week changes. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
   <li>A win gives <b>3 points</b>, a loss <b>0</b>. Only regular-season matches count in the table; in the last three weeks the brackets decide who you play (section 14), and a team with a bye has no match that day.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>12</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>

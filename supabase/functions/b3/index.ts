@@ -1007,11 +1007,12 @@ const CFG={
   DB_LIMIT_MB:500,        // the room the free Supabase plan gives the database; `ping` reports how much is used
   HALL_SIZE:50,           // how many teams the all-time list of league winners shows
   HOUSE_NAME:'The House Team',
-  LEAGUE_START:{2:Date.UTC(2026,11,11,18,0)},   // a league that starts later than the next match day: the Winter League on Friday 11 December 2026 (Harry, 23 Nov 2026: time for new players to join)
+  LEAGUE_START:{2:Date.UTC(2026,11,11,18,0)},
+  FIRST_DRAW:24*3600000,   // a season league's first week is drawn this long before its first match (Harry, 23 Nov 2026); those who enter later take the computer team's place   // a league that starts later than the next match day: the Winter League on Friday 11 December 2026 (Harry, 23 Nov 2026: time for new players to join)
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='1a0da72f';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='d96d4ae4';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1287,6 +1288,32 @@ function useWeek(active,house,met,no,m){
     house.next_opp=null;x.next_opp=n.id;n.next_opp=x.id;n.pub={...n.pub,fx:{lg:no,from:hf.from,opps:[...hf.opps],slot:true}};}
   const left=active.filter(t=>!t.next_opp);
   if(left.length&&!house.next_opp)pairUp(left,house,met,0);   // the others (and anyone whose fixture broke) play each other, the last the computer team
+  const hf=house.pub&&house.pub.fx;if(hf&&hf.lg===no)for(const t of left)if(t.next_opp===house.id&&fxOf(t,no,m)===undefined)t.pub={...t.pub,fx:{lg:no,from:m,opps:Array(Math.max(1,hf.from+hf.opps.length-m)).fill(house.id)}};
+}
+// the first week of a season league, drawn once CFG.FIRST_DRAW before its first match for everybody who has entered by then
+// (until then managers are paired as they enter); a short lock keeps two requests from drawing at once
+async function firstDraw(store,lg,now){
+  const house=await store.house();if(!house||(house.pub&&house.pub.fx&&house.pub.fx.lg===lg.no))return;   // drawn already
+  if(!store.lockFree||!(await store.lockFree(now)))return;
+  const fresh=await store.league();if(fresh.match_no!==1||fresh.no!==lg.no){return;}
+  const h=await store.house();if(h.pub&&h.pub.fx&&h.pub.fx.lg===lg.no){await store.commit({league:fresh,teams:[],matches:[],reset:false});return;}
+  const active=(await store.allTeams()).filter(t=>t.league_no===lg.no);
+  const P=poLen(fresh),reg=P?P.reg:leagueLength(fresh);
+  for(const t of [...active,h])t.next_opp=null;   // the pairs made as managers entered do not count
+  drawWeek(active,h,new Map(),leagueLength(fresh),weekLen(fresh,reg),lg.no,1);
+  await store.commit({league:fresh,teams:[...active,h],matches:[],reset:false});   // writes the week and frees the lock
+}
+// a manager who has just been given an opponent during a week gets that week too: the computer team's fixtures if they took
+// its place, or the computer team for the rest of the week if they play it
+async function fxOnAttach(store,row,lg){
+  if(!row||!isSeasonal(lg.no)||!row.next_opp||fxOf(row,lg.no,lg.match_no)!==undefined)return row;
+  const house=await store.house(),hf=house&&house.pub&&house.pub.fx;if(!hf||hf.lg!==lg.no)return row;
+  const end=hf.from+hf.opps.length,m=lg.match_no;if(m>=end)return row;
+  if(row.next_opp===house.id)row.pub={...row.pub,fx:{lg:lg.no,from:m,opps:Array(end-m).fill(house.id)}};
+  else if(fxOf(house,lg.no,m)===row.next_opp)row.pub={...row.pub,fx:{lg:lg.no,from:hf.from,opps:[...hf.opps],slot:true}};
+  else return row;
+  try{await store.saveTeam(row);}catch(e){}   // a conflict only means the week is set at the next match day
+  return row;
 }
 // the week as the page shows it: my fixtures and all of the week's matches, with names and dates
 function weekView(lg,tbl,row,house){
@@ -1329,6 +1356,7 @@ async function ensureLeague(store,now){
 // Several match days that nobody opened the game for are played in order, each with the plans as they stood.
 async function tick(store,now){
   let lg=await ensureLeague(store,now);
+  if(isSeasonal(lg.no)&&lg.match_no===1&&now>=lg.next_match_at-CFG.FIRST_DRAW)await firstDraw(store,lg,now);   // also right before the first match if nobody came by since the draw time
   let n=0;
   while(now>=lg.next_match_at&&n++<2){   // at most two match days per request, to stay well inside the server's time limit; the next request carries on
     if(!(await store.lock(now)))break;
@@ -1699,7 +1727,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
         if(!row){if(await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};throw e;}
       }
       await store.attach(row.id,now);await store.dropPool(h);if(req._ip)await store.dropPool(await hash('ip:'+req._ip));   // the next browser on that connection gets a fresh pool
-      row=await store.teamByKey(h);
+      row=await fxOnAttach(store,await store.teamByKey(h),lg);
       return makeView(store,row,lg,now,{joined:true});
     }
     return {error:'no team'};
@@ -1713,7 +1741,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     // in the play-offs a team with a bye, or whose series of the week is decided, rests: it is not given the computer team
     if(!paired){const day=poDay(poLen(lg),lg.match_no);
       const rests=day>0&&poRole(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,row.id).role==='rest';
-      if(!rests){await store.attach(row.id,now);row=await store.teamByKey(h);}}
+      if(!rests){await store.attach(row.id,now);row=await fxOnAttach(store,await store.teamByKey(h),lg);}}
   }
   const d=row.data;let extra=null,dirty=false;
   if(now-row.last_seen>3600000){row.last_seen=now;dirty=true;}
@@ -1793,7 +1821,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     if(out)d.vote=null;
     enforceRule(d,lg.rule);row.last_seen=now;
     if(out){try{await store.enterLeague(row,lg.no);}catch(e){if(/duplicate|unique|23505/i.test(String(e&&e.message)))return {error:'That team name is taken. Try another.'};throw e;}
-      await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
+      await store.attach(row.id,now);row=await fxOnAttach(store,await store.teamByKey(h),lg);}   // into this league from zero, then an opponent (and its week)
     else await store.saveTeam(row);
     return makeView(store,row,lg,now,{entered:out});
   }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
@@ -1887,6 +1915,12 @@ function restStore(base,keys,prefix){
     savePool:(h,p)=>q('b3_pools?on_conflict=key_hash',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:{key_hash:h,players:p.players,rerolls:p.rerolls}}),
     dropPool:h=>q('b3_pools?key_hash=eq.'+h,{method:'DELETE',prefer:'return=minimal'}),
     poolNames:async()=>(await pages('b3_pools?select=players',200)).flatMap(x=>(x.players||[]).map(p=>p.n)),   // names in the draft pools still open
+    // the lock for work that is not a match day (the first week's draw): free when no match day or other work runs
+    lockFree:async now=>{
+      const a=await q('b3_league?id=eq.1&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
+        {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});
+      return !!(a&&a.length);
+    },
     lock:async now=>{
       const a=await q('b3_league?id=eq.1&next_match_at=lte.'+now+'&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
         {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});

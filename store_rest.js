@@ -63,6 +63,12 @@ function restStore(base,keys,prefix){
     savePool:(h,p)=>q('b3_pools?on_conflict=key_hash',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:{key_hash:h,players:p.players,rerolls:p.rerolls}}),
     dropPool:h=>q('b3_pools?key_hash=eq.'+h,{method:'DELETE',prefer:'return=minimal'}),
     poolNames:async()=>(await pages('b3_pools?select=players',200)).flatMap(x=>(x.players||[]).map(p=>p.n)),   // names in the draft pools still open
+    // the lock for work that is not a match day (the first week's draw): free when no match day or other work runs
+    lockFree:async now=>{
+      const a=await q('b3_league?id=eq.1&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
+        {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});
+      return !!(a&&a.length);
+    },
     lock:async now=>{
       const a=await q('b3_league?id=eq.1&next_match_at=lte.'+now+'&or=(busy_until.is.null,busy_until.lt.'+now+')&select=id',
         {method:'PATCH',prefer:'return=representation',body:{busy_until:now+60000}});
