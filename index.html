@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.23-0816"></script>
+<script src="engine.js?v=2026.11.23-0823"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.23-0816';   // stamped by build.py
+const APP_VERSION='2026.11.23-0823';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1558,7 +1558,7 @@ function renderHelp(){
   <li><b>The mid-season window.</b> In a season league, once half the matches are played (in the Winter League, after match 18 of 35, open for matches 19 and 20), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. A yellow banner at the top of the locker room says while the window is open, with a button that takes you to it. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)}, at a draft and at the two windows alike (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
   <li><b>What a change means under the cap.</b> Say your seven are worth $118M and you want a $25M free agent at a window. Let a $14M player go and the squad becomes $129M: over the line, refused. Let a $18M player go instead and it becomes $125M: allowed, a good player traded for a better one. With one change per window, the only question is which of your own must go to make room, and whether that trade is worth it. There is no saving up and no buying two.</li>
-  <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the change before the next league, so the league stays close. At the <b>mid-season window</b> it is the lower half of the table at the moment the window opens that gets the ${money(CAP_BONUS)}. The locker room shows your squad value and your room under the game plan; the Table tab shows every squad's value.</li>
+  <li><b>The lower half</b> of a league's final table gets ${money(CAP_BONUS)} extra room for the change before the next league, so the league stays close. At the <b>mid-season window</b> it is the lower half of the table at the moment the window opens that gets the ${money(CAP_BONUS)}. The locker room shows your squad value and your room under the game plan.</li>
   <li><b>What a value is made of</b>: the dots a player was drafted with (attack counts most, then defence, then speed), up to $4M for height, $1M for a fat build, and the character: old hand +$1M, easy-going +$0.5M, worrier -$0.5M, hot-tempered -$1M. Never mood or form. The median player is worth about $18M; a player worth $23M or more is one in thirty, about one in every two pools of fourteen, and the same odds for everyone.</li>
   <li><b>Late is allowed.</b> You can enter a league that is already running. You start from zero points.</li>
   <li><b>Away is allowed too.</b> A team whose manager stops opening the game keeps playing every match until the league ends, with its last line-up, plan and orders, tiring and sulking like any team nobody talks to. That goes for the play-offs too: such a team plays its series, under the rule drawn for each game like everybody else. It is not left out and not drafted for; the manager picks up where they left.</li>
@@ -1681,12 +1681,11 @@ function leagueSoFarHtml(sc){
 // every team's titles: how many leagues it has won, of how many it finished (the server counts when a league ends)
 function hallHtml(){
   if(!ONLINE||!V)return '';
-  const hall=(V.league.final&&V.league.final.hall)||[];
+  const hall=((V.league.final&&V.league.final.hall)||[]).filter(t=>t.won>0);   // only teams that have won a league (Harry, 23 Nov 2026)
   let h=`<div class="card" style="margin-top:16px"><h3>Leagues won · all teams</h3>`;
-  if(!hall.length)return h+`<div class="small" style="margin:0">No league has finished yet. When one ends, the titles of every team are counted here.</div></div>`;
+  if(!hall.length)return h+`<div class="small" style="margin:0">No league has been won yet. When one ends, its champion is listed here.</div></div>`;
   h+=`<table><tr><th>#</th><th>team</th><th class="n">leagues won</th><th class="n">leagues played</th></tr>`;
   hall.forEach((t,i)=>{h+=`<tr class="${t.id===S.me.id?'me':''}"><td>${i+1}</td><td>${esc(t.name)}${t.was?` <span class="small" style="margin:0">(formerly ${esc(t.was)})</span>`:''}</td><td class="n"><b>${t.won}</b></td><td class="n">${t.played}</td></tr>`;});
-  if(!hall.some(t=>t.id===S.me.id)&&(S.played||0)>0)h+=`<tr class="me"><td></td><td>${S.me.name}</td><td class="n"><b>${S.won||0}</b></td><td class="n">${S.played}</td></tr>`;
   return h+`</table><div class="small">Counted each time a league ends. A team keeps its record from league to league.</div></div>`;
 }
 function renderLeague(){
@@ -1696,10 +1695,10 @@ function renderLeague(){
   }
   h+=poHtml();
   h+=roundHtml();
-  h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th><th class="n" title="squad value under the wage cap">Value</th></tr>`;
+  h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
   const zoneOf=(()=>{const po=poInfo();if(!po)return ()=>null;if(S.poPos)return (t)=>(S.poPos.get(t.id)||{}).cup||null;const n=table().length,ts=n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;return (t,i)=>i<ts?'t':null;})();let zPrev=null;
-  table().forEach((t,i)=>{const z=zoneOf(t,i),cut=i>0&&z!==zPrev;zPrev=z;h+=`<tr class="${t.human?'me':''} ${cut?'zcut':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${ONLINE&&t.id?`<span class="tlink" data-team="${t.id}">${esc(t.name)}</span>`:esc(t.name)}${z?`<span class="ztag ${z}">Play-offs</span>`:''}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td><td class="n">${t.human&&S.me?money(squadValue(S.me.players)):t.sv?money(t.sv):t.players&&t.players.length?money(squadValue(t.players)):'–'}</td></tr>`;});
-  if(ONLINE&&!table().length)h+=`<tr><td colspan="7" style="text-align:center;padding:14px 6px">No team has entered ${theName(LGS())} yet.</td></tr>`;
+  table().forEach((t,i)=>{const z=zoneOf(t,i),cut=i>0&&z!==zPrev;zPrev=z;h+=`<tr class="${t.human?'me':''} ${cut?'zcut':''}"><td>${i+1}</td><td>${kitChip(kitOf(t.kit,t.name))}${ONLINE&&t.id?`<span class="tlink" data-team="${t.id}">${esc(t.name)}</span>`:esc(t.name)}${z?`<span class="ztag ${z}">Play-offs</span>`:''}</td><td class="n">${t.w}</td><td class="n">${t.l}</td><td class="n">${t.pf-t.pa>0?'+':''}${t.pf-t.pa}</td><td class="n"><b>${t.w*3}</b></td></tr>`;});
+  if(ONLINE&&!table().length)h+=`<tr><td colspan="6" style="text-align:center;padding:14px 6px">No team has entered ${theName(LGS())} yet.</td></tr>`;
   h+=`</table>${ONLINE&&S.out?`<div class="note" style="margin-top:10px"><b>${S.me.name} is not in ${theName(LGS())} yet.</b> Every league starts with no teams. Go to the Locker room tab and press "Enter ${theName(LGS())}".</div>`:''}<div class="small">A win is 3 points, a loss 0. ${ONLINE?V.league.of+' matches, one '+matchWhen()+'. '+V.teams+' manager'+(V.teams===1?'':'s')+' in the league.':'Seven Sundays, one match each: you meet every rival once.'} When the league ends you may change ${SWAP_WORDS} of your seven. <b>Leagues won so far: ${S.won||0} of ${S.played||0} finished.</b></div></div>`;
   h+=`<div class="card"><h3>Everyone's game plan last time</h3>`;
   if(S.lastSheets){h+=`<table><tr><th>team</th><th>plan</th><th class="n">that day</th></tr>`;for(const t of [...S.lastSheets].sort((a,b)=>b.w-a.w))h+=`<tr class="${t.human?'me':''}"><td>${t.name}</td><td>${sheetWords(t.sheet)}</td><td class="n">${t.w}–${t.l}</td></tr>`;h+=`</table><div class="small">Plans become public after the games. See what worked under that rule. Your rivals read yours too, so do not play the same match twice.</div>`;}
