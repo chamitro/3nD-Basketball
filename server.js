@@ -738,6 +738,13 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       const picks=Array.isArray(req.picks)?[...new Set(req.picks)]:[];const mine=d.redraft.pool.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven of the new players. (If you see no new players, update the game first.)'};
       {const e=overCap(mine,capOf(d));if(e)return {error:e};}
+      // a fresh start: a new name too if the manager wants one (Harry, 23 Nov 2026), checked as for a new team; only on the way
+      // into a league, where the name is written with the entry
+      if(typeof req.name==='string'&&out){const name=cleanName(req.name);
+        if(name&&name!==row.name){if(name.length<2)return {error:'Give your team a name.'};
+          if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
+          const lc=name.toLowerCase();if(lc===CFG.HOUSE_NAME.toLowerCase()||(lc!==row.name_lc&&await store.nameTaken(lc)))return {error:'That team name is taken. Try another.'};
+          d.formerly=[...(d.formerly||[]),row.name].slice(-5);row.name=name;row.name_lc=lc;}}
       d.players=mine;firstLineup(d,lg.rule);d.sheet={...DEF_SHEET,...(d.sheet||{})};d.orders=null;d.teamTalked=false;d.heard={};delete d.redraft;
       const k=cleanKit(req.kit);if(k)row.pub={...row.pub,kit:k};
     }else if(outs.length||ins.length){
@@ -751,7 +758,8 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     d.agents=[];if(d.final)d.final.seen=true;row.pub={...row.pub,sv:squadValue(d.players)};
     if(out)d.vote=null;
     enforceRule(d,lg.rule);row.last_seen=now;
-    if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
+    if(out){try{await store.enterLeague(row,lg.no);}catch(e){if(/duplicate|unique|23505/i.test(String(e&&e.message)))return {error:'That team name is taken. Try another.'};throw e;}
+      await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
     else await store.saveTeam(row);
     return makeView(store,row,lg,now,{entered:out});
   }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)

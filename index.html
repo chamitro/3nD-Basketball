@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.22-2325"></script>
+<script src="engine.js?v=2026.11.23-0814"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.22-2325';   // stamped by build.py
+const APP_VERSION='2026.11.23-0814';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1422,7 +1422,7 @@ function renderHelp(){
   <p>You are the coach. You never touch the ball. You pick the team, talk to the players and choose the tactics, and the match plays by itself.</p>
   <div class="qs"><b>Before every match, in this order</b><ol><li>Look at your players: energy, mood, who is in form.</li><li>Talk to each of them in the tone their character wants, and once to the team.</li><li>Read the next opponent under the game plan: their last plan, their star, their numbers.</li><li>Set the line-up and the playing time, the six dials, the star, the half-time changes and talk.</li><li>Vote for the rule after the next match, and decide whether a trash talk is worth the ban.</li><li>In the play-offs, look at the rule of your next game: it is drawn at random (section 14).</li></ol>Everything is saved as you set it. Open the game after the match for the result, the box score and the reports.</div>
   <div class="qs"><b>New in the Winter League</b> (coming from League 1? start here)<ul style="margin:4px 0 0;padding-left:18px">
-  <li><b>A fresh draft for everyone</b> under a <b>$125M wage cap</b>, and players are <b>one of a kind</b>, with funny names and, one in five, a legend from the films (sections 1 and 13).</li>
+  <li><b>A fresh start for everyone:</b> a new name if you like, and a fresh draft under a <b>$125M wage cap</b>, and players are <b>one of a kind</b>, with funny names and, one in five, a legend from the films (sections 1 and 13).</li>
   <li><b>Bodies:</b> four heights and three builds. Tall players win close shots and rebounds but tire faster; small ones run all day. A hidden <b>range</b> decides who can shoot from outside: most small players, very few giants (section 2).</li>
   <li><b>Injuries:</b> tired players get hurt during a match and miss one to three matches. A rare giant hardly ever breaks (section 6).</li>
   <li><b>Starts Friday 11 December.</b> <b>Twenty-minute matches, three a week</b> (Sunday, Wednesday, Friday), 35 matches in all, and a <b>mid-season window</b> to change two players (sections 11 and 13).</li>
@@ -1552,8 +1552,8 @@ function renderHelp(){
   <ul><li><b>Winter League</b>: December, January, February.</li><li><b>Spring League</b>: March, April, May.</li><li><b>Summer League</b>: June, July, August.</li><li><b>Autumn League</b>: September, October, November.</li></ul>
   <p>Between two leagues:</p>
   <ul><li><b>Every new league starts with no teams.</b> When a league ends, open the game: you see how it ended, and you press <b>Enter the league</b> to put your team in the next one. A team whose manager does not press the button is not in it.</li>
-  <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name.</li>
-  <li><b>The fresh draft, once.</b> When League 1 ends, every team drafts seven new players from fourteen for the Winter League, the players with heights and builds, so everyone starts the Winter League on equal terms. It happens only that once: from then on the seven stay together from league to league, with the one change between leagues and the two at the mid-season window.</li>
+  <li><b>Your team stays yours.</b> The same name, the same players and the same record go with you into every league. Nobody else can take your team name. (Once, at the fresh draft after League 1, you may give it a new name.)</li>
+  <li><b>The fresh draft, once.</b> When League 1 ends, every team starts afresh for the Winter League: it may take a new name, new colours and a new badge, and drafts seven new players from fourteen, the players with heights and builds, so everyone starts the Winter League on equal terms. It happens only that once: from then on the seven stay together from league to league, with the one change between leagues and the two at the mid-season window.</li>
   <li><b>One change.</b> Before you enter you may change <b>${SWAP_WORDS}</b> of your seven players for a free agent, as long as the squad stays under the wage cap: to sign a dearer player you let a good one go.</li>
   <li><b>The mid-season window.</b> In a season league, once half the matches are played (in the Winter League, after match 18 of 35, open for matches 19 and 20), every team gets seven free agents for two match days and may change <b>up to two players</b>, one free agent in for each player out, under the window cap. A yellow banner at the top of the locker room says while the window is open, with a button that takes you to it. The window is in the locker room under the game plan; whoever you let go is replaced in the line-up by the best of the rest until you set it yourself. The free agents leave two match days later.</li>
   <li><b>The wage cap is not money you spend.</b> Nothing is ever paid. Every player has a value, from about $9M to $26M, and the cap is a line that the <b>sum of your seven</b> may not pass: ${money(CAP)}, at a draft and at the two windows alike (the one change between leagues and the mid-season change). Seven average players are worth about $123M, so a squad sits right at the line, and a star fits only next to cheap players.</li>
@@ -1761,6 +1761,7 @@ function renderEnter(){
   <div class="small" style="margin-top:6px;color:var(--ink)">${V.league.match_no===1?'The first match is on '+when+'.':'It is at match '+V.league.match_no+' of '+V.league.of+'. You would start from zero points. The next match is on '+when+'.'} ${re?'Your team name, your titles and your record stay with you.':'Your players and your record stay with you.'}</div>${btn('newcup')}</div>`;
   if(re){
     h+=`<div class="card" style="margin-top:16px"><h3>New players for everyone: pick your seven · ${S.rePicks.length} of 7</h3><div class="capline ${over?'over':''}">Squad value ${money(pv)} of your ${money(myCap)} cap${myCap>CAP?' ('+money(CAP)+' for everyone, '+money(myCap-CAP)+' extra for the lower half of the last table)':''}${over?': over, let a dearer player go':''}</div><div class="small" style="margin:0 0 8px">From now on players come in four heights and three builds, and it matters: the tall and the fat tire faster, the tiny and the slim slower, tiny players tend to be quick and tall ones slow, and fat players are strong on rebounds and under the hoop (see "How to play"). So every team starts again, this once: your old squad leaves, and you pick seven of these fourteen. After this, it is the usual one change between leagues.</div><div class="pool">${re.map((p,i)=>candHtml(p,S.rePicks.includes(p.id)?'in':'',i)).join('')}</div>
+    <h3 style="margin:18px 0 6px">Your team's name</h3><div class="small" style="margin:0 0 6px">A fresh start: keep your name or give your team a new one. Your record of the leagues you finished stays with your team.</div><input type="text" id="rename" maxlength="22" value="${esc(S.renameDraft!==undefined?S.renameDraft:S.me.name)}">
     <h3 style="margin:18px 0 6px">${kitChip(KIT())} Your colours and badge</h3><div class="small" style="margin:0 0 6px">New as well: your players wear your team's colours, and the badge stands next to your name. You can change them later in the Table tab.</div>${kitPickerHtml(KIT())}</div>`+btn('newcup2');
   }
   if(!re&&fresh&&S.agents.length){
@@ -1778,7 +1779,8 @@ function renderEnter(){
     pools[0].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.me.players[+d.dataset.i].id;if(S.swapOut.includes(id))S.swapOut=S.swapOut.filter(x=>x!==id);else if(S.swapOut.length<MAX_SWAPS)S.swapOut.push(id);else if(MAX_SWAPS===1)S.swapOut=[id];renderEnter();});
     pools[1].querySelectorAll('.cand').forEach(d=>d.onclick=()=>{const id=S.agents[+d.dataset.i].id;if(S.swapIn.includes(id))S.swapIn=S.swapIn.filter(x=>x!==id);else if(S.swapIn.length<MAX_SWAPS)S.swapIn.push(id);else if(MAX_SWAPS===1)S.swapIn=[id];renderEnter();});
   }
-  for(const id of ['newcup','newcup2'])if($(id))$(id).onclick=()=>goOnline('enter',re?{picks:S.rePicks,kit:S.kitPreview||undefined}:{outs:S.swapOut,ins:S.swapIn});
+  if($('rename'))$('rename').oninput=e=>{S.renameDraft=e.target.value;};
+  for(const id of ['newcup','newcup2'])if($(id))$(id).onclick=()=>goOnline('enter',re?{picks:S.rePicks,kit:S.kitPreview||undefined,name:$('rename')?$('rename').value:undefined}:{outs:S.swapOut,ins:S.swapIn});
 }
 function renderCupEnd(){
   if(ONLINE){renderEnter();return;}

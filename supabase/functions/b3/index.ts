@@ -1011,7 +1011,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='472782e3';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='c37e385d';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1728,6 +1728,13 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
       const picks=Array.isArray(req.picks)?[...new Set(req.picks)]:[];const mine=d.redraft.pool.filter(p=>picks.includes(p.id));
       if(picks.length!==7||mine.length!==7)return {error:'Pick exactly seven of the new players. (If you see no new players, update the game first.)'};
       {const e=overCap(mine,capOf(d));if(e)return {error:e};}
+      // a fresh start: a new name too if the manager wants one (Harry, 23 Nov 2026), checked as for a new team; only on the way
+      // into a league, where the name is written with the entry
+      if(typeof req.name==='string'&&out){const name=cleanName(req.name);
+        if(name&&name!==row.name){if(name.length<2)return {error:'Give your team a name.'};
+          if(!nameFit(name))return {error:'That name is not fit for the table. Try another.'};
+          const lc=name.toLowerCase();if(lc===CFG.HOUSE_NAME.toLowerCase()||(lc!==row.name_lc&&await store.nameTaken(lc)))return {error:'That team name is taken. Try another.'};
+          d.formerly=[...(d.formerly||[]),row.name].slice(-5);row.name=name;row.name_lc=lc;}}
       d.players=mine;firstLineup(d,lg.rule);d.sheet={...DEF_SHEET,...(d.sheet||{})};d.orders=null;d.teamTalked=false;d.heard={};delete d.redraft;
       const k=cleanKit(req.kit);if(k)row.pub={...row.pub,kit:k};
     }else if(outs.length||ins.length){
@@ -1741,7 +1748,8 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     d.agents=[];if(d.final)d.final.seen=true;row.pub={...row.pub,sv:squadValue(d.players)};
     if(out)d.vote=null;
     enforceRule(d,lg.rule);row.last_seen=now;
-    if(out){await store.enterLeague(row,lg.no);await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
+    if(out){try{await store.enterLeague(row,lg.no);}catch(e){if(/duplicate|unique|23505/i.test(String(e&&e.message)))return {error:'That team name is taken. Try another.'};throw e;}
+      await store.attach(row.id,now);row=await store.teamByKey(h);}   // into this league from zero, then an opponent
     else await store.saveTeam(row);
     return makeView(store,row,lg,now,{entered:out});
   }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
@@ -1817,7 +1825,7 @@ function restStore(base,keys,prefix){
     // a team enters league `no`: from zero, together with whatever else changed on the way in
     enterLeague:async(row,no)=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&is_house=is.false&select=id',{method:'PATCH',prefer:'return=representation',
-        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,last_seen:row.last_seen,data:row.data,pub:row.pub,ver:row.ver+1}});
+        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,name:row.name,name_lc:row.name_lc,last_seen:row.last_seen,data:row.data,pub:row.pub,ver:row.ver+1}});   // the name too: a team may take a new one at the fresh draft
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;row.league_no=no;
     },

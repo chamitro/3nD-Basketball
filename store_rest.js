@@ -45,7 +45,7 @@ function restStore(base,keys,prefix){
     // a team enters league `no`: from zero, together with whatever else changed on the way in
     enterLeague:async(row,no)=>{
       const a=await q('b3_teams?id=eq.'+row.id+'&ver=eq.'+row.ver+'&is_house=is.false&select=id',{method:'PATCH',prefer:'return=representation',
-        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,last_seen:row.last_seen,data:row.data,pub:row.pub,ver:row.ver+1}});
+        body:{league_no:no,w:0,l:0,pf:0,pa:0,pts:0,name:row.name,name_lc:row.name_lc,last_seen:row.last_seen,data:row.data,pub:row.pub,ver:row.ver+1}});   // the name too: a team may take a new one at the fresh draft
       if(!a||!a.length)throw new Error('conflict');
       row.ver++;row.league_no=no;
     },
