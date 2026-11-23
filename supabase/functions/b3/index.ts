@@ -1011,7 +1011,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='f750a75c';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='1a0da72f';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1259,6 +1259,46 @@ function poRole(cups,day,id){
 // match day and the series, so it is the same on every request and nothing is stored; managers see it as soon as the pairs
 // are made. Until then the higher seed picked games 1 and 3 and the lower seed game 2. Friendlies keep the voted rule.
 function poRandomRule(no,match,c,s){let h=2166136261;for(const ch of no+':'+match+':'+c+':'+s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)>>>0;}return RULES[h%RULES.length].k;}
+// ───────────────────────── the week's fixtures (Harry, 23 Nov 2026, season leagues) ─────────────────────────
+// After a Sunday match the next week (Wednesday, Friday, Sunday; the first week of a league is shorter) is drawn for everybody
+// at once, by the same draw as every match day (pairUp: teams not met yet, never twice running, otherwise chance), so managers
+// see their week ahead. It is kept in each team's pub.fx = {lg, from: first match, opps: [an id, or null for no match]}. A
+// manager who joins during the week takes the computer team's place in its fixtures (slot: true); a second one plays the
+// computer team. Nobody else's week changes. The play-offs have their bracket instead.
+const dowUTC=t=>new Date(t).getUTCDay();
+function weekLen(lg,reg){let n=0,t=lg.next_match_at;while(lg.match_no+n<=reg){n++;if(dowUTC(t)===0)break;t=nextMatchTime(t,lg.no);}return n;}
+const fxOf=(t,no,m)=>{const f=t&&t.pub&&t.pub.fx;if(!f||f.lg!==no)return undefined;const i=m-f.from;return i>=0&&i<f.opps.length?f.opps[i]:undefined;};   // undefined: no fixture, null: no match
+function drawWeek(active,house,met,roundsLeft,K,no,m){
+  const all=[...active,house],C=new Map(all.map(t=>[t.id,{id:t.id,name:t.name,pts:t.pts,pf:t.pf,pa:t.pa,next_opp:t.next_opp}]));
+  const cl=active.map(t=>C.get(t.id)),hc=C.get(house.id),M=new Map(met),opps=new Map(all.map(t=>[t.id,[]]));
+  for(let k=0;k<K;k++){pairUp(cl,hc,M,Math.max(0,roundsLeft-k));
+    for(const c of [...cl,hc]){opps.get(c.id).push(c.next_opp||null);if(c.next_opp&&String(c.id)<String(c.next_opp)){const key=pairKey(c.id,c.next_opp);M.set(key,(M.get(key)||0)+1);}}}
+  for(const t of all){t.pub={...t.pub,fx:{lg:no,from:m,opps:opps.get(t.id)}};t.next_opp=opps.get(t.id)[0]||null;}
+}
+function useWeek(active,house,met,no,m){
+  const all=[...active,house],byId=new Map(all.map(t=>[t.id,t]));
+  const holder=active.find(t=>t.pub&&t.pub.fx&&t.pub.fx.slot&&fxOf(t,no,m)!==undefined)||null;
+  const eff=t=>{if(t===house)return holder?undefined:fxOf(house,no,m);const o=fxOf(t,no,m);return o===house.id&&holder?holder.id:o;};
+  for(const t of all)t.next_opp=null;
+  for(const t of all){if(t.next_opp)continue;const o=eff(t);if(!o)continue;const u=byId.get(o);if(!u||u.next_opp||eff(u)!==t.id)continue;t.next_opp=u.id;u.next_opp=t.id;}
+  // newcomers (no fixture this week): the first takes the computer team's place for the rest of the week
+  const fresh=active.filter(t=>fxOf(t,no,m)===undefined);
+  if(fresh.length&&!holder&&house.next_opp){const x=byId.get(house.next_opp),n=fresh.shift(),hf=house.pub.fx;
+    house.next_opp=null;x.next_opp=n.id;n.next_opp=x.id;n.pub={...n.pub,fx:{lg:no,from:hf.from,opps:[...hf.opps],slot:true}};}
+  const left=active.filter(t=>!t.next_opp);
+  if(left.length&&!house.next_opp)pairUp(left,house,met,0);   // the others (and anyone whose fixture broke) play each other, the last the computer team
+}
+// the week as the page shows it: my fixtures and all of the week's matches, with names and dates
+function weekView(lg,tbl,row,house){
+  const no=lg.no,P=poLen(lg),reg=P?P.reg:null;if(!isSeasonal(no)||!reg||lg.match_no>reg)return null;
+  const rows=[...tbl.filter(t=>t.id!==row.id),row];const holder=rows.find(t=>t.pub&&t.pub.fx&&t.pub.fx.lg===no&&t.pub.fx.slot);
+  const name=id=>id===(house&&house.id)?(holder?holder.name:'the computer team'):((rows.find(t=>t.id===id)||{}).name||'');
+  const f=row.pub&&row.pub.fx;if(!f||f.lg!==no)return null;
+  const days=[];let t=lg.next_match_at;for(let m=lg.match_no;m<f.from+f.opps.length;m++){
+    const pairs=[];for(const x of rows){if(x===holder)continue;const o=fxOf(x,no,m);if(!o)continue;if(o!==(house&&house.id)&&rows.some(y=>y.id===o)&&String(x.id)>String(o))continue;pairs.push([x.name,name(o)]);}
+    days.push({m,at:t,opp:fxOf(row,no,m)?name(fxOf(row,no,m)):null,pairs});t=nextMatchTime(t,no);}
+  return {days};
+}
 // pairs for play-off day `day`: the series of the week, friendlies for everyone else, rest for byes and decided series
 function poPair(cups,day,humans,house,met){
   for(const t of humans)t.next_opp=null;
@@ -1301,7 +1341,7 @@ async function runMatchday(store,lg,now){
   const rows=await store.teamsInPlay();          // every team that has an opponent, and the house team
   const map=new Map(rows.map(r=>[r.id,r]));
   const house=rows.find(r=>r.is_house);
-  const rule=lg.rule,matches=[],done=new Set(),playedLeague=lg.no,playedMatch=lg.match_no;
+  const rule=lg.rule,matches=[],done=new Set(),playedLeague=lg.no,playedMatch=lg.match_no,playedAt=lg.next_match_at;
   // play-offs: the series as they stand before today; teams resting today are not in play but are saved (their players rest)
   const P=poLen(lg),pday=poDay(P,lg.match_no),seedDay=!!P&&lg.match_no===P.reg;
   const poRes=pday>0||seedDay?await store.leagueResults(lg.no):[];let cups=null;
@@ -1453,7 +1493,11 @@ async function runMatchday(store,lg,now){
     for(const t of humans)if(!active.includes(t))t.next_opp=null;
     const nd=poDay(P,lg.match_no);
     if(nd>0)poPair(poAfter(),nd,active,house,await meetings(store,lg.no,matches));
-    else pairUp(active,house,await meetings(store,lg.no,matches),leagueLength(lg)-lg.match_no+1);
+    else{const met=await meetings(store,lg.no,matches),m=lg.match_no,reg=P?P.reg:leagueLength(lg);
+      if(isSeasonal(lg.no)&&m<=reg){   // the week's fixtures: drawn after a Sunday match (or when nobody has any), then played as drawn
+        const start=m===1||dowUTC(playedAt)===0||active.every(t=>fxOf(t,lg.no,m)===undefined);
+        if(start)drawWeek(active,house,met,leagueLength(lg)-m+1,weekLen(lg,reg),lg.no,m);else useWeek(active,house,met,lg.no,m);}
+      else pairUp(active,house,met,leagueLength(lg)-m+1);}
   }
   for(const t of humans)enforceRule(t.data,newRule);
   await store.commit({league:lg,teams:rows,matches,reset});
@@ -1527,7 +1571,7 @@ async function makeView(store,row,lg,now,extra){
     me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:midOpen(d,lg)?midCap(d):capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
       sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length,po:pv.me,rested:d.rested&&d.rested.league===lg.no?d.rested.match:null},
     push_key:vapid?vapid.pub:null,
-    opp,table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw,po:poOf(t,lg.no)})),teams:tbl.length,...(extra||{})};
+    opp,week:weekView(lg,tbl,row,await store.house()),table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw,po:poOf(t,lg.no)})),teams:tbl.length,...(extra||{})};
 }
 
 // ───────────────────────── match reports ─────────────────────────

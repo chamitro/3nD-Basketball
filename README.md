@@ -157,6 +157,16 @@ film characters, never real people), each at most once a league. Letters, spaces
 `shortName` (the surname, or the legend's own word; `gymTag` adds the initial when two teammates share it). Old one-word
 names stay. Check: 3nD-tests/names_test.js (200 leagues: 3.0% legends, no repeats).
 
+## The week's fixtures (23 Nov 2026, season leagues)
+
+After a Sunday match (or when nobody has fixtures, as at a league's start) `drawWeek` draws the next week (Wednesday, Friday,
+Sunday; the first week of a league is shorter) by running `pairUp` once per match day on copies of the teams, so the usual
+rules hold (not met yet, never twice running, otherwise chance; everyone meets everyone). Each team keeps its week in
+`pub.fx = {lg, from, opps}`; on the other match days `useWeek` pairs from it. A manager who joins during the week takes the
+computer team's place (`slot: true`, `fxOnAttach` at once, `useWeek` at the next match day); others play the computer team
+until Sunday. The page shows "Your week" under the opponent and "This week's fixtures" in the Table tab (`weekView`).
+Check: `3nD-tests/localseason/week_test.js`.
+
 ## The Winter League's start (23 Nov 2026)
 
 `CFG.LEAGUE_START[2]`: the Winter League's first match is Friday 11 December 2026, 18:00 UTC, not the next match day after

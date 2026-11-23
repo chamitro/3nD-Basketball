@@ -353,7 +353,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.23-0823"></script>
+<script src="engine.js?v=2026.11.23-0841"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -619,7 +619,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.23-0823';   // stamped by build.py
+const APP_VERSION='2026.11.23-0841';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1264,6 +1264,12 @@ function poBox(cup,k,cls){
   const right=ser.win?'done':ser.games.length?ser.wh+'–'+ser.wl:'';
   return `<button type="button" class="sb ${cls} ${live?'live':''}" data-pc="${cup.c}" data-pk="${k}"><div class="lbl"><span>${lab}</span><span>${right}</span></div>${poRow(ser.hi,ser.wh,ser,tbd[0])}${poRow(ser.lo,ser.wl,ser,tbd[tbd.length-1])}</button>`;
 }
+// the week's fixtures (23 Nov 2026): drawn after each Sunday match for the coming week
+const wkDay=t=>new Date(t).toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+function myWeekHtml(){const w=ONLINE&&V&&V.week;if(!w||!w.days||!w.days.length)return '';
+  return `<div class="small" style="margin:8px 0 0;color:var(--ink)"><b>Your week:</b> ${w.days.map(d=>`${wkDay(d.at)} ${d.opp?'v <b>'+esc(d.opp)+'</b>':'no match'}`).join(' · ')}. The whole week is drawn after each Sunday match; a new manager takes the computer team's place.</div>`;}
+function weekHtml(){const w=ONLINE&&V&&V.week;if(!w||!w.days||!w.days.length)return '';
+  return `<div class="card" style="margin-bottom:16px"><h3>This week's fixtures</h3>${w.days.map(d=>`<div style="margin:6px 0"><b>${wkDay(d.at)}</b> <span class="small" style="margin:0">match ${d.m}</span><div class="small" style="margin:2px 0 0;color:var(--ink)">${d.pairs.map(p=>`${esc(p[0])} v ${esc(p[1])}`).join(' · ')}</div></div>`).join('')}<div class="small">Drawn after each Sunday match for the week ahead: teams you have not met yet, never the same team twice in a row, otherwise chance. A manager who joins during the week takes the computer team's place.</div></div>`;}
 function poHtml(){
   const po=poInfo();if(!po)return '';
   if(!po.cups){if(S.sunday<=po.reg-9)return '';
@@ -1395,7 +1401,7 @@ function renderPlan(){
   $('subNote').innerHTML=(sn.length?`Substitutes: <b>${sn.join('</b> and <b>')}</b>. They come on when a starter tires, if they are worth more on the court than the tired starter.`:'No substitutes. Your starters play the whole game and will tire. Pick up to two.')+(idle.length?` <span style="color:var(--soft)">Not playing: ${idle.join(', ')}.</span>`:'');
   const op=nextOpp();if(!op)$('oppNote').innerHTML='';if(op){const ov=oppView(op);
     $('oppNote').innerHTML=`${DAY()}'s opponent: <b>${op.name}</b> (${op.house?'the computer team, here because the number of managers is odd':ord(placeOf(op))}). Their best three: ${profile(op)}. Their star is <b>${ov.star.n}</b> (attack ${Math.round(ov.star.sh)} of 4).${ov.last?' Last time they played <b>'+sheetWords(ov.last)+'</b>.':' Nobody has seen them play yet.'}`
-      +(ONLINE&&op.sc&&op.sc.n>=2?leagueSoFarHtml(op.sc):'')
+      +myWeekHtml()+(ONLINE&&op.sc&&op.sc.n>=2?leagueSoFarHtml(op.sc):'')
       +(ONLINE&&op.rep&&((op.rep.pros||[]).length||(op.rep.cons||[]).length)?`<div class="rdt" style="margin-top:8px;font-weight:600"><b>Their last match:</b> ${op.rep.us>op.rep.them?'beat':'lost to'} ${esc(op.rep.opp)} ${op.rep.us}–${op.rep.them}.${halfWords(op.rep.half)}${repLines(op.rep)}<div class="small" style="margin-top:4px">All match reports are in the Table tab.</div></div>`:'');}
   const L=planCheck();
   $('check').innerHTML='<div class="lab" style="font-size:14px;color:var(--soft);margin-bottom:4px">Your assistant looks at this plan, your players today, and the opponent</div>'+(L.length?L.map(([k,t])=>`<div class="chk ${k>0?'g':k<0?'b':''}"><i>${k>0?'✓':k<0?'✗':'·'}</i><span>${t}</span></div>`).join(''):'<div class="chk"><i>·</i><span>Nothing stands out. A plain plan for a plain day.</span></div>');
@@ -1428,7 +1434,7 @@ function renderHelp(){
   <li><b>Starts Friday 11 December.</b> <b>Twenty-minute matches, three a week</b> (Sunday, Wednesday, Friday), 35 matches in all, and a <b>mid-season window</b> to change two players (sections 11 and 13).</li>
   <li><b>Comebacks:</b> a team 8 down at half-time can come back with the right order and good players; a team 8 up eases off without one (section 8).</li>
   <li><b>The double team and the shadow</b> go on their most dangerous player, and a star in good shape can beat a double (section 7).</li>
-  <li><b>Who you play is drawn at random</b> among the teams you have not met yet (section 11).</li>
+  <li><b>Who you play is drawn at random</b> among the teams you have not met yet, <b>a week at a time</b>: after each Sunday match you see your next three opponents (section 11).</li>
   <li><b>Trash talk by tone:</b> four lines, each a talk tone that rattles some characters and fires others up; you cannot see their characters. The ban stays (section 9).</li>
   <li><b>Play-offs:</b> the top eight, best of three, every game under a rule drawn at random. The winner is the champion (section 14).</li>
   </ul></div>
@@ -1534,7 +1540,7 @@ function renderHelp(){
   <ul><li><b>The vote.</b> After a match you vote between three rules, on the result screen or later in the locker room, after a look at your players; you can change your vote until the match is played. The rule of the next match is already fixed and shown; your vote decides the rule of the <b>match after it</b>, so you always know the next rule while you plan. Most votes win, a tie is settled by chance.</li></ul>
   <h4><i>11</i>The match</h4>
   <p>You play against another manager ${ONLINE&&V&&V.league?'<b>'+matchWhen()+'</b>':'three evenings a week at <b>18:00 UTC</b>'}. You do not need to be online. The next time you open the game you see the score and the reasons for it. <b>The match</b> is twenty minutes of three-on-three: about forty possessions a side, twos and threes only, no free throws, so 36–30 is a normal score and 60 points a blowout; a slow tempo makes it thirty possessions, a fast one forty-six. <b>Name your three starters before every match:</b> a team without a line-up plays its three weakest players.</p>
-  <ul><li><b>Who you play.</b> In the regular season everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, never the same team twice in a row, and among those the draw is pure chance: anyone can meet anyone, top or bottom. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
+  <ul><li><b>Who you play.</b> In the regular season everyone meets everyone: over a league you are paired first with the teams you have not met yet, then with those you have met least, never the same team twice in a row, and among those the draw is pure chance: anyone can meet anyone, top or bottom. <b>The week ahead is drawn at once:</b> after each Sunday match the next three matches (Wednesday, Friday, Sunday) are drawn for everybody, so you see your whole week under the game plan and every fixture of the week in the Table tab. A manager who joins during the week takes the computer team's place in its fixtures, so nobody else's week changes. If the number of managers is odd, a computer team fills the gap. Your next opponent is named under the game plan as soon as a match day is over.</li>
   <li>A win gives <b>3 points</b>, a loss <b>0</b>. Only regular-season matches count in the table; in the last three weeks the brackets decide who you play (section 14), and a team with a bye has no match that day.</li><li>There are no draws. A tied match goes on until somebody scores.</li><li><b>Notifications.</b> In the online league you can ask for a notification with your result after each match: the button is under the game plan, in the Next match box. It works on Android, and on iPhone once the game is added to the Home Screen.</li></ul>
   <h4><i>12</i>Match reports: scout the others</h4>
   <p>After every match day the <b>Table tab</b> shows the <b>match reports</b>: every score, and for each team the plan it played, <b>three strong points</b> (+) and <b>three weak points</b> (−) from that match. For example "Close to the hoop: made 8 of 10", "Lost the ball 7 times against the press", "Tired at the end".</p>
@@ -1694,6 +1700,7 @@ function renderLeague(){
     {h+=`<div class="card" style="margin-bottom:16px"><h3>${ONLINE?'Last match':'Last Sunday'} · ${ruleOf(S.lastResults.rule).txt}</h3>`;for(const m of S.lastResults.list)h+=`<div class="res"><div class="sc ${m.won?'w':'l'}">${m.us}–${m.them}</div><div><div>${m.won?'beat':'lost to'} ${m.opp} <span class="small">(${sheetWords(m.oppSheet)})</span></div><div class="why">${m.lines.join(' ')}</div></div></div>`;h+=`</div>`;}
   }
   h+=poHtml();
+  h+=weekHtml();
   h+=roundHtml();
   h+=`<div class="row" style="margin-top:0"><div class="card"><h3>${LG()} table</h3><table><tr><th>#</th><th>team</th><th class="n">W</th><th class="n">L</th><th class="n">+/−</th><th class="n">Pts</th></tr>`;
   const zoneOf=(()=>{const po=poInfo();if(!po)return ()=>null;if(S.poPos)return (t)=>(S.poPos.get(t.id)||{}).cup||null;const n=table().length,ts=n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;return (t,i)=>i<ts?'t':null;})();let zPrev=null;
