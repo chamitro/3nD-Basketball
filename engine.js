@@ -292,6 +292,11 @@ let NEXT_ID=1;
 const LOOKS=['col','top','shape','hair','beard','specs','acc','socks','shoe','cheek','num','ph','eye','teeth'];
 function newLooks(p){const f=makePlayer0();usedNames.delete(f.n);for(const k of LOOKS)p[k]=f[k];}   // a fresh face and outfit, nothing else changes
 function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()<INJ.toughOdds)q.tough=true;return q;}   // a rare very tall, fat body that seldom breaks (hidden)
+// Age (Harry, 23 Nov 2026): every new player is born with one, mostly 21-29, a few young ones and veterans. One year is a whole
+// season of four leagues (Winter, Spring, Summer, Autumn): everybody turns a year older at the start of each Winter League.
+// What age does (young players improve, older ones slow down, careers end) comes before the Spring League.
+const AGE_ODDS=[[18,1],[19,2],[20,3],[21,5],[22,6],[23,7],[24,7],[25,7],[26,7],[27,6],[28,6],[29,5],[30,4],[31,3],[32,2],[33,1.5],[34,1]];
+const newAge=()=>{let x=R()*AGE_ODDS.reduce((s,a)=>s+a[1],0);for(const [a,w] of AGE_ODDS){x-=w;if(x<=0)return a;}return 25;};
 function makePlayer0(){
   const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
   const h=clamp(HT_H[ht]+(R()-0.5)*0.1,0,1),d4=()=>1+Math.floor(R()*4);
@@ -299,7 +304,7 @@ function makePlayer0(){
   // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
   let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);if(R()<BD_SP[bd])sp=clamp(sp+(bd===0?1:-1),1,4);
-  return {id:NEXT_ID++,n:makeName(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+  return {id:NEXT_ID++,n:makeName(),age:newAge(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
     hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
     socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
     sh,df,sp,rg:R()<RANGE_ODDS[ht],base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};

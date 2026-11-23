@@ -295,6 +295,11 @@ let NEXT_ID=1;
 const LOOKS=['col','top','shape','hair','beard','specs','acc','socks','shoe','cheek','num','ph','eye','teeth'];
 function newLooks(p){const f=makePlayer0();usedNames.delete(f.n);for(const k of LOOKS)p[k]=f[k];}   // a fresh face and outfit, nothing else changes
 function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()<INJ.toughOdds)q.tough=true;return q;}   // a rare very tall, fat body that seldom breaks (hidden)
+// Age (Harry, 23 Nov 2026): every new player is born with one, mostly 21-29, a few young ones and veterans. One year is a whole
+// season of four leagues (Winter, Spring, Summer, Autumn): everybody turns a year older at the start of each Winter League.
+// What age does (young players improve, older ones slow down, careers end) comes before the Spring League.
+const AGE_ODDS=[[18,1],[19,2],[20,3],[21,5],[22,6],[23,7],[24,7],[25,7],[26,7],[27,6],[28,6],[29,5],[30,4],[31,3],[32,2],[33,1.5],[34,1]];
+const newAge=()=>{let x=R()*AGE_ODDS.reduce((s,a)=>s+a[1],0);for(const [a,w] of AGE_ODDS){x-=w;if(x<=0)return a;}return 25;};
 function makePlayer0(){
   const temp=pick(TEMPKEYS);const ht=odds(HT_ODDS),bd=odds(BD_ODDS);
   const h=clamp(HT_H[ht]+(R()-0.5)*0.1,0,1),d4=()=>1+Math.floor(R()*4);
@@ -302,7 +307,7 @@ function makePlayer0(){
   // speed, a very tall one usually loses one, a tall one sometimes. A quick tall player exists, but is rare.
   let sh,df,sp,tries=0;do{sh=d4();df=d4();sp=d4();tries++;}while((sh+df+sp<6||sh+df+sp>9)&&tries<50);
   if(R()<SP_SHIFT[ht])sp=clamp(sp+(ht===0?1:-1),1,4);if(R()<BD_SP[bd])sp=clamp(sp+(bd===0?1:-1),1,4);
-  return {id:NEXT_ID++,n:makeName(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
+  return {id:NEXT_ID++,n:makeName(),age:newAge(),temp,ht,bd,h,bulk:clamp(BD_BULK[bd]+(R()-0.5)*0.12,0,1),col:pick(COLS),top:pick(TOPS),shape:pick(SHAPES),num:1+Math.floor(R()*98),
     hair:Math.floor(R()*HAIRS.length),beard:R()<0.62?0:1+Math.floor(R()*(BEARDS.length-1)),specs:R()<0.72?0:1+Math.floor(R()*(SPECS.length-1)),acc:R()<0.5?0:1+Math.floor(R()*(ACCS.length-1)),
     socks:Math.floor(R()*SOCKS.length),shoe:Math.floor(R()*SHOES.length),cheek:R()<0.55?0:1+Math.floor(R()*(CHEEKS.length-1)),
     sh,df,sp,rg:R()<RANGE_ODDS[ht],base:{sh,df,sp},tk:{sh:0,df:0,sp:0},fm:{sh:0,df:0,sp:0},mood:'ok',trust:0,talked:false,ph:R()*10,eye:R()*0.3-0.15,teeth:R()<0.35,x:null,tr:{sh:0,df:0,sp:0},idle:0,notes:{},en:4};
@@ -1012,7 +1017,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='ca41f121';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='c81183af';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1080,7 +1085,7 @@ const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
 function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;delete q.tough;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
-function pubPlayer(p){return {id:p.id,n:p.n,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}   // no character (Harry, 22 Nov 2026: another team's characters are not shown; trash talk is a risk)
+function pubPlayer(p){return {id:p.id,n:p.n,age:p.age,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}   // no character (Harry, 22 Nov 2026: another team's characters are not shown; trash talk is a risk)
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
 function firstLineup(d,rule){const avail=rule==='tall_out'?d.players.filter(p=>p.id!==tallestId(d)):d.players;const top=[...avail].sort((a,b)=>rating(b)-rating(a));/* under "tall player out" the tallest sits out, so three others start */d.starters=top.slice(0,3).map(p=>p.id);d.subs=top.slice(3,5).map(p=>p.id);d.ball=top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id;}
 function cleanName(s){s=String(s||'').replace(/[^\p{L}\p{N} _.\-']/gu,'').replace(/\s+/g,' ').trim().slice(0,22);return s;}
