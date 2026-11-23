@@ -18,6 +18,7 @@ on:
     - cron: '37 18 * * 0,3,5' # again, in case the first run was late or failed
     - cron: '30 19 * * 0,3,5'
     - cron: '0 21 * * 0,3,5'
+    - cron: '6 18 * * 4'      # Thursday just after 18:00 UTC: a season league's first week is drawn a day before its first match
     - cron: '41 5 * * *'      # once a day, so the project never pauses for inactivity
   workflow_dispatch:
 jobs:

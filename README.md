@@ -170,8 +170,7 @@ Check: `3nD-tests/localseason/week_test.js`.
 The first week of a season league is drawn `CFG.FIRST_DRAW` (24 hours) before its first match, for every team that has
 entered by then (`firstDraw` in `tick`, under `store.lockFree`, once: the computer team's `pub.fx` marks it drawn); until
 then managers are paired as they enter, and those who enter later take the computer team's place. For the Winter League:
-Thursday 10 December 2026, 18:00 UTC. It runs on the first request after that (a manager, or the daily 05:41 UTC ping at the
-latest), and right before the first match if nobody came by. Check: `3nD-tests/localseason/first_draw_test.js`.
+Thursday 10 December 2026, 18:00 UTC. It runs on the first request after that (a manager, or the workflow's Thursday 18:06 UTC ping), and right before the first match if nobody came by. Check: `3nD-tests/localseason/first_draw_test.js`.
 
 ## The Winter League's start (23 Nov 2026)
 
