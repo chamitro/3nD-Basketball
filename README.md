@@ -276,3 +276,17 @@ fresh draft. `AGE_FX` in engine.js:
 - Speed: players over 28 are born slower more often, and may lose half a dot of base speed at each birthday.
 Measured (3nD-tests/localseason/age_study.js, 112 leagues with the final values): a squad 4 years older wins +0.4 games a season (noise), old hands 13.9-14.2 wins whatever their number; the
 same for managers who never talk, talk at random, talk well or trash talk. age_year_test.js checks the yearly birthday.
+
+## Every decision counts (24 Nov 2026, Winter)
+
+Harry: tactics that fit the squad, talks about a quarter of the results, the draft and the transfers mattering more. All the
+knobs are in `BAL` in engine.js (before: mood 1, trust 0.08, neglect 1, talkStat 1, dot 1, tempoFit 0, starFit 0, three 0.33,
+fastTire 0.009, setPlay 0, zone 0, shadow 0). Tuned in 5 rounds of 160 leagues (3nD-tests/localseason/tune.sh), proved over
+1000 leagues (grand_study.js + grand_analyse.py; 14 managers per league, every decision drawn at random):
+- talks explain 21% of the differences between teams (was 46%); the draft 7% (was 2%); resting 6%; no crash, no refusal
+- a careless draft costs 2.2 to 2.5 wins of 28 against three strong starters and a cheap bench (was 1.2)
+- a fast tempo pays +2 wins for a quick squad and a slow one costs it -2.8 (`tempoFit` on the speed gap); the boards suit
+  a tall squad (+1.7); outside suits shooters; star ball pays by the star's shooting edge (`starFit`)
+- set plays and the zone are no longer simply worse; the shadow is again the smaller bet than the double (`shadow` 0.04:
+  +4.5 against star ball, -3.4 against sharing; the double +7.3 and -1.9)
+- comebacks: 18.5% from 8-11 down, 17-22% for a stronger team with a fitting order; age and trash talk still even

@@ -419,10 +419,21 @@ function botPrepare(team,opp,rule,oppLast){
 }
 
 // ───────────────────────── the match ─────────────────────────
-function obey(p){return clamp(MOODFX[p.mood][2]+0.08*p.trust,0.2,1);}
+function obey(p){return clamp(MOODFX[p.mood][2]+BAL.trust*p.trust,0.2,1);}
 // how much the dots weigh in a shot, against moods, energy and tactics: attack on long shots, attack on close shots, height, defence.
 // All 1 in the first release: the squad then explained ~2% of a season and the manager ~65% (season simulator, 9 Nov 2026).
 const DOT={sh3:1.6,sh2:3,h:2.5,df:2.5};
+// The balance knobs (24 Nov 2026, Harry: tactics that fit the squad, talks about a quarter of the results, the draft and the
+// transfers mattering more).
+//  mood: how much a mood moves a shot (shooter and defender, the star's mood under star ball, the tempo by mood)
+//  trust: how much trust moves obedience; neglect: trust lost per match by an ignored player; talkStat: the stat lift of a talk
+//  dot: how much a dot of shooting, defence and height moves a shot (the draft and the transfers)
+//  tempoFit: fast tempo pays for the quicker team and costs the slower one (slow tempo the other way round)
+//  starFit: star ball pays by how much better the star shoots than his teammates; three: the base of a long shot
+// Before (until 24 Nov 2026): {mood:1,trust:0.08,neglect:1,talkStat:1,dot:1,tempoFit:0,starFit:0,three:0.33,fastTire:0.009,setPlay:0,zone:0}:
+// talks explained 45% of the differences between teams and the draft 2%; slow tempo, sharing and shooting from outside were best for
+// everyone. Tuned in 5 rounds of 160 leagues (3nD-tests/localseason/tune.sh), then proved over 1000 leagues (grand_study.js).
+const BAL={mood:0.45,trust:0.04,neglect:0.3,talkStat:0.45,dot:2.5,tempoFit:0.3,starFit:0.25,three:0.24,fastTire:0.001,setPlay:0.03,zone:0.025,shadow:0.04};   // shadow: a cost on every shot under a shadow (the stopper's dots count more since dot 2.5)   // setPlay: a flat edge for set plays when they are run
 const PRESS_MID={h:0.5,sp:0,tired:0.15};
 // one of a list, by weight (weights below zero count as zero)
 function wpick(arr,f){const w=arr.map(p=>Math.max(0,f(p)));let x=R()*w.reduce((s,v)=>s+v,0);for(let i=0;i<arr.length;i++){x-=w[i];if(x<=0)return arr[i];}return arr[arr.length-1];}
@@ -460,7 +471,7 @@ function playMatch(A,B,ruleKey){
   const hMul=rule==='tiny_court'?3.5:rule==='paint'?1.8:1;
   const aMul=rule==='attack'?2:1,dMul=rule==='attack'?0.5:rule==='defence'?2:1,sMul=rule==='speed'?2:1;
   const avg=(arr,f)=>arr.reduce((s,p)=>s+f(p),0)/arr.length;
-  const rawObey=p=>MOODFX[p.mood][2]+0.08*p.trust;
+  const rawObey=p=>MOODFX[p.mood][2]+BAL.trust*p.trust;
   const stopperOf=X=>[...X.court].sort((p,q)=>q.df-p.df)[0];
   function possession(O,D,late,second){
     const os=O.sheet,ds=D.sheet;
@@ -491,16 +502,17 @@ function playMatch(A,B,ruleKey){
     if(R()<pTO){sst.to++;if(ds.def===2||rule==='defence'){D.steals++;const thief=D.st[wpick(D.court,d=>d.df+(d.mood==='angry'?1.5:0)+(d.mood==='sad'?-0.8:0)).id];thief.stl++;if(rule==='defence'){D.score++;D.rb++;thief.pts++;}}return;}
     let q=(O.lift||0)+swing(O,D);if(ds.def===2)q+=0.035+0.012*D.court.filter(d=>d.mood==='sad').length; // broke the press
     if(os.tempo===0)q+=m==='nervous'?0.04:-0.015; // a slow attack meets a set defence
-    if(os.tempo===2)q+=m==='happy'?0.03:m==='sad'?-0.06:0;
+    if(os.tempo===2)q+=BAL.mood*(m==='happy'?0.03:m==='sad'?-0.06:0);
     // how the attack is run
     if(hog)q-=(rule==='no_dribble'?0.16:0.08);
     else if(os.off===0)q+=0.03;
-    else if(os.off===2){const pq=clamp(0.7*(avg(O.court,rawObey)-0.93),-0.15,0.09)+(os.tempo===2?-0.04:os.tempo===0?0.02:0)-(ds.def===2?0.05:0);q+=pq;O.playQ+=pq;O.playN++;}
-    else if(shooter===star)q+=0.02+(m==='happy'||m==='cool'?0.08:m==='nervous'?-0.11:m==='sad'?-0.09:m==='angry'&&shooter.temp!=='fighter'?-0.06:0);
+    else if(os.off===2){const pq=BAL.setPlay+clamp(0.7*(avg(O.court,rawObey)-0.93),-0.15,0.09)+(os.tempo===2?-0.04:os.tempo===0?0.02:0)-(ds.def===2?0.05:0);q+=pq;O.playQ+=pq;O.playN++;}
+    else if(shooter===star){const rest=O.court.filter(p=>p!==star);q+=0.02+BAL.mood*(m==='happy'||m==='cool'?0.08:m==='nervous'?-0.11:m==='sad'?-0.09:m==='angry'&&shooter.temp!=='fighter'?-0.06:0)+(rest.length?BAL.starFit*(star.sh-avg(rest,p=>p.sh)):0);}   // star ball pays by how much better the star shoots
     else q+=0.03;
     // fast break
     let forceInside=false;
     const spAdv=avg(O.court,p=>p.sp-tiredOf(p))-avg(D.court,p=>p.sp-tiredOf(p));   // tired legs do not run
+    if(os.tempo!==1)q+=BAL.tempoFit*spAdv*(os.tempo===2?1:-1);   // a fast game is the quicker team's game, a slow one the slower team's
     let pFB=0;
     if(!noRun&&!second){
       if(spAdv>0)pFB=(os.tempo===2?0.20:0)+(rule==='speed'?0.16:0)+(ds.boards===2?0.25:0); // crash against a quicker team and they are gone
@@ -515,14 +527,15 @@ function playMatch(A,B,ruleKey){
     const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
     const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
-    if(three){pm=0.33+0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW+(ds.def===1?0.08:ds.def===0?-0.03:0)+range3(shooter);}   // range: most small players have it, few big ones
-    else{pm=0.52+0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
+    if(three){pm=BAL.three+BAL.dot*(0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW)+(ds.def===1?0.08:ds.def===0?-0.03:0)+range3(shooter);}   // range: most small players have it, few big ones
+    else{pm=0.52+BAL.dot*(0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW)+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
     if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
-    pm+=(q+fx[0]-dfx[3]-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
+    if(ds.def===1)pm-=BAL.zone;   // a zone that is set
+    pm+=(q+BAL.mood*(fx[0]-dfx[3])-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
     let tag=0;
     if(!forceInside){
-      if(shadow){if(isF){pm+=0.01-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=[0.04,0.03,0.06][os.off];}   // the shadow is a smaller bet than the double (Harry, 19 Nov 2026: it gained against every attack, about +11 against star ball, +4 against sharing, +8 against set plays; on the twenty-minute match now about +5, -2, 0, the double +9, -5, +3)
+      if(shadow){pm+=BAL.shadow;if(isF){pm+=0.01-0.04*nrm(def.df)+(def.mood==='cool'?-0.05:def.mood==='angry'&&def.temp!=='fighter'?0.09:def.mood==='sad'?0.07:0);tag=1;sst.shad++;}else pm+=[0.04,0.03,0.06][os.off];}   // the shadow is a smaller bet than the double (Harry, 19 Nov 2026: it gained against every attack, about +11 against star ball, +4 against sharing, +8 against set plays; on the twenty-minute match now about +5, -2, 0, the double +9, -5, +3)
       if(dbl){if(isF){sst.dbl++;if(R()<beatChance(shooter,sst.f,D)){tag=4;sst.beat=(sst.beat||0)+1;}else{pm-=0.14;tag=2;}}else{pm+=[0.11,0.06,0.08][os.off];tag=3;O.openA++;}} // the star may beat the double; a sharing team finds the open man, a star-ball team does not (a wrong double costs less than a right one gains since 17 Nov 2026)
     }
     if(shooter.temp==='fighter'&&shooter.mood==='angry')pm+=0.08;   // a fighter shoots better when angry (0.11 until 14 Nov 2026: challenging a fighter was worth more than any other talk, and trash talk at fighters cost the sender 11 points; Harry: unfair)
@@ -550,7 +563,7 @@ function playMatch(A,B,ruleKey){
     }
   }
   function tire(X){const sh=X.sheet;const stp=sh.guard===1?stopperOf(X):null;
-    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+POSS_SCALE*tireOf(p)*(0.011+(sh.tempo===2?0.009:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)));}}   // big and heavy bodies tire faster
+    for(const p of X.court){X.st[p.id].min++;X.st[p.id].f=Math.min(1,X.st[p.id].f+POSS_SCALE*tireOf(p)*(0.011+(sh.tempo===2?BAL.fastTire:sh.tempo===0?-0.003:0)+(sh.def===2?0.011:0)+(sh.boards===2?0.005:0)+(sh.off===1&&p.id===X.ball?0.008:0)+(p===stp?0.008:0)));}}   // big and heavy bodies tire faster
   // The bench works like a real one: a substitute comes on for a starter who has tired enough, and only when the fresh
   // player is worth more on the court right now (dots against tiredness; under the bench rule a substitute scores
   // double, so they are worth more). Named substitutes can only help; weak ones simply stay seated. Until 11 Nov 2026
@@ -828,7 +841,7 @@ function react(p,tone,strength){
   p.fx=null;
   if(p.mood===r[1]&&(p.mood!==before||strength>=1)){const k=strength>=1?1:0.5;
     const FX={happy:['sh',0.2],cool:['df',0.2],nervous:['sh',-0.2],sad:['sp',-0.2],angry:p.temp==='fighter'?['sh',0.2]:['df',-0.2]}[r[1]];
-    if(FX){const m=FX[1]>0?Math.max(1,imp):1;bump(p,FX[0],FX[1]*k*m,'talk');p.fx=[FX[0],FX[1]*m];}}   // the young gain a little more from a good talk
+    if(FX){const m=FX[1]>0?Math.max(1,imp):1;bump(p,FX[0],FX[1]*k*m*BAL.talkStat,'talk');p.fx=[FX[0],FX[1]*m];}}   // the young gain a little more from a good talk
   return r;
 }
 // one private talk with one player
@@ -921,7 +934,7 @@ function aftermath(team,X,won,conceded){
     p.quiet=p.talked?0:(p.quiet||0)+(team.teamTalked?0.5:1);
     p.ignored=p.quiet>=QUIET_LIMIT[p.temp];
     if(p.ignored){
-      p.mood=(p.temp==='showoff'||p.temp==='hothead')?'angry':'sad';p.trust=clamp(p.trust-1,-2,2);
+      p.mood=(p.temp==='showoff'||p.temp==='hothead')?'angry':'sad';if(R()<BAL.neglect)p.trust=clamp(p.trust-1,-2,2);
       const n=Math.floor(p.quiet);
       for(let i=moves.length-1;i>=0;i--)if(moves[i].startsWith(p.n+' is '))moves.splice(i,1);
       moves.push(`${p.n} is ${WORD[p.mood]}: you have not talked to them for ${n} match${n===1?'':'es'}`);
