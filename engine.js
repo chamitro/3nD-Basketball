@@ -270,8 +270,12 @@ const range3=p=>p.ht===undefined?-tall3(p):p.rg===undefined?-tall3(p):p.rg?RANGE
 // of a table gets a little extra room for the next league. Values are shown as millions.
 const CAP=125,CAP_WINDOW=125,CAP_BONUS=8;   // the same line at the windows (Harry, 13 Nov 2026: "make the market cap 125M");   // measured 12 Nov 2026: at 125 the free best seven of a pool fit in 3% of pools and a drafter gives up about one good player's worth to fit; at 130 it was 11% and little sacrifice (Harry: too easy);   // seven average players are worth about 122: the draft cap leaves room for one dear player, not for seven; at the two windows (between leagues, mid-season) the cap is tighter, so a change is a trade (Harry, 12 Nov 2026)
 const CHAR_VALUE={veteran:1,easygoing:0.5,hothead:-1,worrier:-0.5};
-function valueOf(p){const b=p.base||p;const dots=(b.sh||p.sh)*1.2+(b.df||p.df)+(b.sp||p.sp)*0.6;
-  return Math.max(6,Math.round(dots*2.2+p.h*4+(p.bd===2?1:0)+(CHAR_VALUE[p.temp]||0)));}
+// the balance knobs: see the comment above `DOT` further down
+const BAL={mood:0.45,trust:0.04,neglect:0.3,talkStat:0.45,dot:2.5,tempoFit:0.2,starFit:0.25,three:0.24,fastTire:0.001,setPlay:0.03,zone:0.025,shadow:0.04,speedBy:[0,0.3,1],spPrice:0.9,priceK:1.98};   // speedBy: the speed edge by tempo (slow, steady, fast); spPrice, priceK: the price of a dot of speed and the price scale   // shadow: a cost on every shot under a shadow (the stopper's dots count more since dot 2.5)   // setPlay: a flat edge for set plays when they are run
+// speed is priced closer to the other dots (Harry, 24 Nov 2026: at 0.6 a slow squad bought more attack and defence for the same
+// money and slow squads playing slow were the strongest teams in 1000 simulated leagues); x1.98 keeps the average price as it was
+function valueOf(p){const b=p.base||p;const dots=(b.sh||p.sh)*1.2+(b.df||p.df)+(b.sp||p.sp)*BAL.spPrice;
+  return Math.max(6,Math.round(dots*BAL.priceK+p.h*4+(p.bd===2?1:0)+(CHAR_VALUE[p.temp]||0)));}
 const squadValue=ps=>(ps||[]).reduce((s,p)=>s+valueOf(p),0);
 const money=v=>'$'+v+'M';
 const capOf=(d,window)=>(window?CAP_WINDOW:CAP)+((d&&d.capBonus)||0);   // a fat player: weight in who takes a rebound, the side's chance of a second shot per fat player more on the court, and what a close shot loses against them
@@ -433,7 +437,6 @@ const DOT={sh3:1.6,sh2:3,h:2.5,df:2.5};
 // Before (until 24 Nov 2026): {mood:1,trust:0.08,neglect:1,talkStat:1,dot:1,tempoFit:0,starFit:0,three:0.33,fastTire:0.009,setPlay:0,zone:0}:
 // talks explained 45% of the differences between teams and the draft 2%; slow tempo, sharing and shooting from outside were best for
 // everyone. Tuned in 5 rounds of 160 leagues (3nD-tests/localseason/tune.sh), then proved over 1000 leagues (grand_study.js).
-const BAL={mood:0.45,trust:0.04,neglect:0.3,talkStat:0.45,dot:2.5,tempoFit:0.3,starFit:0.25,three:0.24,fastTire:0.001,setPlay:0.03,zone:0.025,shadow:0.04};   // shadow: a cost on every shot under a shadow (the stopper's dots count more since dot 2.5)   // setPlay: a flat edge for set plays when they are run
 const PRESS_MID={h:0.5,sp:0,tired:0.15};
 // one of a list, by weight (weights below zero count as zero)
 function wpick(arr,f){const w=arr.map(p=>Math.max(0,f(p)));let x=R()*w.reduce((s,v)=>s+v,0);for(let i=0;i<arr.length;i++){x-=w[i];if(x<=0)return arr[i];}return arr[arr.length-1];}
@@ -512,7 +515,7 @@ function playMatch(A,B,ruleKey){
     // fast break
     let forceInside=false;
     const spAdv=avg(O.court,p=>p.sp-tiredOf(p))-avg(D.court,p=>p.sp-tiredOf(p));   // tired legs do not run
-    if(os.tempo!==1)q+=BAL.tempoFit*spAdv*(os.tempo===2?1:-1);   // a fast game is the quicker team's game, a slow one the slower team's
+    q+=BAL.tempoFit*(avg(O.court,p=>p.sp)-avg(D.court,p=>p.sp))*BAL.speedBy[os.tempo];   // on the speed dots: tiredness already costs shots, balls and fast breaks   // being quicker always helps: a fast game makes the most of it, a steady one part, a slow one keeps a quicker opponent's edge small (24 Nov 2026; until then a slow game rewarded being slow and speed was worth nothing in itself)
     let pFB=0;
     if(!noRun&&!second){
       if(spAdv>0)pFB=(os.tempo===2?0.20:0)+(rule==='speed'?0.16:0)+(ds.boards===2?0.25:0); // crash against a quicker team and they are gone

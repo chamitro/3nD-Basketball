@@ -290,3 +290,9 @@ fastTire 0.009, setPlay 0, zone 0, shadow 0). Tuned in 5 rounds of 160 leagues (
 - set plays and the zone are no longer simply worse; the shadow is again the smaller bet than the double (`shadow` 0.04:
   +4.5 against star ball, -3.4 against sharing; the double +7.3 and -1.9)
 - comebacks: 18.5% from 8-11 down, 17-22% for a stronger team with a fitting order; age and trash talk still even
+- Speed (24 Nov 2026, same day): 1000 leagues showed slow squads playing slow as the strongest teams (17.2 wins, 14.5% titles),
+  because a slow tempo rewarded being slow by as much as a fast one rewarded being quick, so speed was worth nothing in itself
+  while it still cost money. Now being quicker always helps (`speedBy` [0,0.3,1] for slow, steady, fast tempo, `tempoFit` 0.2,
+  on the speed dots), a slow game only keeps a quicker opponent's edge small; speed is priced at 0.9 a dot (`spPrice`, was 0.6,
+  `priceK` 1.98 keeps the average price). Raising only the price made it worse (slow squads 15.4 wins) and was measured first.
+  Result (160 leagues): slow and quick squads 14.0 wins each; talks 25% of results, the draft 6%, resting 5%.
