@@ -1,7 +1,7 @@
 {
   "name": "3nD Basketball",
   "short_name": "3nD Basketball",
-  "description": "A cartoon basketball manager. Talk to your players, set the tactics, a match every Wednesday and Sunday.",
+  "description": "A cartoon basketball manager. Talk to your players, set the tactics, three matches a week.",
   "id": "./",
   "start_url": "./?source=pwa",
   "scope": "./",

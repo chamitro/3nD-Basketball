@@ -33,7 +33,13 @@ Every change a manager meets in the Winter League, with where it lives. The mana
 - A team's season: tap a team in the table for every match it played (`leagueResults`).
 - Table without the value column; "Leagues won" lists only teams with a title (`hallHtml`).
 - Bodies (heights and builds against real figures), range (hidden), age (talks, recovery, speed; old hands mostly over 30),
-  injuries (in-match, tough giants), names and legends, no twins: their own sections below.
+  injuries (in-match, tough giants, injury-prone players: one in ten, hidden, x3, the card counts injuries this league),
+  names and legends, no twins: their own sections below.
+- Every decision counts (talks about a quarter of the results, the draft and the window count, tactics fit the squad) and
+  speed worth its price (being quicker always helps; a slow game only limits it): "Every decision counts" below, and
+  3nD-tests/BALANCE.md for what every decision is worth.
+- The app icon is the 3nD logo (25 Nov 2026: the orange badge with a ball, on the cream dotted background; maskable version
+  smaller for round crops); same file names in icons/ and itch/icon.png.
 - Half-time: one order per case, the double team, the shadow (a smaller bet than the double, same as League 1), free the star,
   everything through; comebacks for a trailing team with an order (`CB`, `swing`), see "Half-time orders".
 - Trash talk by tone, four lines, characters hidden, named players only, the ban kept: "Trash talk by tone".
