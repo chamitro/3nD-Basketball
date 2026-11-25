@@ -324,6 +324,25 @@ function makePlayer0(){
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
 const energyOf=p=>p.en===undefined?4:p.en;
+// The table in the season leagues (Harry, 26 Nov 2026), as in the NBA: wins, losses, winning percentage (PCT) and games behind
+// (GB), ranked by PCT. A team that has played fewer than half the regular season (13 of 26 in the Winter League) is ranked after
+// the teams that have, so a hot late start cannot take a play-off place; while nobody has played that many, the bar is the most
+// matches anyone has played, so nobody is held back while all are level. Ties: head-to-head (when the results are given), wins,
+// +/-, points scored. League 1 keeps its points table to the end.
+const PO_MIN_SHARE=0.5;
+const pctOf=t=>((t.w||0)+(t.l||0))?(t.w||0)/((t.w||0)+(t.l||0)):0;
+function tableNeed(ts,reg){const most=Math.max(0,...ts.map(t=>(t.w||0)+(t.l||0)));return Math.min(Math.ceil((reg||0)*PO_MIN_SHARE)||most,most);}
+function rankTeams(ts,reg,results){
+  const need=tableNeed(ts,reg),short=t=>((t.w||0)+(t.l||0))<need?1:0;
+  const s=[...ts].sort((a,b)=>short(a)-short(b)||pctOf(b)-pctOf(a));const out=[];
+  for(let i=0;i<s.length;){let j=i;while(j<s.length&&short(s[j])===short(s[i])&&Math.abs(pctOf(s[j])-pctOf(s[i]))<1e-9)j++;const g=s.slice(i,j);
+    if(g.length>1){const w=new Map();
+      if(results){const ids=new Set(g.map(t=>t.id));for(const m of results)if(ids.has(m.a)&&ids.has(m.b)){const x=m.score_a>m.score_b?m.a:m.b;w.set(x,(w.get(x)||0)+1);}}
+      g.sort((a,b)=>(w.get(b.id)||0)-(w.get(a.id)||0)||(b.w||0)-(a.w||0)||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.name<b.name?-1:1));}
+    out.push(...g);i=j;}
+  return out;}
+const gamesBehind=(t,lead)=>lead?(((lead.w||0)-(t.w||0))+((t.l||0)-(lead.l||0)))/2:0;
+const pctText=t=>{const g=(t.w||0)+(t.l||0);if(!g)return '.000';const p=pctOf(t);return p>=1?'1.000':p.toFixed(3).replace(/^0/,'');};
 const tiredOf=p=>(4-energyOf(p))/3;      // 0 = fresh, 1 = worn out
 const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5,NIGHT:0.3};   // a whole match played; a whole match off; the bench time of someone who played part of it; what everybody gets back between two match days whatever they did (Harry, 14 Nov 2026: three matches a week left too many at two dots)
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};

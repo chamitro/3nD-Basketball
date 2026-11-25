@@ -125,6 +125,8 @@ function newHouseRow(leagueNo,now){
   return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:randomKit()},data:t};
 }
 const standing=(a,b)=>b.pts-a.pts||(b.pf-b.pa)-(a.pf-a.pa)||(a.name<b.name?-1:1);
+// the table of a league: points in League 1, winning percentage in the season leagues (Harry, 26 Nov 2026)
+const tableOf=(lg,rows)=>isSeasonal(lg.no)?rankTeams(rows,(poLen(lg)||{reg:leagueLength(lg)}).reg):[...rows].sort(standing);
 
 // Who meets whom next. Everyone should meet everyone: a team is paired first with teams it has not met yet in
 // this league, then with those it has met least often; among those, teams on similar points meet, and nobody
@@ -219,7 +221,7 @@ function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const le
 const poDay=(P,m)=>P&&m>P.reg?m-P.reg:0;   // 1..9 in the play-offs, 0 before
 const poSize=n=>n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;
 // the final order of the regular season: points, then the matches among the teams level on points, then +/-, then points scored
-function poOrder(teams,results){
+function poOrder(teams,results,reg){if(reg!==undefined)return rankTeams(teams,reg,results);   // the season leagues: winning percentage (26 Nov 2026)
   const s=[...teams].sort((a,b)=>b.pts-a.pts),out=[];
   for(let i=0;i<s.length;){let j=i;while(j<s.length&&s[j].pts===s[i].pts)j++;const g=s.slice(i,j);
     if(g.length>1){const ids=new Set(g.map(t=>t.id)),w=new Map();
@@ -461,13 +463,13 @@ async function runMatchday(store,lg,now){
   const best=Math.max(...tally);const winners=tally.map((v,i)=>v===best?i:-1).filter(i=>i>=0);
   const newRule=lg.vote_opts[pick(winners)];
   // the table as it stands now (teams not in play this time keep their points)
-  const tbl=(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t).sort(standing);
+  const tbl=tableOf(lg,(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t));
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;
   for(const t of humans)if(t.data.last&&t.data.last.match===lg.match_no&&t.data.last.league===lg.no){t.data.last.place=placeOf(t.id);t.data.last.of=tbl.length;}
   // the regular season is over: the seeds, from the final order with head-to-head for teams level on points
   if(seedDay){const today=matches.map(m=>({a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b}));
     const inLg=tbl.filter(t=>map.has(t.id)&&!map.get(t.id).is_house).map(t=>map.get(t.id));
-    for(const x of poSeeds(poOrder(inLg,[...poRes,...today]))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
+    for(const x of poSeeds(poOrder(inLg,[...poRes,...today],poLen(lg).reg))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
       if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no){t.data.last.po=po;
         const nth=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
         t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
@@ -598,7 +600,7 @@ async function poView(store,lg,tbl,row){
 }
 async function makeView(store,row,lg,now,extra){
   const vapid=await getVapid(store);
-  let tbl=(await store.tableRows(lg.no)).sort(standing);   // only the teams that entered this league
+  let tbl=tableOf(lg,await store.tableRows(lg.no));   // only the teams that entered this league
   const pv=await poView(store,lg,tbl,row);
   if(pv.info&&pv.info.cups)tbl=[...tbl].sort((a,b)=>((poOf(a,lg.no)||{}).pos||999)-((poOf(b,lg.no)||{}).pos||999));   // after the regular season: the final order, head-to-head included
   let opp=null;

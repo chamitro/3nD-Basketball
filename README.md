@@ -317,3 +317,9 @@ fastTire 0.009, setPlay 0, zone 0, shadow 0). Tuned in 5 rounds of 160 leagues (
   times this league" (`p.injN`, reset between leagues), so a manager finds out by playing. Measured: x3.0 per minute played over
   20000 matches (3nD-tests/frail_test.js); an injury-prone starter costs about half a win a season, and resting matters a
   little more (5% -> 7% of results; with an injury-prone starter, resting 15.5 wins against 12.2); nothing else moves.
+- The NBA table (26 Nov 2026, season leagues): wins, losses, winning percentage (PCT) and games behind (GB), ranked by PCT
+  (`rankTeams` in engine.js, `tableOf` in server.js; the play-off seeds through `poOrder(...,reg)`). A team with fewer than half
+  the regular season played (`PO_MIN_SHARE`, 13 of 26) is ranked after the teams that have, so a hot late start cannot take a
+  play-off place; while nobody has that many, the bar is the most matches anyone has played. Ties: head-to-head (at seeding),
+  wins, +/-, points scored. `pts` is still kept in the database (3 a win) and League 1 keeps its points table to the end.
+  Tests: 3nD-tests/nba_table_test.js, localseason/nba_league_test.js.

@@ -327,6 +327,25 @@ function makePlayer0(){
 const rating=p=>p.sh*1.2+p.df+p.sp*0.6+p.h*1.5;
 // Energy runs from 4 (fresh) down to 1 (worn out). Playing costs it, a match off gives it back.
 const energyOf=p=>p.en===undefined?4:p.en;
+// The table in the season leagues (Harry, 26 Nov 2026), as in the NBA: wins, losses, winning percentage (PCT) and games behind
+// (GB), ranked by PCT. A team that has played fewer than half the regular season (13 of 26 in the Winter League) is ranked after
+// the teams that have, so a hot late start cannot take a play-off place; while nobody has played that many, the bar is the most
+// matches anyone has played, so nobody is held back while all are level. Ties: head-to-head (when the results are given), wins,
+// +/-, points scored. League 1 keeps its points table to the end.
+const PO_MIN_SHARE=0.5;
+const pctOf=t=>((t.w||0)+(t.l||0))?(t.w||0)/((t.w||0)+(t.l||0)):0;
+function tableNeed(ts,reg){const most=Math.max(0,...ts.map(t=>(t.w||0)+(t.l||0)));return Math.min(Math.ceil((reg||0)*PO_MIN_SHARE)||most,most);}
+function rankTeams(ts,reg,results){
+  const need=tableNeed(ts,reg),short=t=>((t.w||0)+(t.l||0))<need?1:0;
+  const s=[...ts].sort((a,b)=>short(a)-short(b)||pctOf(b)-pctOf(a));const out=[];
+  for(let i=0;i<s.length;){let j=i;while(j<s.length&&short(s[j])===short(s[i])&&Math.abs(pctOf(s[j])-pctOf(s[i]))<1e-9)j++;const g=s.slice(i,j);
+    if(g.length>1){const w=new Map();
+      if(results){const ids=new Set(g.map(t=>t.id));for(const m of results)if(ids.has(m.a)&&ids.has(m.b)){const x=m.score_a>m.score_b?m.a:m.b;w.set(x,(w.get(x)||0)+1);}}
+      g.sort((a,b)=>(w.get(b.id)||0)-(w.get(a.id)||0)||(b.w||0)-(a.w||0)||((b.pf||0)-(b.pa||0))-((a.pf||0)-(a.pa||0))||(b.pf||0)-(a.pf||0)||(a.name<b.name?-1:1));}
+    out.push(...g);i=j;}
+  return out;}
+const gamesBehind=(t,lead)=>lead?(((lead.w||0)-(t.w||0))+((t.l||0)-(lead.l||0)))/2:0;
+const pctText=t=>{const g=(t.w||0)+(t.l||0);if(!g)return '.000';const p=pctOf(t);return p>=1?'1.000':p.toFixed(3).replace(/^0/,'');};
 const tiredOf=p=>(4-energyOf(p))/3;      // 0 = fresh, 1 = worn out
 const ENERGY={COST:1.0,REST:1.5,PART_REST:0.5,NIGHT:0.3};   // a whole match played; a whole match off; the bench time of someone who played part of it; what everybody gets back between two match days whatever they did (Harry, 14 Nov 2026: three matches a week left too many at two dots)
 const STATNAME={sh:'attack',df:'defence',sp:'speed'};
@@ -1046,7 +1065,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='6337d454';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='acfdcee9';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1149,6 +1168,8 @@ function newHouseRow(leagueNo,now){
   return {key_hash:'house',name:CFG.HOUSE_NAME,name_lc:CFG.HOUSE_NAME.toLowerCase(),is_house:true,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:randomKit()},data:t};
 }
 const standing=(a,b)=>b.pts-a.pts||(b.pf-b.pa)-(a.pf-a.pa)||(a.name<b.name?-1:1);
+// the table of a league: points in League 1, winning percentage in the season leagues (Harry, 26 Nov 2026)
+const tableOf=(lg,rows)=>isSeasonal(lg.no)?rankTeams(rows,(poLen(lg)||{reg:leagueLength(lg)}).reg):[...rows].sort(standing);
 
 // Who meets whom next. Everyone should meet everyone: a team is paired first with teams it has not met yet in
 // this league, then with those it has met least often; among those, teams on similar points meet, and nobody
@@ -1243,7 +1264,7 @@ function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const le
 const poDay=(P,m)=>P&&m>P.reg?m-P.reg:0;   // 1..9 in the play-offs, 0 before
 const poSize=n=>n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;
 // the final order of the regular season: points, then the matches among the teams level on points, then +/-, then points scored
-function poOrder(teams,results){
+function poOrder(teams,results,reg){if(reg!==undefined)return rankTeams(teams,reg,results);   // the season leagues: winning percentage (26 Nov 2026)
   const s=[...teams].sort((a,b)=>b.pts-a.pts),out=[];
   for(let i=0;i<s.length;){let j=i;while(j<s.length&&s[j].pts===s[i].pts)j++;const g=s.slice(i,j);
     if(g.length>1){const ids=new Set(g.map(t=>t.id)),w=new Map();
@@ -1485,13 +1506,13 @@ async function runMatchday(store,lg,now){
   const best=Math.max(...tally);const winners=tally.map((v,i)=>v===best?i:-1).filter(i=>i>=0);
   const newRule=lg.vote_opts[pick(winners)];
   // the table as it stands now (teams not in play this time keep their points)
-  const tbl=(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t).sort(standing);
+  const tbl=tableOf(lg,(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t));
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;
   for(const t of humans)if(t.data.last&&t.data.last.match===lg.match_no&&t.data.last.league===lg.no){t.data.last.place=placeOf(t.id);t.data.last.of=tbl.length;}
   // the regular season is over: the seeds, from the final order with head-to-head for teams level on points
   if(seedDay){const today=matches.map(m=>({a:m.a,b:m.b,score_a:m.score_a,score_b:m.score_b}));
     const inLg=tbl.filter(t=>map.has(t.id)&&!map.get(t.id).is_house).map(t=>map.get(t.id));
-    for(const x of poSeeds(poOrder(inLg,[...poRes,...today]))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
+    for(const x of poSeeds(poOrder(inLg,[...poRes,...today],poLen(lg).reg))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
       if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no){t.data.last.po=po;
         const nth=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
         t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
@@ -1622,7 +1643,7 @@ async function poView(store,lg,tbl,row){
 }
 async function makeView(store,row,lg,now,extra){
   const vapid=await getVapid(store);
-  let tbl=(await store.tableRows(lg.no)).sort(standing);   // only the teams that entered this league
+  let tbl=tableOf(lg,await store.tableRows(lg.no));   // only the teams that entered this league
   const pv=await poView(store,lg,tbl,row);
   if(pv.info&&pv.info.cups)tbl=[...tbl].sort((a,b)=>((poOf(a,lg.no)||{}).pos||999)-((poOf(b,lg.no)||{}).pos||999));   // after the regular season: the final order, head-to-head included
   let opp=null;
