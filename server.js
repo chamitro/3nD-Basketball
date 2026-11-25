@@ -88,7 +88,7 @@ function fairPool(avoid,cap){let pool=null;for(let t=0;t<40;t++){pool=newPlayers
 function houseSeven(avoid){for(let t=0;t<30;t++){const s=capSeven(newPlayers(14,avoid),CAP);if(s)return s;}return newPlayers(7,avoid);}
 const overCap=(ps,cap)=>squadValue(ps)>cap?'Over the cap: this squad is worth '+money(squadValue(ps))+' and the cap is '+money(cap)+'. Let a dearer player go.':null;
 // what a manager may see of their own player: everything except the secret soft spot and sore spot
-function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;delete q.tough;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
+function ownPlayer(p){const q={...p};delete q.love;delete q.hate;delete q.rg;delete q.tough;delete q.frail;q.en=energyOf(p);return q;}   // energy is always sent, also for players from before it existed
 // what everybody may see of somebody else's player: looks, character and dots, never mood or trust
 function pubPlayer(p){return {id:p.id,n:p.n,age:p.age,h:p.h,bulk:p.bulk,ht:p.ht,bd:p.bd,col:p.col,top:p.top,shape:p.shape,num:p.num,hair:p.hair,beard:p.beard,specs:p.specs,acc:p.acc,socks:p.socks,shoe:p.shoe,cheek:p.cheek,inj:p.inj>0?p.inj:0,sh:p.sh,df:p.df,sp:p.sp,ph:p.ph,eye:p.eye,teeth:p.teeth,mood:'ok',trust:0,tr:{sh:0,df:0,sp:0}};}   // no character (Harry, 22 Nov 2026: another team's characters are not shown; trash talk is a risk)
 // a line-up for a squad nobody has set up yet: the three best start, the next two sit on the bench, the best shooter is the star
@@ -498,7 +498,7 @@ async function runMatchday(store,lg,now){
       t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
-      for(const p of t.data.players){delete p.inj;delete p.hurt;}   // the break between leagues heals everyone
+      for(const p of t.data.players){delete p.inj;delete p.hurt;delete p.injN;}   // the break between leagues heals everyone, and the count of injuries starts again
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.

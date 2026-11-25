@@ -295,7 +295,7 @@ const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R(
 let NEXT_ID=1;
 const LOOKS=['col','top','shape','hair','beard','specs','acc','socks','shoe','cheek','num','ph','eye','teeth'];
 function newLooks(p){const f=makePlayer0();usedNames.delete(f.n);for(const k of LOOKS)p[k]=f[k];}   // a fresh face and outfit, nothing else changes
-function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()<INJ.toughOdds)q.tough=true;return q;}   // a rare very tall, fat body that seldom breaks (hidden)
+function makePlayer(){const q=makePlayer0();quirks(q);if(q.ht===3&&q.bd===2&&R()<INJ.toughOdds)q.tough=true;else if(R()<INJ.frailOdds)q.frail=true;return q;}   // a rare very tall, fat body that seldom breaks; one player in ten whose body breaks easily (both hidden; never both)
 // Age (Harry, 23 Nov 2026): every new player is born with one, mostly 21-29, a few young ones and veterans. One year is a whole
 // season of four leagues (Winter, Spring, Summer, Autumn): everybody turns a year older at the start of each Winter League.
 // What age does (young players improve, older ones slow down, careers end) comes before the Spring League.
@@ -881,11 +881,13 @@ function energyAfter(team,X){
 // player (`tough`, hidden, about one in eight of them) seldom gets hurt. Out for 1 to 3 matches; the count goes down with
 // every match day (a rest day as well), and the player comes back short of fitness (energy at most INJ.back).
 // `p.inj` is the matches still to miss; `p.hurt` and `p.hurtWhen` mark a new injury for the result.
-const INJ={base:0.0009,tired:0.043,len:[0.5,0.3,0.2],back:2,tough:0.3,toughOdds:0.12,poss:38};
-const injRate=(p,T,hard)=>tireOf(p)*(p.tough?INJ.tough:1)*hard*(INJ.base+INJ.tired*T*T*T)/INJ.poss;   // per possession on the court
+// injury-prone (`frail`, Harry, 25 Nov 2026): one player in ten, hidden, three times the risk; the card shows how often a player
+// has been hurt this league, so a manager finds out by playing, not in the draft
+const INJ={base:0.0009,tired:0.043,len:[0.5,0.3,0.2],back:2,tough:0.3,toughOdds:0.12,frail:3,frailOdds:0.10,poss:38};
+const injRate=(p,T,hard)=>tireOf(p)*(p.tough?INJ.tough:p.frail?INJ.frail:1)*hard*(INJ.base+INJ.tired*T*T*T)/INJ.poss;   // per possession on the court
 function injuryAfter(p,s){
   delete p.hurt;delete p.hurtWhen;
-  if(s&&s.injured){p.inj=odds(INJ.len)+1;p.hurt=true;p.hurtWhen=s.injured;return;}
+  if(s&&s.injured){p.inj=odds(INJ.len)+1;p.hurt=true;p.hurtWhen=s.injured;p.injN=(p.injN||0)+1;return;}   // injN: injuries this league (on the card)
   if(p.inj>0&&!(s&&s.min>0)){p.inj--;if(!p.inj){delete p.inj;p.en=Math.min(energyOf(p),INJ.back);}}   // back, but not fit yet
 }
 const injDays=n=>n===1?'the next match':'the next '+n+' matches';

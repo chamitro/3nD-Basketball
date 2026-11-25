@@ -296,3 +296,8 @@ fastTire 0.009, setPlay 0, zone 0, shadow 0). Tuned in 5 rounds of 160 leagues (
   on the speed dots), a slow game only keeps a quicker opponent's edge small; speed is priced at 0.9 a dot (`spPrice`, was 0.6,
   `priceK` 1.98 keeps the average price). Raising only the price made it worse (slow squads 15.4 wins) and was measured first.
   Result (160 leagues): slow and quick squads 14.0 wins each; talks 25% of results, the draft 6%, resting 5%.
+- Injury-prone players (25 Nov 2026, Winter): one player in ten (`INJ.frailOdds`), hidden (`p.frail`, removed by `ownPlayer`,
+  never in `pubPlayer`), never also tough, three times the injury risk (`INJ.frail`). The card shows "Injured once/twice/N
+  times this league" (`p.injN`, reset between leagues), so a manager finds out by playing. Measured: x3.0 per minute played over
+  20000 matches (3nD-tests/frail_test.js); an injury-prone starter costs about half a win a season, and resting matters a
+  little more (5% -> 7% of results; with an injury-prone starter, resting 15.5 wins against 12.2); nothing else moves.
