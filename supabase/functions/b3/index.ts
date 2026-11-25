@@ -141,24 +141,19 @@ const ORDER_WHEN={behind:'If we are behind at half-time',close:'If it is close a
 // as a 304-game study of half-time speeches found, but shouting overshoots: it lifts less and makes the wrong players fume.
 const TALK_SHARP={honest:1,challenge:1,demand:1,shout:2};
 const TALK_WORD={praise:'praised them',comfort:'comforted them',challenge:'challenged them',demand:'demanded more',shout:'shouted at them',joke:'cracked a joke',honest:'gave it to them straight',calm:'calmed them down',space:'left them alone'};
-// ───────────────────────── trash talk ─────────────────────────
-// Before a match a manager may send one line from this menu to the other dugout. It is the last word before tip-off:
-// each opposing player takes it by character, moods only. Research (Yip, Schweitzer & Nurmohamed 2018): trash talk
-// mostly fires the target up and sometimes rattles them, so fighters and old hands get sharper while worriers,
-// pleasers, the proud and the hot-tempered lose their heads; jokers and loners are put off half the time. A line aimed at their star reaches the star for sure and
-// the others less. A team that has heard the same manager before is harder to rattle. The sender is banned for the next
-// match: no talks with their players, no team talk, no half-time talk, no trash talk (the plan is set as usual).
-// Trash talk (Alex's idea, Harry 22 Nov 2026): each line is one of the talk tones, said by the other coach. Each of their named
-// players (starters and substitutes) reacts as their character reacts to that tone (TEMPS, the table in the help): rattled
-// seven times in ten, fired up two in ten. Four lines (Harry, 23 Nov 2026), each rattling about as many characters as it
-// fires up, all about the same strength (+2 to +3 points of win chance in their match against an ordinary team), so no line is
-// the obvious one; shout (+14) and the others that hit one side much more were left out. Old hands and easy-going players are
-// never rattled.
+// Trash talk (Harry, 25 Nov 2026): three lines. Each rattles three characters and fires up one; the three "rattles" lists do not
+// overlap, so every character has exactly one weak line and none is immune. The other team's characters are hidden, so each line is
+// a one-in-three gamble; the ban (no talks to your own players in the next match) is the price. Until 25 Nov 2026 the four lines
+// were talk tones read through each character's reactions. Only the players named for the match hear it; a team that has heard
+// the same manager before is harder to rattle; the sender is banned for the next match: no talks with their players, no team talk,
+// no half-time talk, no trash talk (the plan is set as usual).
 const TRASH=[
-  {txt:'Hope you are ready for the big stage: everyone will be watching.',at:'team',tone:'praise'},
-  {txt:'Our substitutes would beat you.',at:'team',tone:'challenge'},
-  {txt:'Relax. Nobody expects anything from you.',at:'team',tone:'calm'},
-  {txt:'We have watched your matches. We laughed.',at:'team',tone:'joke'},
+  {txt:'Hope you are ready for the big stage: everyone will be watching.',at:'team',kind:'pressure',
+   fx:{worrier:'nervous',pleaser:'nervous',loner:'sad',showoff:'happy'}},
+  {txt:'Relax. Nobody expects anything from you.',at:'team',kind:'dismissal',
+   fx:{fighter:'sad',veteran:'angry',easygoing:'sad',worrier:'cool'}},
+  {txt:'We have watched your matches. We laughed.',at:'team',kind:'mockery',
+   fx:{showoff:'sad',hothead:'angry',joker:'sad',fighter:'angry'}},
 ];
 const TRASH_REACH={team:0.7,star:0.95,others:0.3},TRASH_FIRE=0.28;   // firing up about two times in ten (0.4 until 23 Nov 2026: the four lines lost about 0.1 of a win per use; now a random line now and then is even over a season, +0.1 +-0.35)   // a line at the team reaches each named player seven times in ten (an opponent's words land
 // at 70% of the coach's own, Alex); a line at the star reaches the star almost surely and the others three times in ten
@@ -1051,7 +1046,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='a33ec7b6';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='6337d454';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match

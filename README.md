@@ -207,7 +207,17 @@ Thursday 10 December 2026, 18:00 UTC. It runs on the first request after that (a
 League 1's last match (Sunday 6 December), to give new players time to join. It has 35 matches: 26 in the regular season
 (the last on Sunday 7 February), play-offs from match 27, the final on Sunday 28 February; the window after match 18.
 
-## Trash talk by tone (22-23 Nov 2026, Winter; Alex's idea)
+## Trash talk: three lines, a one-in-three gamble (25 Nov 2026, Winter; replaces the tone lines below)
+
+Harry, 25 Nov 2026: three lines in `TRASH`, each with its own `fx` (character -> mood): pressure ("everyone will be watching")
+rattles worriers, people-pleasers and loners and fires up the proud; dismissal ("nobody expects anything") rattles fighters,
+old hands and the easy-going and fires up worriers; mockery ("we laughed") rattles the proud, the hot-tempered and jokers and fires
+up fighters. The rattles lists do not overlap: every character has exactly one weak line. Characters stay hidden, the ban stays,
+reach as before (rattled 7 in 10, fired up about 2 in 10, a team that heard you before is harder to rattle, the young more, the
+old less). Measured: in its match a random line +1.9 points of win chance against an ordinary team, +7.2 against a well-managed
+one, the right line up to +10 to +12; over a season, sent now and then, about even (+0.1 wins in 160 leagues).
+
+## Trash talk by tone (22-23 Nov 2026, Winter; Alex's idea; replaced on 25 Nov 2026)
 
 `TRASH` (engine.js) holds four lines, each a talk tone said by the other coach: praise ("the big stage"), challenge ("our
 substitutes"), calm ("nobody expects anything") and joke ("we laughed"). `trashTeam`: each player named for the match
