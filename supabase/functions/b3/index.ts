@@ -1065,7 +1065,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='acfdcee9';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='98fee045';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1543,7 +1543,7 @@ async function runMatchday(store,lg,now){
       t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
-      for(const p of t.data.players){delete p.inj;delete p.hurt;delete p.injN;}   // the break between leagues heals everyone, and the count of injuries starts again
+      for(const p of t.data.players){delete p.inj;delete p.hurt;delete p.injN;p.en=4;delete p.enWas;}   // the break between leagues heals everyone, restores every player's energy (Harry, 26 Nov 2026) and starts the count of injuries again
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.

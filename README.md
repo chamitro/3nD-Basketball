@@ -323,3 +323,4 @@ fastTire 0.009, setPlay 0, zone 0, shadow 0). Tuned in 5 rounds of 160 leagues (
   play-off place; while nobody has that many, the bar is the most matches anyone has played. Ties: head-to-head (at seeding),
   wins, +/-, points scored. `pts` is still kept in the database (3 a win) and League 1 keeps its points table to the end.
   Tests: 3nD-tests/nba_table_test.js, localseason/nba_league_test.js.
+- Energy between leagues (26 Nov 2026): the break restores every player to full energy (p.en=4), as it heals injuries. A series won 2-0 rests on the game-3 day (+1.8 energy); measured: between two equal squads, the 2-0 team wins the next round's first game 78.5% (starters 3.98 against 2.47 energy). Test: localseason/energy_break_test.js.

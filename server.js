@@ -500,7 +500,7 @@ async function runMatchday(store,lg,now){
       t.data.played=(t.data.played||0)+1;if(t.id===champId)t.data.won=(t.data.won||0)+1;
       t.data.history=[...(t.data.history||[]),{league:lg.no,name:endedName,place,of:tbl.length,w:t.w,l:t.l,pts:t.pts,champion:champ,title,ended:now}].slice(-80);
       t.data.agents=redraft?[]:fresh(7);
-      for(const p of t.data.players){delete p.inj;delete p.hurt;delete p.injN;}   // the break between leagues heals everyone, and the count of injuries starts again
+      for(const p of t.data.players){delete p.inj;delete p.hurt;delete p.injN;p.en=4;delete p.enWas;}   // the break between leagues heals everyone, restores every player's energy (Harry, 26 Nov 2026) and starts the count of injuries again
     }
     // A fresh draft: every team (also one that never played in this league) picks seven new players from fourteen on
     // its way into the next league. The old squad stays until then; the computer team simply gets new players.
