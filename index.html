@@ -354,7 +354,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.26-1012"></script>
+<script src="engine.js?v=2026.11.26-1253"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -623,7 +623,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.26-1012';   // stamped by build.py
+const APP_VERSION='2026.11.26-1253';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1362,13 +1362,19 @@ function renderTrash(){
 // playing time: minutes of 40 for each of the five named players, 120 in all. A whole plan is sent; the coach decides when nothing is set.
 const minsSum=m=>Object.values(m||{}).reduce((a,b)=>a+b,0);
 function validMins(me){if(!me.mins||me.starters.length!==3||me.subs.length!==2)return false;const ids=[...me.starters,...me.subs];return ids.every(id=>Number.isInteger(me.mins[id]))&&minsSum(me.mins)===MINS.total;}
+// the rule the next match is played under: in the play-offs a series game has its own (drawn at random)
+const nextRuleKey=()=>{const mp=ONLINE&&V&&V.me&&V.me.po;return mp&&mp.role==='series'&&mp.rule?mp.rule:S.rule;};
+// under "First to eleven" and "Iron legs" a playing-time plan is not used: say so in the box (26 Nov 2026: a manager set his
+// minutes for a first-to-eleven match and saw them ignored without a word)
+const minsRuleNote=()=>{const r=nextRuleKey();if(r!=='first11'&&r!=='iron')return '';const t=ruleOf(r)?ruleOf(r).txt:'';
+  return `<div class="note" style="margin:6px 0 8px"><b>Not this match:</b> it is played under "${esc(t)}", so the playing-time plan is not used. ${r==='iron'?'No substitutions: the three starters play the whole match.':'A short game: the coach changes players as they tire, the better and fresher player coming on.'} Your plan counts again from the next match.</div>`;};
 function minsHtml(){const me=S.me;const five=[...me.starters,...me.subs].map(id=>byId(me,id)).filter(Boolean);
   if(five.length!==5)return `<div class="mins"><b>Playing time.</b> <span class="small" style="margin:0">Name three starters and two substitutes, and you can share out the minutes yourself.</span></div>`;
-  if(!me.mins)return `<div class="mins"><b>Playing time: the coach decides.</b> <span class="small" style="margin:0">A substitute comes on when a starter tires and is worth more on the court.</span> <button id="minsOn" style="margin-top:6px;font-size:14px;padding:6px 12px">Share out the minutes myself</button></div>`;
+  if(!me.mins)return `<div class="mins">${minsRuleNote()}<b>Playing time: the coach decides.</b> <span class="small" style="margin:0">A substitute comes on when a starter tires and is worth more on the court.</span> <button id="minsOn" style="margin-top:6px;font-size:14px;padding:6px 12px">Share out the minutes myself</button></div>`;
   const sum=minsSum(me.mins),okSum=sum===MINS.total;
   const Q=['none','¼','½','¾','all'];
   const row=p=>`<tr><td>${esc(p.n)}<span class="tag" style="background:${me.starters.includes(p.id)?'#6bcb77':'#74c0fc'}">${me.starters.includes(p.id)?'STARTS':'SUB'}</span></td><td class="q"><span class="qs">${Q.map((l,i)=>`<button data-m="${p.id}" data-q="${i}" class="${(me.mins[p.id]||0)===i*10?'on':''}">${l}</button>`).join('')}</span></td></tr>`;
-  return `<div class="mins"><b>Playing time</b> <span class="small" style="margin:0">how much of the match each plays: none, a quarter, a half, three quarters or all of it. The coach rotates to these; when each player goes in and out is the coach's.</span><table>${five.map(row).join('')}</table>
+  return `<div class="mins">${minsRuleNote()}<b>Playing time</b> <span class="small" style="margin:0">how much of the match each plays: none, a quarter, a half, three quarters or all of it. The coach rotates to these; when each player goes in and out is the coach's.</span><table>${five.map(row).join('')}</table>
   <div class="${okSum?'':'bad'}" style="font-weight:800">${sum/10} of 12 quarters${okSum?'. Saved.':' · give exactly 12: three players on the court for the whole match.'}</div>
   <button id="minsOff" style="margin-top:8px;font-size:14px;padding:6px 12px">Let the coach decide</button></div>`;}
 function wireMins(){const me=S.me;const on=$('minsOn'),off=$('minsOff');
@@ -1527,7 +1533,7 @@ function renderHelp(){
   <h4><i>7</i>Set the game plan</h4>
   <p>Based on the state of your players and on your next opponent, decide how the team will play.</p>
   <ul><li><b>Three starters</b> and up to <b>two substitutes</b>. A substitute comes on when a starter tires, and only if they are worth more on the court right now than the tired starter: dots against tiredness. So a weak substitute may never play, a good one rests your starters, and tired starters without substitutes play on at a loss. In Bench week substitutes score double, so they come on a lot. Look at Energy before you choose.</li>
-  <li><b>Playing time.</b> Instead of letting substitutes come on when a starter tires, you can share out the match yourself: give each of the five named players none, a quarter, a half, three quarters or all of the match, twelve quarters in all since three are on the court the whole time, and the coach rotates to those shares; when each player goes in and out is the coach's. Three starters at three quarters and two substitutes at half and a quarter means the substitutes play a third of the match between them, fresh. A half-time change that brings players on (everything through one player from the bench) outranks the plan for the rest of that match. No substitutions under "Iron legs". The box score shows the minutes each player got.</li>
+  <li><b>Playing time.</b> Instead of letting substitutes come on when a starter tires, you can share out the match yourself: give each of the five named players none, a quarter, a half, three quarters or all of the match, twelve quarters in all since three are on the court the whole time, and the coach rotates to those shares; when each player goes in and out is the coach's. Three starters at three quarters and two substitutes at half and a quarter means the substitutes play a third of the match between them, fresh. A half-time change that brings players on (fresh legs, or everything through one player from the bench) outranks the plan for the rest of that match. <b>Two rules do not use the plan at all:</b> under "Iron legs" there are no substitutions, and "First to eleven" is a short game in which the coach changes players as they tire, the better and fresher player coming on. The playing-time box says so whenever your next match is played under one of them. The box score shows the minutes each player got.</li>
   <li><b>One star</b>: the starter your attack looks for. The star gets the ball most and takes the last shots of a close game. Star ball pays by how much better your star shoots than the other two on the court, and by the star's mood today: a clearly better shooter who is buzzing or locked in pays most, an anxious or sulking one costs you. A double team on your star is answered by sharing the ball, so look at what the opponent did last time. While the star sits on the bench the attack simply shares the ball; nobody else becomes the star, and the ball goes back through them when they return.</li>
   <li><b>When star ball pays</b>: the star is clearly the best shooter (the bigger the gap, the more it pays), the star is buzzing or locked in (a sulking or anxious star with the ball costs you about as much as a happy one gains), the opponent did not double last time, and the star is fresh, because the ball carrier tires faster. If one of those fails, share, and let the star take the last shots anyway: in the final stretch of a close match 60% of your shots go to the named star whatever the dial says.</li>
   <li><b>The double team is a bet</b>, not a wall: on every doubled shot your star may beat it. A star in good condition beats it more often: more attack dots (and a little more speed), buzzing or locked in, and fresh. And it depends on who doubles: their two best defenders on the court. A star clearly better than them gets through more often; good, fresh, calm defenders hold it, weak, tired or upset ones let the star through. There is no order for it: it just happens, or not. The double goes on the player their defence fears most: your star when you play star ball; when you share or run set plays, your best shooter on the court. Naming a weak player as star does not fool it. Nobody can double every week: plans are public.<details class="more"><summary>More detail</summary><span class="small">Measured on the twenty-minute match, a star beats about half of the doubled shots, more against weak defenders and fewer against strong ones; against star ball a double is worth about +6 points of win chance to the doubler, against set plays about +4, and against a sharing team it costs them about 2, because one of your other two is always open. The shadow is the smaller bet: about +4 against star ball, nothing against set plays, and about -3 against a sharing team.</span></details></li>
