@@ -111,17 +111,25 @@ const RULES=[
   {k:'tiny_court',txt:'The court is the size of a rug!',why:'Helps tall teams. Height decides everything, speed counts for nothing.'},
   {k:'low_ceiling',txt:'The ceiling is very low!',why:'Helps small teams. Tall players have to duck and shoot worse.'},
   {k:'three5',txt:'Long shots count FIVE!',why:'Helps outside shooters. A zone defence gets punished.'},
-  {k:'paint',txt:'Close shots count three, long shots only two!',why:'Helps tall teams that play inside. A zone protects the hoop.'},
   {k:'bench',txt:'Bench week: substitutes score double!',why:'Helps deep squads. Who you name as substitute matters most.'},
   {k:'iron',txt:'Iron legs: no substitutions!',why:'Your three starters play every minute. Slow tempo saves legs, a press burns them.'},
   {k:'slippery',txt:'The ball is buttered!',why:'Twice the fumbles. Helps pressing teams and calm heads.'},
   {k:'hotheads',txt:'Furious players score +1!',why:'Helps a team with angry players. Do you dare make someone fume?'},
   {k:'party',txt:'Happy players score +1!',why:'Helps a happy locker room. Your talks are worth points this week.'},
   {k:'first11',txt:'First to eleven wins!',why:'Short game. Helps a fast tempo and a strong first three.'},
-  {k:'tall_out',txt:'The tallest player sits out!',why:'Hurts teams built around one giant. Yours cannot play, theirs neither.'},
   {k:'no_dribble',txt:'No dribbling. Passes only!',why:'Speed is useless. Players who ignore the plan ruin everything, so trust matters.'},
+  {k:'oldhands',txt:"Old hands' night: players aged 30 or more score +1!",why:'Helps a squad with experience. Start your veterans.'},
 ];
-const ruleOf=k=>RULES.find(r=>r.k===k);
+// rules taken out of the draw (Harry, 26 Nov 2026, Winter League): "Close shots count three" made the most blowouts and was a
+// second rule for tall teams; "The tallest player sits out" changed nothing measurable. Kept here so that a league already
+// playing under one of them still finds it.
+const RETIRED_RULES=[
+  {k:'paint',txt:'Close shots count three, long shots only two!',why:'Helps tall teams that play inside. A zone protects the hoop.'},
+  {k:'tall_out',txt:'The tallest player sits out!',why:'Hurts teams built around one giant. Yours cannot play, theirs neither.'},
+];
+const ruleOf=k=>RULES.find(r=>r.k===k)||RETIRED_RULES.find(r=>r.k===k);
+// how strong two rules are (26 Nov 2026: both kept their promise too weakly; tuned on 3000 matches each)
+const RULE_FX={lowCeil:1.1,lowFrom:0.42,five:0.12,fiveTake:0.25};
 // ───────────────────────── half-time orders ─────────────────────────
 // The manager leaves one order for each way the first half can end. At half-time the engine looks at the score and
 // the second half is played with the changed plan. Every order has its cost from the ordinary rules (a press tires,
@@ -544,12 +552,13 @@ function playMatch(A,B,ruleKey){
     const stp=shadow&&!forceInside?stopperOf(D):null;
     let def;if(stp){if(isF)def=stp;else{const o=D.court.filter(d=>d!==stp);def=o.length?pick(o):stp;}}else def=pick(D.court);
     const dfx=MOODFX[def.mood];
-    const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0);
+    const three=!forceInside&&R()<[0.15,0.4,0.65][os.shots]+(shooter.sh>=3.5?0.05:0)+(rule==='three5'?RULE_FX.fiveTake*nrm(shooter.sh):0);   // long shots for five: good shooters take them, poor ones go inside
     const zoneIn=ds.def===1?(def.mood==='angry'?0:def.mood==='cool'?-0.19:-0.17):0;const dW=ds.def===1?0.4:1; // a furious defender wanders out of the zone; a zone guards the hoop, hides weak defenders and wastes strong ones (inside -0.17 balances the second shots it gives up under DOTW 3, measured 9 Nov 2026)
     let pm;
     if(three){pm=BAL.three+BAL.dot*(0.085*DOT.sh3*nrm(shooter.sh)*aMul-0.04*DOT.df*nrm(def.df)*dMul*dW)+(ds.def===1?0.08:ds.def===0?-0.03:0)+range3(shooter);}   // range: most small players have it, few big ones
     else{pm=0.52+BAL.dot*(0.03*DOT.sh2*nrm(shooter.sh)*aMul+0.13*DOT.h*(shooter.h-def.h)*hMul-0.05*DOT.df*nrm(def.df)*dMul*dW)+zoneIn-(isFat(def)?FAT.inside:0);}   // a fat defender holds their ground under the hoop
-    if(rule==='low_ceiling')pm-=0.32*Math.max(0,shooter.h-0.2);
+    if(rule==='low_ceiling')pm-=RULE_FX.lowCeil*Math.max(0,shooter.h-RULE_FX.lowFrom);   // only those taller than medium have to duck
+    if(rule==='three5'&&three)pm+=RULE_FX.five*nrm(shooter.sh);   // long shots for five: the shooters' week
     pm+=-(three?0.10:0.07)*tiredOf(shooter)+0.05*tiredOf(def);   // tired legs miss, long shots most of all (meta-analysis of shooting under fatigue, 2025)
     if(ds.def===1)pm-=BAL.zone;   // a zone that is set
     pm+=(q+BAL.mood*(fx[0]-dfx[3])-0.12*sst.f+0.08*D.st[def.id].f)*(three?0.67:1); // a long shot is worth more, so the same edge moves it less
@@ -566,6 +575,7 @@ function playMatch(A,B,ruleKey){
       if(rule==='three5'&&three)O.rb+=2;if(rule==='paint'&&!three)O.rb+=1;
       if(rule==='speed'&&forceInside){pts=3;O.rb+=1;}
       if(rule==='hotheads'&&shooter.mood==='angry'){pts++;sst.bonus++;O.rb++;}
+      if(rule==='oldhands'&&(shooter.age||0)>=30){pts++;sst.bonus++;O.rb++;}   // Old hands' night (26 Nov 2026)
       if(rule==='party'&&shooter.mood==='happy'){pts++;sst.bonus++;O.rb++;}
       if(rule==='bench'&&sst.bench){O.rb+=pts;pts*=2;}
       sst.fgm++;if(three)sst.m3++;sst.pts+=pts;O.score+=pts;
@@ -1065,7 +1075,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='98fee045';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='f39d2cca';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1504,7 +1514,7 @@ async function runMatchday(store,lg,now){
   const tally=lg.vote_opts.map(()=>0);
   for(const t of humans){if(Number.isInteger(t.data.vote)&&t.data.vote>=0&&t.data.vote<tally.length)tally[t.data.vote]++;t.data.vote=null;}
   const best=Math.max(...tally);const winners=tally.map((v,i)=>v===best?i:-1).filter(i=>i>=0);
-  const newRule=lg.vote_opts[pick(winners)];
+  let newRule=lg.vote_opts[pick(winners)];if(!RULES.some(r=>r.k===newRule))newRule=pick(RULES).k;   // a rule taken out of the draw (26 Nov 2026) is never played again, even if it was voted before
   // the table as it stands now (teams not in play this time keep their points)
   const tbl=tableOf(lg,(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t));
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;

@@ -324,3 +324,12 @@ fastTire 0.009, setPlay 0, zone 0, shadow 0). Tuned in 5 rounds of 160 leagues (
   wins, +/-, points scored. `pts` is still kept in the database (3 a win) and League 1 keeps its points table to the end.
   Tests: 3nD-tests/nba_table_test.js, localseason/nba_league_test.js.
 - Energy between leagues (26 Nov 2026): the break restores every player to full energy (p.en=4), as it heals injuries. A series won 2-0 rests on the game-3 day (+1.8 energy); measured: between two equal squads, the 2-0 team wins the next round's first game 78.5% (starters 3.98 against 2.47 energy). Test: localseason/energy_break_test.js.
+
+## Rules of the week (26 Nov 2026, Winter)
+
+Measured on 3000 matches per rule (random squads and moods): "Close shots count three" (`paint`) made the most blowouts (38%) and
+was a second rule for tall teams, who already win 65% of normal weeks; "The tallest player sits out" (`tall_out`) changed nothing
+measurable. Both are out of the draw (`RETIRED_RULES`, kept for lookup; a voted retired rule is replaced by a random one). New:
+"Old hands' night: players aged 30 or more score +1!" (`oldhands`; teams with more starters aged 30+ win +12). Stronger
+(`RULE_FX`): the low ceiling only hits players taller than medium, harder (tall teams -14 instead of -4, 27 points a side);
+long shots for five favour good shooters in accuracy and in who takes them (shooters +12 instead of +3). First to eleven stays.

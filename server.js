@@ -461,7 +461,7 @@ async function runMatchday(store,lg,now){
   const tally=lg.vote_opts.map(()=>0);
   for(const t of humans){if(Number.isInteger(t.data.vote)&&t.data.vote>=0&&t.data.vote<tally.length)tally[t.data.vote]++;t.data.vote=null;}
   const best=Math.max(...tally);const winners=tally.map((v,i)=>v===best?i:-1).filter(i=>i>=0);
-  const newRule=lg.vote_opts[pick(winners)];
+  let newRule=lg.vote_opts[pick(winners)];if(!RULES.some(r=>r.k===newRule))newRule=pick(RULES).k;   // a rule taken out of the draw (26 Nov 2026) is never played again, even if it was voted before
   // the table as it stands now (teams not in play this time keep their points)
   const tbl=tableOf(lg,(await store.tableRows(lg.no)).map(t=>map.has(t.id)?map.get(t.id):t));
   const placeOf=id=>tbl.findIndex(t=>t.id===id)+1;
