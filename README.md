@@ -333,3 +333,8 @@ measurable. Both are out of the draw (`RETIRED_RULES`, kept for lookup; a voted 
 "Old hands' night: players aged 30 or more score +1!" (`oldhands`; teams with more starters aged 30+ win +12). Stronger
 (`RULE_FX`): the low ceiling only hits players taller than medium, harder (tall teams -14 instead of -4, 27 points a side);
 long shots for five favour good shooters in accuracy and in who takes them (shooters +12 instead of +3). First to eleven stays.
+- Play-offs only (26 Nov 2026, season leagues): after the regular season only play-off games are played. No friendlies (`poPair`
+  pairs only the series; a team without a series game is not attached to the computer team, nor is a newcomer entering during
+  the play-offs) and no vote (`vote_opts` is empty from the vote that would decide a play-off day; the page hides the vote card).
+  Teams without a match rest (energy back, injuries counting down). Tested: porule_league_test (no friendlies, no vote open),
+  the banners on the real page (banner_check), the whole-Winter audit.

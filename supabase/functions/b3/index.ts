@@ -1075,7 +1075,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='f39d2cca';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='8ad7809a';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1264,10 +1264,10 @@ async function meetings(store,no,today){
 // The top eight (Harry, 19 Nov 2026, from a friend's sketch; the Silver Cup is gone): quarter-finals 1 v 8, 4 v 5, 3 v 6,
 // 2 v 7, semi-finals (1/8 v 4/5, 3/6 v 2/7), the final. 1st and 2nd get the weakest opponents and cannot meet before the
 // final. With fewer teams the bracket shrinks to six (3 v 6 and 4 v 5,
-// 1 and 2 have a bye), four (1 v 4, 2 v 3 in week two) or a final (week three). Everyone else, and every team knocked out, plays friendlies; a team with a bye, or
+// 1 and 2 have a bye), four (1 v 4, 2 v 3 in week two) or a final (week three). Everyone else, and every team knocked out, has no match (no friendlies since 26 Nov 2026); a team with a bye, or
 // whose series of the week is already decided, rests. Seeds are kept in each team's data and pub (`po`), the series are
 // worked out from the match records (`detail.po`), so nothing new is stored in the league row.
-// The rule of every play-off game is drawn at random (poRandomRule); the friendlies keep the voted rule.
+// The rule of every play-off game is drawn at random (poRandomRule); there is no vote in the play-offs.
 const PO_SHAPES={8:[['q1',1,8,0],['q2',4,5,0],['q3',3,6,0],['q4',2,7,0],['s1','q1','q2',1],['s2','q3','q4',1],['f','s1','s2',2]],6:[['a',3,6,0],['b',4,5,0],['s1',1,'a',1],['s2',2,'b',1],['f','s1','s2',2]],4:[['s1',1,4,1],['s2',2,3,1],['f','s1','s2',2]],2:[['f',1,2,2]]};
 const PO_CUPS={t:'Play-offs'};
 function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const len=leagueLength(lg);return len>=CFG.PO_MIN?{len,reg:len-CFG.PO_DAYS}:null;}
@@ -1313,7 +1313,7 @@ function poSeriesOf(cups,day,x,y){
     if((s.hi===x&&s.lo===y)||(s.hi===y&&s.lo===x)){const g=s.games.length;return {c,s:s.k,g,picker:g===1?s.lo:s.hi,ser:s};}}
   return null;
 }
-// what a team does on play-off day `day`: 'series' (with the opponent), 'rest' (a bye, or its series of the week is decided) or 'friendly'
+// what a team does on play-off day `day`: 'series' (with the opponent), 'rest' (a bye, or its series of the week is decided) or 'friendly' (no match: out of the brackets or knocked out; the name is kept from when they played friendlies)
 function poRole(cups,day,id){
   const r=Math.floor((day-1)/3);
   for(const c of Object.keys(cups)){const ser=Object.values(cups[c].series),mine=ser.filter(s=>s.hi===id||s.lo===id),now=mine.find(s=>s.r===r);
@@ -1391,14 +1391,14 @@ function weekView(lg,tbl,row,house){
     days.push({m,at:t,opp:fxOf(row,no,m)?name(fxOf(row,no,m)):null,pairs});t=nextMatchTime(t,no);}
   return {days};
 }
-// pairs for play-off day `day`: the series of the week, friendlies for everyone else, rest for byes and decided series
+// pairs for play-off day `day`: the series of the week; everyone else has no match
 function poPair(cups,day,humans,house,met){
   for(const t of humans)t.next_opp=null;
   const byId=new Map(humans.map(t=>[t.id,t])),free=[];
   for(const t of humans){const r=poRole(cups,day,t.id);
-    if(r.role==='series'){const o=byId.get(r.opp);if(o){t.next_opp=o.id;o.next_opp=t.id;}else free.push(t);}   // an opponent gone from the league: friendlies
-    else if(r.role==='friendly')free.push(t);}
-  pairUp(free,house,met,0);
+    if(r.role==='series'){const o=byId.get(r.opp);if(o){t.next_opp=o.id;o.next_opp=t.id;}}}
+  // no friendlies (Harry, 26 Nov 2026): a team outside the brackets, knocked out, with a bye or a decided series has no match and
+  // rests (energy back, injuries counting down) until the next league
 }
 
 // A manager who has no opponent (new, or back after a long absence) takes the house team's place if the house
@@ -1525,7 +1525,7 @@ async function runMatchday(store,lg,now){
     for(const x of poSeeds(poOrder(inLg,[...poRes,...today],poLen(lg).reg))){const t=map.get(x.id),po={league:lg.no,cup:x.cup,seed:x.seed,pos:x.pos};t.data.po=po;t.pub={...t.pub,po};
       if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no){t.data.last.po=po;
         const nth=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
-        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed.':'.')+' The brackets are on the Table tab.':'You play friendlies until the end of the league; the brackets are on the Table tab.'));}}}
+        t.data.last.lines.unshift(`The regular season is over: you finished ${nth(x.pos)} of ${inLg.length}. `+(x.cup?`You are the ${nth(x.seed)} seed in the play-offs`+(x.seed<=2&&inLg.length>=6&&inLg.length<8?', with a bye in week one.':x.seed<=2&&inLg.length>=8?': you meet the '+nth(9-x.seed)+' seed.':'.')+' The brackets are on the Table tab.':'You have no more matches this league: your players rest until the next one. The brackets are on the Table tab.'));}}}
   let reset=false;
   if(isLastMatch(lg.no,lg.match_no,lg.next_match_at)){
     const endedName=leagueName(lg.no,lg.next_match_at),nextName=leagueName(lg.no+1,nextMatchTime(lg.next_match_at,lg.no+1));
@@ -1580,7 +1580,7 @@ async function runMatchday(store,lg,now){
         if(t.data.last&&t.data.last.league===lg.no&&t.data.last.match===lg.match_no-1)t.data.last.lines.unshift(`The mid-season window is open until match ${midAt+CFG.MID_DAYS} is played: up to ${CFG.MID_SWAPS} changes from seven free agents, under a window cap of $${CAP_WINDOW+t.data.mid.bonus}M${t.data.mid.bonus?' (extra room: you are in the lower half of the table)':''}. It is in the locker room.`);}}
     if(lg.match_no>midAt+CFG.MID_DAYS)for(const t of humans)delete t.data.mid;
   }
-  lg.rule=newRule;lg.vote_opts=threeRules(newRule);
+  lg.rule=newRule;lg.vote_opts=!reset&&P&&lg.match_no+1>P.reg?[]:threeRules(newRule);   // no vote for a play-off day: every play-off game has its own rule drawn at random (26 Nov 2026)
   lg.next_match_at=nextMatchTime(lg.next_match_at,lg.no);lg.busy_until=null;   // lg.no is already the next league's number if one just ended
   if(reset&&CFG.LEAGUE_START[lg.no]&&CFG.LEAGUE_START[lg.no]>lg.next_match_at)lg.next_match_at=CFG.LEAGUE_START[lg.no];   // a set start date for the new league
   // next pairings, among the managers who are still around
@@ -1795,7 +1795,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
         row=await store.teamByKey(h);
         if(!row){if(await store.nameTaken(name.toLowerCase()))return {error:'That team name is taken. Try another.'};throw e;}
       }
-      await store.attach(row.id,now);await store.dropPool(h);if(req._ip)await store.dropPool(await hash('ip:'+req._ip));   // the next browser on that connection gets a fresh pool
+      if(!(poDay(poLen(lg),lg.match_no)>0)){await store.attach(row.id,now);}await store.dropPool(h);if(req._ip)await store.dropPool(await hash('ip:'+req._ip));   // the next browser on that connection gets a fresh pool; in the play-offs a newcomer has no match (no friendlies)
       row=await fxOnAttach(store,await store.teamByKey(h),lg);
       return makeView(store,row,lg,now,{joined:true});
     }
@@ -1807,9 +1807,9 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     // back after a long absence, or the pairing broke: find this manager an opponent
     let paired=!!row.next_opp;
     if(paired){const o=await store.teamById(row.next_opp);paired=!!(o&&o.next_opp===row.id);}
-    // in the play-offs a team with a bye, or whose series of the week is decided, rests: it is not given the computer team
+    // in the play-offs a team without a series game (a bye, a decided series, out of the brackets, knocked out) rests: it is not given the computer team
     if(!paired){const day=poDay(poLen(lg),lg.match_no);
-      const rests=day>0&&poRole(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,row.id).role==='rest';
+      const rests=day>0&&poRole(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,row.id).role!=='series';   // no friendlies (26 Nov 2026): in the play-offs only a team with a series game gets an opponent
       if(!rests){await store.attach(row.id,now);row=await fxOnAttach(store,await store.teamByKey(h),lg);}}
   }
   const d=row.data;let extra=null,dirty=false;
@@ -1890,7 +1890,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     if(out)d.vote=null;
     enforceRule(d,lg.rule);row.last_seen=now;
     if(out){try{await store.enterLeague(row,lg.no);}catch(e){if(/duplicate|unique|23505/i.test(String(e&&e.message)))return {error:'That team name is taken. Try another.'};throw e;}
-      await store.attach(row.id,now);row=await fxOnAttach(store,await store.teamByKey(h),lg);}   // into this league from zero, then an opponent (and its week)
+      if(!(poDay(poLen(lg),lg.match_no)>0)){await store.attach(row.id,now);row=await fxOnAttach(store,await store.teamByKey(h),lg);}}   // into this league from zero, then an opponent (and its week); in the play-offs no match (no friendlies, 26 Nov 2026)
     else await store.saveTeam(row);
     return makeView(store,row,lg,now,{entered:out});
   }else if(a==='round'){           // the match reports of one match day (the latest one if none is named)
