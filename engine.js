@@ -114,6 +114,9 @@ const RULES=[
   {k:'party',txt:'Happy players score +1!',why:'Helps a happy locker room. Your talks are worth points this week.'},
   {k:'no_dribble',txt:'No dribbling. Passes only!',why:'Speed is useless. Players who ignore the plan ruin everything, so trust matters.'},
   {k:'oldhands',txt:"Old hands' night: players aged 30 or more score +1!",why:'Helps a squad with experience. Start your veterans.'},
+  {k:'heavy',txt:"Heavyweights' night: fat players score +1!",why:'Helps the big bodies. Start your heaviest players.'},
+  {k:'rookies',txt:"Rookies' night: players aged 23 or younger score +1!",why:'Helps a young squad. Start your rookies.'},
+  {k:'rebounds',txt:'Rebound frenzy: every offensive rebound is a point!',why:'Helps tall and heavy teams. Crash the boards.'},
 ];
 // rules taken out of the draw (Harry, 26 Nov 2026, Winter League): "Close shots count three" made the most blowouts and was a
 // second rule for tall teams; "The tallest player sits out" changed nothing measurable; "Iron legs" and "First to eleven" do not
@@ -127,7 +130,7 @@ const RETIRED_RULES=[
 ];
 const ruleOf=k=>RULES.find(r=>r.k===k)||RETIRED_RULES.find(r=>r.k===k);
 // how strong two rules are (26 Nov 2026: both kept their promise too weakly; tuned on 3000 matches each)
-const RULE_FX={lowCeil:1.1,lowFrom:0.42,five:0.12,fiveTake:0.25};
+const RULE_FX={lowCeil:1.1,lowFrom:0.42,five:0.12,fiveTake:0.25,reb:0.5,rebFat:0.05};   // reb, rebFat: under Rebound frenzy height and weight win more of the rebounds
 // ───────────────────────── half-time orders ─────────────────────────
 // The manager leaves one order for each way the first half can end. At half-time the engine looks at the score and
 // the second half is played with the changed plan. Every order has its cost from the ordinary rules (a press tires,
@@ -574,6 +577,8 @@ function playMatch(A,B,ruleKey){
       if(rule==='speed'&&forceInside){pts=3;O.rb+=1;}
       if(rule==='hotheads'&&shooter.mood==='angry'){pts++;sst.bonus++;O.rb++;}
       if(rule==='oldhands'&&(shooter.age||0)>=30){pts++;sst.bonus++;O.rb++;}   // Old hands' night (26 Nov 2026)
+      if(rule==='heavy'&&shooter.bd===2){pts++;sst.bonus++;O.rb++;}   // Heavyweights' night (26 Nov 2026)
+      if(rule==='rookies'&&shooter.age&&shooter.age<=23){pts++;sst.bonus++;O.rb++;}   // Rookies' night (26 Nov 2026)
       if(rule==='party'&&shooter.mood==='happy'){pts++;sst.bonus++;O.rb++;}
       if(rule==='bench'&&sst.bench){O.rb+=pts;pts*=2;}
       sst.fgm++;if(three)sst.m3++;sst.pts+=pts;O.score+=pts;
@@ -584,8 +589,8 @@ function playMatch(A,B,ruleKey){
       let kept=false;
       if(!second){
         const hAdv=avg(O.court,p=>p.h)-avg(D.court,p=>p.h);
-        const pr=0.22+0.13*hAdv*hMul+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length)+FAT.team*(O.court.filter(isFat).length-D.court.filter(isFat).length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
-        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)+(isFat(p)?FAT.reb:0)).id].reb++;possession(O,D,late,true);}
+        const pr=0.22+0.13*hAdv*hMul+(rule==='rebounds'?RULE_FX.reb*hAdv+RULE_FX.rebFat*(O.court.filter(isFat).length-D.court.filter(isFat).length):0)+(os.boards===2?0.10+0.20*hAdv:os.boards===0?-0.07:0)+(ds.def===1?0.05:0)+0.03*(O.court.filter(p=>p.mood==='angry').length-O.court.filter(p=>p.mood==='sad').length)+FAT.team*(O.court.filter(isFat).length-D.court.filter(isFat).length);   // nobody boxes out in a zone: more second shots (Syracuse's 2-3 zone gave up ~33% of misses against a normal ~28%)
+        if(R()<clamp(pr,0.03,0.6)){kept=true;O.oreb++;const rbr=O.st[wpick(O.court,p=>0.25+p.h+(os.boards===2?0.4:0)+(isFat(p)?FAT.reb:0)).id];rbr.reb++;if(rule==='rebounds'){O.score++;O.rb++;rbr.pts++;rbr.bonus++;}possession(O,D,late,true);}   // Rebound frenzy (26 Nov 2026): a point for the offensive rebound
       }
       if(!kept)D.st[wpick(D.court,p=>0.25+p.h+(ds.boards===0?0.3:0)+(isFat(p)?FAT.reb:0)).id].reb++;
     }

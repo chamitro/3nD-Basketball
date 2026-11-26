@@ -339,3 +339,4 @@ long shots for five favour good shooters in accuracy and in who takes them (shoo
   Teams without a match rest (energy back, injuries counting down). Tested: porule_league_test (no friendlies, no vote open),
   the banners on the real page (banner_check), the whole-Winter audit.
 - 26 Nov 2026, later: "Iron legs" and "First to eleven" retired too (they do not use the playing-time plan; a manager's minutes were ignored under first-to-eleven without a word). 12 rules remain; RETIRED_RULES holds four. The playing-time box still warns if the next match is ever under one of them.
+- New rules (26 Nov 2026): Rookies' night (players aged 23 or younger score +1; teams with more of them +13), Heavyweights' night (fat players score +1; +10), Rebound frenzy (every offensive rebound is a point, and height and weight win more rebounds: RULE_FX.reb 0.5, rebFat 0.05; taller +9, heavier +7). 15 rules.

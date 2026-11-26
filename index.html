@@ -354,7 +354,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.26-1253"></script>
+<script src="engine.js?v=2026.11.26-1259"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -623,7 +623,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.26-1253';   // stamped by build.py
+const APP_VERSION='2026.11.26-1259';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -1450,7 +1450,7 @@ function renderHelp(){
   <li><b>Injuries:</b> tired players get hurt during a match and miss one to three matches. A rare giant hardly ever breaks, and about one player in ten breaks easily: nobody can tell in the draft, the card counts the injuries (section 6).</li>
   <li><b>Play-offs only:</b> once the regular season ends, only play-off games are played. No friendlies and no vote: teams outside the top eight, or knocked out, rest until the next league (section 14).</li>
   <li><b>An NBA table:</b> wins, losses and winning percentage instead of points; a late starter needs half the regular season played to be ranked with the rest (section 11).</li>
-  <li><b>Rules of the week:</b> a new one, <b>Old hands' night</b> (players aged 30 or more score +1); the low ceiling now really helps small teams and long shots for five really help shooters; "Close shots count three", "The tallest player sits out", "Iron legs" and "First to eleven" are gone (section 10).</li>
+  <li><b>Rules of the week:</b> four new ones: <b>Old hands' night</b> (players aged 30 or more score +1), <b>Rookies' night</b> (players aged 23 or younger score +1), <b>Heavyweights' night</b> (fat players score +1) and <b>Rebound frenzy</b> (every offensive rebound is a point); the low ceiling now really helps small teams and long shots for five really help shooters; "Close shots count three", "The tallest player sits out", "Iron legs" and "First to eleven" are gone (section 10).</li>
   <li><b>Starts Friday 11 December.</b> <b>Twenty-minute matches, three a week</b> (Sunday, Wednesday, Friday), 35 matches in all (26 in the regular season, then the play-offs), and a <b>mid-season window</b> to change two players (sections 11 and 13).</li>
   <li><b>Comebacks:</b> a team 8 down at half-time can come back with the right order and good players; a team 8 up eases off without one (section 8).</li>
   <li><b>The double team and the shadow</b> go on their most dangerous player, and a star in good shape can beat a double (section 7).</li>
