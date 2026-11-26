@@ -120,6 +120,8 @@ const RULES=[
   {k:'heavy',txt:"Heavyweights' night: fat players score +1!",why:'Helps the big bodies. Start your heaviest players.'},
   {k:'rookies',txt:"Rookies' night: players aged 23 or younger score +1!",why:'Helps a young squad. Start your rookies.'},
   {k:'rebounds',txt:'Rebound frenzy: every offensive rebound is a point!',why:'Helps tall and heavy teams. Crash the boards.'},
+  {k:'freshlegs',txt:'Fresh legs night: rested players score +1!',why:'Helps the team that rested its players: +1 a basket for anyone with at least three and a half energy dots before the match.'},
+  {k:'underdog',txt:'Underdog week: the team lower in the table starts 5 points up!',why:'Helps the underdog. Lower winning percentage, five points before tip-off.'},
 ];
 // rules taken out of the draw (Harry, 26 Nov 2026, Winter League): "Close shots count three" made the most blowouts and was a
 // second rule for tall teams; "The tallest player sits out" changed nothing measurable; "Iron legs" and "First to eleven" do not
@@ -133,7 +135,7 @@ const RETIRED_RULES=[
 ];
 const ruleOf=k=>RULES.find(r=>r.k===k)||RETIRED_RULES.find(r=>r.k===k);
 // how strong two rules are (26 Nov 2026: both kept their promise too weakly; tuned on 3000 matches each)
-const RULE_FX={lowCeil:1.1,lowFrom:0.42,five:0.12,fiveTake:0.25,reb:0.5,rebFat:0.05};   // reb, rebFat: under Rebound frenzy height and weight win more of the rebounds
+const RULE_FX={lowCeil:1.1,lowFrom:0.42,five:0.12,fiveTake:0.25,reb:0.5,rebFat:0.05,freshFrom:3.5,head:5};   // reb, rebFat: under Rebound frenzy height and weight win more of the rebounds
 // ───────────────────────── half-time orders ─────────────────────────
 // The manager leaves one order for each way the first half can end. At half-time the engine looks at the score and
 // the second half is played with the changed plan. Every order has its cost from the ordinary rules (a press tires,
@@ -494,7 +496,8 @@ function playMatch(A,B,ruleKey){
     const st={};for(const p of avail)st[p.id]={pts:0,fga:0,fgm:0,a3:0,m3:0,to:0,free:0,bonus:0,bench:!court.includes(p),f:0.3*tiredOf(p),min:0,dbl:0,dblM:0,shad:0,shadM:0,reb:0,stl:0,dg:0,da:0};
     // the playing-time plan, as shares of the match, when it is whole and the rules allow substitutions
     const plan=(!noLineup&&rule!=='iron'&&rule!=='first11'&&court.length===3&&court.every(p=>T.starters.includes(p.id))&&bench.length===2&&cleanMins(T))?Object.fromEntries([...court,...bench].map(p=>[p.id,T.mins[p.id]/MINS.game])):null;
-    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:0,steals:0,oreb:0,fast:0,rb:0,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
+    const head=rule==='underdog'?(T.head||0):0;   // Underdog week: the lower team starts with points (set by the caller from the table)
+    return {T,court,bench,st,noLineup,sheet:{...T.sheet},ball:T.ball,half:null,lift:0,score:head,steals:0,oreb:0,fast:0,rb:head,openA:0,openM:0,playQ:0,playN:0,plan,planOff:false};
   };
   const a=mk(A),b=mk(B);
   let P=rule==='first11'?60:Math.round((POSS[A.sheet.tempo]+POSS[B.sheet.tempo])/2);
@@ -581,6 +584,7 @@ function playMatch(A,B,ruleKey){
       if(rule==='hotheads'&&shooter.mood==='angry'){pts++;sst.bonus++;O.rb++;}
       if(rule==='oldhands'&&(shooter.age||0)>=30){pts++;sst.bonus++;O.rb++;}   // Old hands' night (26 Nov 2026)
       if(rule==='heavy'&&shooter.bd===2){pts++;sst.bonus++;O.rb++;}   // Heavyweights' night (26 Nov 2026)
+      if(rule==='freshlegs'&&energyOf(shooter)>=RULE_FX.freshFrom){pts++;sst.bonus++;O.rb++;}   // Fresh legs night (26 Nov 2026): energy before the match
       if(rule==='rookies'&&shooter.age&&shooter.age<=23){pts++;sst.bonus++;O.rb++;}   // Rookies' night (26 Nov 2026)
       if(rule==='party'&&shooter.mood==='happy'){pts++;sst.bonus++;O.rb++;}
       if(rule==='bench'&&sst.bench){O.rb+=pts;pts*=2;}
@@ -1081,7 +1085,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='30583a11';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='4eaca692';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1475,7 +1479,9 @@ async function runMatchday(store,lg,now){
       const heard=(Y.data.heard||{})[X.id]||0;const fx=trashTeam(Y.data,t.i,Y.data.ball,heard);
       Y.data.heard={...(Y.data.heard||{}),[X.id]:heard+1};
       trash[k]={i:t.i,line:TRASH[t.i].txt,by:X.name,to:Y.name,rattled:fx.rattled,fired:fx.fired};}
-    const r=playMatch(A.data,B.data,rule);
+    delete A.data.head;delete B.data.head;
+    if(rule==='underdog'){const pa=pctOf(A),pb=pctOf(B);if(pa<pb)A.data.head=RULE_FX.head;else if(pb<pa)B.data.head=RULE_FX.head;}   // Underdog week: the lower winning percentage starts ahead
+    const r=playMatch(A.data,B.data,rule);delete A.data.head;delete B.data.head;
     // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
     const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
     const sides=[[A,r.a,r.b,B,before.a,before.b],[B,r.b,r.a,A,before.b,before.a]];

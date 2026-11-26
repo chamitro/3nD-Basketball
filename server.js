@@ -416,7 +416,9 @@ async function runMatchday(store,lg,now){
       const heard=(Y.data.heard||{})[X.id]||0;const fx=trashTeam(Y.data,t.i,Y.data.ball,heard);
       Y.data.heard={...(Y.data.heard||{}),[X.id]:heard+1};
       trash[k]={i:t.i,line:TRASH[t.i].txt,by:X.name,to:Y.name,rattled:fx.rattled,fired:fx.fired};}
-    const r=playMatch(A.data,B.data,rule);
+    delete A.data.head;delete B.data.head;
+    if(rule==='underdog'){const pa=pctOf(A),pb=pctOf(B);if(pa<pb)A.data.head=RULE_FX.head;else if(pb<pa)B.data.head=RULE_FX.head;}   // Underdog week: the lower winning percentage starts ahead
+    const r=playMatch(A.data,B.data,rule);delete A.data.head;delete B.data.head;
     // the report everybody may read: three strong and three weak points of each side (worked out before moods change)
     const reps=new Map([[A,scoutReport(r.a,r.b,rule)],[B,scoutReport(r.b,r.a,rule)]]);
     const sides=[[A,r.a,r.b,B,before.a,before.b],[B,r.b,r.a,A,before.b,before.a]];
