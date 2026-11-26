@@ -109,18 +109,19 @@ const RULES=[
   {k:'low_ceiling',txt:'The ceiling is very low!',why:'Helps small teams. Tall players have to duck and shoot worse.'},
   {k:'three5',txt:'Long shots count FIVE!',why:'Helps outside shooters. A zone defence gets punished.'},
   {k:'bench',txt:'Bench week: substitutes score double!',why:'Helps deep squads. Who you name as substitute matters most.'},
-  {k:'iron',txt:'Iron legs: no substitutions!',why:'Your three starters play every minute. Slow tempo saves legs, a press burns them.'},
   {k:'slippery',txt:'The ball is buttered!',why:'Twice the fumbles. Helps pressing teams and calm heads.'},
   {k:'hotheads',txt:'Furious players score +1!',why:'Helps a team with angry players. Do you dare make someone fume?'},
   {k:'party',txt:'Happy players score +1!',why:'Helps a happy locker room. Your talks are worth points this week.'},
-  {k:'first11',txt:'First to eleven wins!',why:'Short game. Helps a fast tempo and a strong first three.'},
   {k:'no_dribble',txt:'No dribbling. Passes only!',why:'Speed is useless. Players who ignore the plan ruin everything, so trust matters.'},
   {k:'oldhands',txt:"Old hands' night: players aged 30 or more score +1!",why:'Helps a squad with experience. Start your veterans.'},
 ];
 // rules taken out of the draw (Harry, 26 Nov 2026, Winter League): "Close shots count three" made the most blowouts and was a
-// second rule for tall teams; "The tallest player sits out" changed nothing measurable. Kept here so that a league already
+// second rule for tall teams; "The tallest player sits out" changed nothing measurable; "Iron legs" and "First to eleven" do not
+// use the playing-time plan (a manager's minutes were ignored without a word). Kept here so that a league already
 // playing under one of them still finds it.
 const RETIRED_RULES=[
+  {k:'iron',txt:'Iron legs: no substitutions!',why:'Your three starters play every minute. Slow tempo saves legs, a press burns them.'},
+  {k:'first11',txt:'First to eleven wins!',why:'Short game. Helps a fast tempo and a strong first three.'},
   {k:'paint',txt:'Close shots count three, long shots only two!',why:'Helps tall teams that play inside. A zone protects the hoop.'},
   {k:'tall_out',txt:'The tallest player sits out!',why:'Hurts teams built around one giant. Yours cannot play, theirs neither.'},
 ];

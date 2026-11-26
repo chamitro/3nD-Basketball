@@ -338,3 +338,4 @@ long shots for five favour good shooters in accuracy and in who takes them (shoo
   the play-offs) and no vote (`vote_opts` is empty from the vote that would decide a play-off day; the page hides the vote card).
   Teams without a match rest (energy back, injuries counting down). Tested: porule_league_test (no friendlies, no vote open),
   the banners on the real page (banner_check), the whole-Winter audit.
+- 26 Nov 2026, later: "Iron legs" and "First to eleven" retired too (they do not use the playing-time plan; a manager's minutes were ignored under first-to-eleven without a word). 12 rules remain; RETIRED_RULES holds four. The playing-time box still warns if the next match is ever under one of them.
