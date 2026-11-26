@@ -341,3 +341,9 @@ long shots for five favour good shooters in accuracy and in who takes them (shoo
 - 26 Nov 2026, later: "Iron legs" and "First to eleven" retired too (they do not use the playing-time plan; a manager's minutes were ignored under first-to-eleven without a word). 12 rules remain; RETIRED_RULES holds four. The playing-time box still warns if the next match is ever under one of them.
 - New rules (26 Nov 2026): Rookies' night (players aged 23 or younger score +1; teams with more of them +13), Heavyweights' night (fat players score +1; +10), Rebound frenzy (every offensive rebound is a point, and height and weight win more rebounds: RULE_FX.reb 0.5, rebFat 0.05; taller +9, heavier +7). 15 rules.
 - More rules (26 Nov 2026): Fresh legs night (players with at least 3.5 energy before the match score +1; RULE_FX.freshFrom; teams with more rested starters +15) and Underdog week (the lower winning percentage starts RULE_FX.head = 5 points up, set by the server/page as team.head before playMatch; the weaker squad wins 43% instead of 31%; test underdog_test.js). 17 rules.
+- Trash talk, version C (27 Nov 2026, Dgle's idea, Harry's choice after 900 simulated leagues): in the season leagues one trash
+  talk a week (Wednesday to Sunday, `weekKey`) and one per play-off series (`trashKey`), and no ban (`CFG.TRASH_LIMIT:'week'`,
+  `CFG.TRASH_BAN:false`; League 1 keeps its ban to the end). `data.trashUsed` marks the week or series once a line has landed;
+  the view sends `trashWeek`/`trashUsed` and the page says when the next one comes. Measured (300 leagues each): with the ban,
+  once a week or any match, trash talk is even over a season; with the weekly limit and no ban, sent now and then +0.45 wins,
+  planned for the strongest opponent of the week and game 1 of a series +0.66 wins and +2 points of title chance.

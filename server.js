@@ -5,6 +5,10 @@
 // so a request that overlaps a match day can never write old data over the result.
 
 const CFG={
+  TRASH_LIMIT:'week',    // trash talk in the season leagues: 'week' = once a week in the regular season, once per play-off series (Dgle's idea,
+                         // Harry 27 Nov 2026, after 900 simulated leagues); 'match' = any match (until then)
+  TRASH_BAN:false,       // the season leagues: no ban for the sender any more (League 1 keeps its ban to the end)
+
   MATCH_HOUR_UTC:18,      // matches are played at this hour, UTC
   MATCH_DAYS:[0,3,5],     // the seasonal leagues: Sunday, Wednesday and Friday (Harry, 14 Nov 2026: three matches a week in every league)
   TEST_DAYS:[0,3,5],      // the leagues before SEASONS_FROM: Sunday, Wednesday and Friday
@@ -217,6 +221,12 @@ async function meetings(store,no,today){
 // The rule of every play-off game is drawn at random (poRandomRule); there is no vote in the play-offs.
 const PO_SHAPES={8:[['q1',1,8,0],['q2',4,5,0],['q3',3,6,0],['q4',2,7,0],['s1','q1','q2',1],['s2','q3','q4',1],['f','s1','s2',2]],6:[['a',3,6,0],['b',4,5,0],['s1',1,'a',1],['s2',2,'b',1],['f','s1','s2',2]],4:[['s1',1,4,1],['s2',2,3,1],['f','s1','s2',2]],2:[['f',1,2,2]]};
 const PO_CUPS={t:'Play-offs'};
+// the period one trash talk belongs to under TRASH_LIMIT 'week': the match week (Wednesday to Sunday) in the regular season, the
+// series in the play-offs
+const weekKey=ms=>'w'+Math.floor((Math.floor(ms/86400000)-6)/7);   // 1 Jan 1970 was a Thursday: day 6 is a Wednesday
+async function trashKey(store,lg,id){const day=poDay(poLen(lg),lg.match_no);
+  if(day>0){const r=poRole(poState(await store.tableRows(lg.no),await store.leagueResults(lg.no),lg.no),day,id);if(r.role==='series')return 'p'+r.c+r.s;}
+  return weekKey(lg.next_match_at);}
 function poLen(lg){if(!isSeasonal(lg.no)||lg.no<CFG.PO_FROM)return null;const len=leagueLength(lg);return len>=CFG.PO_MIN?{len,reg:len-CFG.PO_DAYS}:null;}
 const poDay=(P,m)=>P&&m>P.reg?m-P.reg:0;   // 1..9 in the play-offs, 0 before
 const poSize=n=>n>=8?8:n>=6?6:n>=4?4:n>=2?2:0;
@@ -437,7 +447,7 @@ async function runMatchday(store,lg,now){
       const sent=trash[X===A?'a':'b'],got=trash[X===A?'b':'a'],who=a=>a.length?a.join(', ')+(a.length>1?' were':' was'):'';
       if(got)lines.unshift(`Before the match ${got.by} trash-talked you: "${got.line}" ${got.rattled.length?who(got.rattled)+' rattled. ':''}${got.fired.length?who(got.fired)+' fired up. ':''}${!got.rattled.length&&!got.fired.length?'Nobody cared.':''}`.trim());
       if(sent)lines.unshift(`Your trash talk: "${sent.line}" ${sent.rattled.length?who(sent.rattled)+' rattled. ':''}${sent.fired.length?who(sent.fired)+' fired up. ':''}${!sent.rattled.length&&!sent.fired.length?'Nobody cared. ':''}You are banned for the next match: no talks with your players, no half-time talk.`);
-      if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent){X.data.ban=1;X.data.banFor=Y.name;}}   // the sender is banned for the next match (Harry, 22 Nov 2026: the ban stays)
+      if(!X.is_house){if(wasBanned[X===A?'a':'b']){X.data.ban=0;X.data.banFor=null;}if(sent&&(CFG.TRASH_BAN||!isSeasonal(lg.no))){X.data.ban=1;X.data.banFor=Y.name;}if(sent)X.data.trashUsed={lg:lg.no,key:ps?'p'+ps.c+ps.s:weekKey(playedAt)};}   // the sender is banned for the next match (Harry, 22 Nov 2026: the ban stays)
       // the half-time as everybody may read it: score, the order that fired (with the player's name), what was left for the other cases
       const leftWords=o=>{if(!o)return null;const a=[orderWords(o,X.data),o.talk?'talk: '+TONE_LABEL[o.talk].toLowerCase():''].filter(Boolean);return a.length?a.join(' + '):null;};
       const half=xs.half?{us:xs.half.us,them:xs.half.them,cond:xs.half.cond,order:xs.half.order,who:xs.half.pid?(byId(X.data,xs.half.pid)||{}).n||null:null,talk:xs.half.talk||null,
@@ -615,7 +625,7 @@ async function makeView(store,row,lg,now,extra){
   return {phase:'week',now,
     league:{...leagueInfo(lg),vote_opts:lg.vote_opts,final:lg.final,po:pv.info},
     me:{id:row.id,name:row.name,kit:kitOf(row.pub.kit,row.name),redraft:d.redraft?d.redraft.pool.map(ownPlayer):null,sv:squadValue(d.players),cap:capOf(d),capW:midOpen(d,lg)?midCap(d):capOf(d,true),mid:midOpen(d,lg)?{until:d.mid.until,left:CFG.MID_SWAPS-d.mid.used,agents:d.mid.agents.map(ownPlayer)}:null,out:row.league_no!==lg.no&&!tbl.some(t=>t.id===row.id),w:row.w,l:row.l,pf:row.pf,pa:row.pa,pts:row.pts,players:d.players.map(ownPlayer),starters:d.starters,subs:d.subs,ball:d.ball,mins:d.mins||null,
-      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length,po:pv.me,rested:d.rested&&d.rested.league===lg.no?d.rested.match:null},
+      sheet:d.sheet,orders:d.orders||{behind:null,close:null,ahead:null},ban:d.ban||0,banFor:d.banFor||null,trashWeek:CFG.TRASH_LIMIT==='week'&&isSeasonal(lg.no),trashUsed:CFG.TRASH_LIMIT==='week'&&isSeasonal(lg.no)&&!!d.trashUsed&&d.trashUsed.lg===lg.no&&d.trashUsed.key===await trashKey(store,lg,row.id),trash:d.trash&&d.trash.league===lg.no&&d.trash.match===lg.match_no&&d.trash.opp===row.next_opp?d.trash.i:null,teamTalked:!!d.teamTalked,vote:d.vote,last:d.last,final:d.final,agents:(d.agents||[]).map(ownPlayer),won:d.won||0,played:d.played||0,history:d.history||[],push:(d.push||[]).length,po:pv.me,rested:d.rested&&d.rested.league===lg.no?d.rested.match:null},
     push_key:vapid?vapid.pub:null,
     opp,week:weekView(lg,tbl,row,await store.house()),table:tbl.slice(0,300).map(t=>({id:t.id,name:t.name,kit:kitOf(t.pub.kit,t.name),sv:t.pub.sv||null,w:t.w,l:t.l,pf:t.pf,pa:t.pa,pts:t.pts,ls:t.pub.ls||null,lw:t.pub.lw,po:poOf(t,lg.no)})),teams:tbl.length,...(extra||{})};
 }
@@ -771,6 +781,8 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     if(out)return {error:'Your team is not in the league yet.'};
     if(req.i===null||req.i===undefined){d.trash=null;dirty=true;}
     else{if(!Number.isInteger(req.i)||!TRASH[req.i])return {error:'bad line'};if(!row.next_opp)return {error:'No opponent yet.'};
+      if(CFG.TRASH_LIMIT==='week'&&isSeasonal(lg.no)){const key=await trashKey(store,lg,row.id),u=d.trashUsed;
+        if(u&&u.lg===lg.no&&u.key===key)return {error:key[0]==='p'?'You have used your trash talk in this series: one per play-off series.':'You have used your trash talk this week: one a week.'};}
       d.trash={league:lg.no,match:lg.match_no,opp:row.next_opp,i:req.i};dirty=true;}
   }else if(a==='talk'){
     const p=d.players.find(x=>x.id===req.pid);
