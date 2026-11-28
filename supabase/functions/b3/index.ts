@@ -299,8 +299,14 @@ const odds=a=>{let x=R();for(let i=0;i<a.length;i++){x-=a[i];if(x<=0)return i;}r
 // Team kits: two colours and a badge, chosen by the manager (a team without one gets a kit from its name).
 const KIT_COLS=['#e03131','#f76707','#f59f00','#ffd43b','#74b816','#2f9e44','#0ca678','#1098ad','#1c7ed6','#3b5bdb','#7048e8','#ae3ec9','#d6336c','#f783ac','#ffffff','#ced4da','#495057','#212529','#7f5539','#0b3d91'];
 const BADGES=['🦉','🦁','🔥','🏀','🐺','🦅','🐻','🐝','🦈','🐉','⚡','⭐','🌵','🍕','🚀','👑','🐙','🦊','🐸','🌙','💀','🐢','🦄','🍩'];
+// the badge maker (Harry, 28 Nov 2026): instead of an emoji, a team may wear its own badge: 1 to 3 letters or digits (its
+// initials) on a shape, in its two colours. `t` = the letters, `s` = the shape; without `t` the emoji `g` is the badge.
+const BADGE_SHAPES=['circle','shield','diamond','hexagon'];
 function cleanKit(k){if(!k||typeof k!=='object')return null;const a=k.a,b=k.b,g=k.g;
-  if(!Number.isInteger(a)||!Number.isInteger(b)||!Number.isInteger(g)||a<0||b<0||g<0||a>=KIT_COLS.length||b>=KIT_COLS.length||g>=BADGES.length||a===b)return null;return {a,b,g};}
+  if(!Number.isInteger(a)||!Number.isInteger(b)||!Number.isInteger(g)||a<0||b<0||g<0||a>=KIT_COLS.length||b>=KIT_COLS.length||g>=BADGES.length||a===b)return null;
+  const out={a,b,g};
+  if(k.t!==undefined&&k.t!==null&&k.t!==''){const t=String(k.t).toUpperCase();if(!/^[A-Z0-9]{1,3}$/.test(t))return null;out.t=t;out.s=Number.isInteger(k.s)&&k.s>=0&&k.s<BADGE_SHAPES.length?k.s:0;}
+  return out;}
 function nameKit(name){let x=7;for(const ch of String(name||''))x=(x*31+ch.codePointAt(0))%1000003;const a=x%KIT_COLS.length;let b=Math.floor(x/20)%KIT_COLS.length;if(b===a)b=(b+7)%KIT_COLS.length;return {a,b,g:Math.floor(x/400)%BADGES.length};}
 const kitOf=(kit,name)=>cleanKit(kit)||nameKit(name);
 const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R()*KIT_COLS.length);if(b===a)b=(b+1)%KIT_COLS.length;return {a,b,g:Math.floor(R()*BADGES.length)};};
@@ -1089,7 +1095,7 @@ const CFG={
   PO_FROM:2,PO_DAYS:9,PO_MIN:18,   // play-offs from the Winter League on (Harry, 17 Nov 2026): the last nine match days, three weeks of best-of-three series; only in a league of 18 match days or more
 };
 const DAY_MS=86400000;
-const SERVER_BUILD='f96bfd05';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
+const SERVER_BUILD='6e8f64ae';   // build.py puts a fingerprint of the server code here, and `ping` reports it, so a deployment can be checked from outside
 
 // the match days of league `no` (days of the week, 0 = Sunday)
 const midAfter=lg=>Math.floor(leagueLength(lg)/2);   // the mid-season window opens after this match
@@ -1174,6 +1180,9 @@ function nameFit(name){
   const words=normName(name).split(/[^\p{L}\p{N}]+/u).filter(Boolean),flat=words.join('');
   return !BAD_WORDS.some(w=>words.includes(w)||(w.length>=5&&flat.includes(w)));
 }
+// the letters on a home-made badge: the same insults as team names, and initials that are insults on their own
+const BAD_INITIALS=['KKK','SS','NIG','FCK','FUK','FUC','SEX','ASS','XXX','WTF','STFU','MLK','MLKA','PTN','GMW','GMT'];
+const badgeFit=t=>!t||(nameFit(t)&&!BAD_INITIALS.includes(String(t).toUpperCase()));
 function threeRules(not){return RULES.filter(r=>r.k!==not).sort(()=>R()-0.5).slice(0,3).map(r=>r.k);}
 const DEF_SHEET={tempo:1,shots:1,def:0,off:0,guard:0,boards:1};
 
@@ -1184,7 +1193,7 @@ function newTeamRow(hash,name,players,leagueNo,now,kit){
   const top=[...players].sort((a,b)=>rating(b)-rating(a));
   const data={name,players,starters:top.slice(0,3).map(p=>p.id),subs:top.slice(3,5).map(p=>p.id),
     ball:top.slice(0,3).sort((a,b)=>b.sh-a.sh)[0].id,sheet:{...DEF_SHEET},teamTalked:false,vote:null,last:null,final:null,agents:[],won:0,played:0};
-  return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:kitOf(kit,name)},data};
+  return {key_hash:hash,name,name_lc:name.toLowerCase(),is_house:false,league_no:leagueNo,w:0,l:0,pf:0,pa:0,pts:0,next_opp:null,last_seen:now,ver:0,pub:{kit:(k=>{if(k.t&&!badgeFit(k.t)){delete k.t;delete k.s;}return k;})(kitOf(kit,name))},data};
 }
 function newHouseRow(leagueNo,now){
   const t=makeTeam(CFG.HOUSE_NAME,houseSeven(),false);t.skill=0.6;
@@ -1883,7 +1892,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
     if(!d.ball||!d.starters.includes(d.ball))d.ball=d.starters.slice().map(id=>byId(d,id)).sort((a,b)=>b.sh-a.sh)[0].id;
     cleanMins(d);row.pub={...row.pub,sv:squadValue(d.players)};dirty=true;
   }else if(a==='kit'){   // the team's two colours and its badge; may be changed at any time, it changes nothing in a match
-    const k=cleanKit(req.kit);if(!k)return {error:'Pick two different colours and a badge.'};
+    const k=cleanKit(req.kit);if(!k)return {error:'Pick two different colours and a badge (up to three letters or digits for your own).'};if(!badgeFit(k.t))return {error:'Those letters are not allowed on a badge.'};
     row.pub={...row.pub,kit:k};dirty=true;
   }else if(a==='enter'||a==='swap'){   // enter the league that is running now, changing a player on the way in if the last league just ended ('swap' is what older copies of the game send)
     const fresh=!!(d.final&&!d.final.seen);   // this team finished a league and has not started another since
@@ -1901,7 +1910,7 @@ async function handle2(store,req,a,h,now,hash){   // `hash` is needed again for 
           const lc=name.toLowerCase();if(lc===CFG.HOUSE_NAME.toLowerCase()||(lc!==row.name_lc&&await store.nameTaken(lc)))return {error:'That team name is taken. Try another.'};
           d.formerly=[...(d.formerly||[]),row.name].slice(-5);row.name=name;row.name_lc=lc;}}
       d.players=mine;firstLineup(d,lg.rule);d.sheet={...DEF_SHEET,...(d.sheet||{})};d.orders=null;d.teamTalked=false;d.heard={};delete d.redraft;
-      const k=cleanKit(req.kit);if(k)row.pub={...row.pub,kit:k};
+      const k=cleanKit(req.kit);if(k&&badgeFit(k.t))row.pub={...row.pub,kit:k};
     }else if(outs.length||ins.length){
       if(!fresh)return {error:'No player changes now. They open when a league you played in ends.'};
       if(outs.length>CFG.MAX_SWAPS||outs.length!==ins.length)return {error:'You may change '+(CFG.MAX_SWAPS===1?'one player':'up to '+CFG.MAX_SWAPS+' players')+', one in for each one out.'};

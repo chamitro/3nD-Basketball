@@ -296,8 +296,14 @@ const odds=a=>{let x=R();for(let i=0;i<a.length;i++){x-=a[i];if(x<=0)return i;}r
 // Team kits: two colours and a badge, chosen by the manager (a team without one gets a kit from its name).
 const KIT_COLS=['#e03131','#f76707','#f59f00','#ffd43b','#74b816','#2f9e44','#0ca678','#1098ad','#1c7ed6','#3b5bdb','#7048e8','#ae3ec9','#d6336c','#f783ac','#ffffff','#ced4da','#495057','#212529','#7f5539','#0b3d91'];
 const BADGES=['🦉','🦁','🔥','🏀','🐺','🦅','🐻','🐝','🦈','🐉','⚡','⭐','🌵','🍕','🚀','👑','🐙','🦊','🐸','🌙','💀','🐢','🦄','🍩'];
+// the badge maker (Harry, 28 Nov 2026): instead of an emoji, a team may wear its own badge: 1 to 3 letters or digits (its
+// initials) on a shape, in its two colours. `t` = the letters, `s` = the shape; without `t` the emoji `g` is the badge.
+const BADGE_SHAPES=['circle','shield','diamond','hexagon'];
 function cleanKit(k){if(!k||typeof k!=='object')return null;const a=k.a,b=k.b,g=k.g;
-  if(!Number.isInteger(a)||!Number.isInteger(b)||!Number.isInteger(g)||a<0||b<0||g<0||a>=KIT_COLS.length||b>=KIT_COLS.length||g>=BADGES.length||a===b)return null;return {a,b,g};}
+  if(!Number.isInteger(a)||!Number.isInteger(b)||!Number.isInteger(g)||a<0||b<0||g<0||a>=KIT_COLS.length||b>=KIT_COLS.length||g>=BADGES.length||a===b)return null;
+  const out={a,b,g};
+  if(k.t!==undefined&&k.t!==null&&k.t!==''){const t=String(k.t).toUpperCase();if(!/^[A-Z0-9]{1,3}$/.test(t))return null;out.t=t;out.s=Number.isInteger(k.s)&&k.s>=0&&k.s<BADGE_SHAPES.length?k.s:0;}
+  return out;}
 function nameKit(name){let x=7;for(const ch of String(name||''))x=(x*31+ch.codePointAt(0))%1000003;const a=x%KIT_COLS.length;let b=Math.floor(x/20)%KIT_COLS.length;if(b===a)b=(b+7)%KIT_COLS.length;return {a,b,g:Math.floor(x/400)%BADGES.length};}
 const kitOf=(kit,name)=>cleanKit(kit)||nameKit(name);
 const randomKit=()=>{const a=Math.floor(R()*KIT_COLS.length);let b=Math.floor(R()*KIT_COLS.length);if(b===a)b=(b+1)%KIT_COLS.length;return {a,b,g:Math.floor(R()*BADGES.length)};};

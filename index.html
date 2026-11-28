@@ -179,6 +179,7 @@
   .cand .bdy{font-size:12px;font-weight:800;margin-top:3px}
   .cand .val{font-size:12px;font-weight:900;color:#2f9e44;margin-top:2px}
   .capline{font-weight:800;margin:6px 0}.capline.over{color:var(--red)}
+  .kit.kitsvg{border:0;background:none;border-radius:0;overflow:visible}
   .kit{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2.5px solid var(--ink);font-size:12px;line-height:1;vertical-align:middle;margin-right:6px;flex:none;font-style:normal}
   .kitpick .sw{display:flex;flex-wrap:wrap;gap:7px;margin:5px 0 12px}
   .kitpick .sw button{width:36px;height:36px;padding:0;border-radius:50%;box-shadow:0 3px 0 var(--ink);font-size:18px;line-height:1}
@@ -354,7 +355,7 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="engine.js?v=2026.11.26-2214"></script>
+<script src="engine.js?v=2026.11.28-1816"></script>
 <script>
 'use strict';
 // ───────────────────────── basics ─────────────────────────
@@ -623,7 +624,7 @@ function wireInstall(){const cp=$('bCopy');if(cp)cp.onclick=()=>{const done=()=>
   const b=$('bInstall');if(b)b.onclick=async()=>{const e=installEvt;if(!e)return;e.prompt();try{await e.userChoice;}catch(_e){}installEvt=null;render();};}
 if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // A newer version on the web: say so, with a button, the next time the game is opened or comes back to the front.
-const APP_VERSION='2026.11.26-2214';   // stamped by build.py
+const APP_VERSION='2026.11.28-1816';   // stamped by build.py
 let updateShown=false;
 async function checkUpdate(){
   if(updateShown||!location.protocol.startsWith('http'))return;
@@ -712,11 +713,20 @@ const inkOn=hex=>lum(hex)>0.45?INK:'#fff';
 // the kit the players on the screen wear: the manager's own, or the one being chosen at the draft
 function KIT(){return S.kitPreview?kitOf(S.kitPreview,''):S.me?kitOf(S.me.kit,S.me.name):kitOf(S.draftKit,'');}
 // a team's badge on its two colours, to stand next to its name
-const kitChip=k=>{if(!k)return '';k=kitOf(k,'');return `<i class="kit" style="background:linear-gradient(135deg,${KIT_COLS[k.a]} 50%,${KIT_COLS[k.b]} 50%)">${BADGES[k.g]}</i>`;};
+// a home-made badge (28 Nov 2026): the team's letters on its shape, the shirt colour inside and the trim colour around
+const BADGE_PATHS=['M12 1.6a10.4 10.4 0 1 0 0.01 0Z','M12 1.5 21.5 4.6V11c0 6-4.4 10-9.5 11.5C6.9 21 2.5 17 2.5 11V4.6Z','M12 1.3 22.7 12 12 22.7 1.3 12Z','M12 1.4 21.6 6.8v10.4L12 22.6 2.4 17.2V6.8Z'];
+const badgeSvg=k=>{const p=BADGE_PATHS[k.s||0]||BADGE_PATHS[0],n=k.t.length,fs=n===1?11:n===2?9:7;
+  return `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-label="${esc(k.t)}"><path d="${p}" fill="${KIT_COLS[k.a]}" stroke="${KIT_COLS[k.b]}" stroke-width="3.2"/><path d="${p}" fill="none" stroke="#2b2233" stroke-width="1.2"/><text x="12" y="${12+fs*0.36}" text-anchor="middle" font-size="${fs}" font-weight="900" font-family="system-ui,sans-serif" fill="${inkOn(KIT_COLS[k.a])}">${esc(k.t)}</text></svg>`;};
+const kitChip=k=>{if(!k)return '';k=kitOf(k,'');if(k.t)return `<i class="kit kitsvg">${badgeSvg(k)}</i>`;return `<i class="kit" style="background:linear-gradient(135deg,${KIT_COLS[k.a]} 50%,${KIT_COLS[k.b]} 50%)">${BADGES[k.g]}</i>`;};
 // the three choices of a kit: shirt colour, trim colour, badge. `set` is called with the new kit.
 function kitPickerHtml(k){k=kitOf(k,'');const sw=(f,other)=>KIT_COLS.map((c,i)=>`<button type="button" class="${i===k[f]?'on':''}" data-f="${f}" data-i="${i}" style="background:${c}" ${i===other?'disabled':''} aria-label="colour ${i+1}"></button>`).join('');
-  return `<div class="kitpick"><div class="small" style="margin:0"><b>Shirt</b></div><div class="sw">${sw('a',k.b)}</div><div class="small" style="margin:0"><b>Trim and shorts</b></div><div class="sw">${sw('b',k.a)}</div><div class="small" style="margin:0"><b>Badge</b></div><div class="sw">${BADGES.map((b,i)=>`<button type="button" class="bdg ${i===k.g?'on':''}" data-f="g" data-i="${i}">${b}</button>`).join('')}</div></div>`;}
-function wireKitPicker(root,cur,set){root.querySelectorAll('.kitpick button').forEach(b=>b.onclick=()=>{const k={...kitOf(cur(),'')};k[b.dataset.f]=+b.dataset.i;if(cleanKit(k))set(k);});}
+  return `<div class="kitpick"><div class="small" style="margin:0"><b>Shirt</b></div><div class="sw">${sw('a',k.b)}</div><div class="small" style="margin:0"><b>Trim and shorts</b></div><div class="sw">${sw('b',k.a)}</div><div class="small" style="margin:0"><b>Badge</b></div><div class="sw">${BADGES.map((b,i)=>`<button type="button" class="bdg ${!k.t&&i===k.g?'on':''}" data-f="g" data-i="${i}">${b}</button>`).join('')}</div><div class="small" style="margin:0"><b>Or your own badge:</b> up to three letters or digits, your initials, on a shape</div><div class="sw" style="align-items:center"><input type="text" class="bdgtxt" maxlength="3" value="${esc(k.t||'')}" placeholder="ABC" style="width:84px;text-transform:uppercase" aria-label="badge letters">${BADGE_SHAPES.map((nm,i)=>`<button type="button" class="bdg ${k.t&&(k.s||0)===i?'on':''}" data-f="s" data-i="${i}" aria-label="${nm}" style="padding:3px"><span class="kit kitsvg" style="width:26px;height:26px;margin:0">${badgeSvg({a:k.a,b:k.b,s:i,t:k.t||'AB'})}</span></button>`).join('')}</div></div>`;}
+function wireKitPicker(root,cur,set){root.querySelectorAll('.kitpick button').forEach(b=>b.onclick=()=>{const k={...kitOf(cur(),'')};const f=b.dataset.f;k[f]=+b.dataset.i;
+    if(f==='g'){delete k.t;delete k.s;}   // an emoji: the home-made badge is put away
+    if(f==='s'&&!k.t)k.t='AB';             // a shape before any letters: start with placeholder initials
+    if(cleanKit(k))set(k);});
+  root.querySelectorAll('.kitpick .bdgtxt').forEach(inp=>inp.onchange=()=>{const t=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3);const k={...kitOf(cur(),'')};
+    if(t){k.t=t;if(!Number.isInteger(k.s))k.s=0;}else{delete k.t;delete k.s;}if(cleanKit(k))set(k);else toast('Up to three letters or digits.');});}
 // what a body means, in words (players from before the body types only have a height)
 const bodyLine=p=>{const b=bodyOf(p);if(!b)return cap(heightWord(p.h))+'.';const t=tireOf(p);
   return cap(bodyWords(p))+'. '+(t>=1.3?'Tires fast.':t>=1.08?'Tires faster than most.':t<=0.75?'Hardly tires.':t<=0.92?'Tires slower than most.':'Tires like most.')+(b.bd===2?' Strong on rebounds and hard to score on under the hoop.':'');};
@@ -844,7 +854,8 @@ function toon(c,p,x,y,s,t,o){
   bodyPath(c,bx,top,W,H*sq,p.shape);c.stroke();
   {const room=sy-jy-5*s,fs=Math.max(7*s,Math.min(14*s,room*0.92)),ny=jy+5*s+room/2+fs*0.36;
     c.textAlign='center';c.fillStyle=inkOn(KA);c.font=`900 ${fs.toFixed(1)}px system-ui`;c.fillText(p.num,bx+W*0.13,ny);
-    c.font=`${(fs*0.86).toFixed(1)}px ${EMOJI}`;c.fillStyle=INK;c.fillText(BADGES[K.g],bx-W*0.26,ny-fs*0.04);}
+    if(K.t){c.font=`900 ${(fs*(K.t.length>2?0.5:K.t.length>1?0.62:0.8)).toFixed(1)}px system-ui`;c.fillStyle=inkOn(KA);c.fillText(K.t,bx-W*0.3,ny-fs*0.06);}   // a home-made badge: the letters on the chest
+    else{c.font=`${(fs*0.86).toFixed(1)}px ${EMOJI}`;c.fillStyle=INK;c.fillText(BADGES[K.g],bx-W*0.26,ny-fs*0.04);}}
   // head gear
   toppers(c,p,bx,top,tw,s,t,lw,KA,KB,HC);
   if(o.poke<0.7){c.fillStyle='#ffd23f';c.font=`900 ${Math.round(22*s)}px system-ui`;c.textAlign='center';c.lineWidth=lw*0.8;c.strokeText('!',bx+tw*0.55,top-14*s);c.fillText('!',bx+tw*0.55,top-14*s);c.lineWidth=lw;}
@@ -1453,6 +1464,7 @@ function renderHelp(){
   <li><b>Bodies:</b> four heights and three builds. Tall players win close shots and rebounds but tire faster; small ones run all day. A hidden <b>range</b> decides who can shoot from outside: most small players, very few giants (section 2).</li>
   <li><b>Injuries:</b> tired players get hurt during a match and miss one to three matches. A rare giant hardly ever breaks, and about one player in ten breaks easily: nobody can tell in the draft, the card counts the injuries (section 6).</li>
   <li><b>Play-offs only:</b> once the regular season ends, only play-off games are played. No friendlies and no vote: teams outside the top eight, or knocked out, rest until the next league (section 14).</li>
+  <li><b>Your own badge:</b> instead of an emoji, up to three letters (your initials) on a shape in your team's colours, in the table, the reports and on the shirts (section 1).</li>
   <li><b>An NBA table:</b> wins, losses and winning percentage instead of points; a late starter needs half the regular season played to be ranked with the rest (section 11).</li>
   <li><b>Rules of the week:</b> six new ones: <b>Old hands' night</b> (players aged 30 or more score +1), <b>Rookies' night</b> (players aged 23 or younger score +1), <b>Heavyweights' night</b> (fat players score +1), <b>Rebound frenzy</b> (every offensive rebound is a point), <b>Fresh legs night</b> (rested players score +1) and <b>Underdog week</b> (the team lower in the table starts 5 points up); the low ceiling now really helps small teams and long shots for five really help shooters; "Close shots count three", "The tallest player sits out", "Iron legs" and "First to eleven" are gone (section 10).</li>
   <li><b>Starts Friday 11 December.</b> <b>Twenty-minute matches, three a week</b> (Sunday, Wednesday, Friday), 35 matches in all (26 in the regular season, then the play-offs), and a <b>mid-season window</b> to change two players (sections 11 and 13).</li>
@@ -1463,7 +1475,7 @@ function renderHelp(){
   <li><b>Play-offs:</b> the top eight, best of three, every game under a rule drawn at random. The winner is the champion (section 14).</li>
   </ul></div>
   <h4><i>1</i>Pick your team</h4>
-  <p>Choose <b>7 players</b> out of 14 (every player in the league is one of a kind: no two share a name, a funny first name and a funny surname, and about one player in five a legend straight out of the films, each at most once in a league) <b>under the wage cap</b>: every player has a value in millions, from the dots they were drafted with, their height and build and a little from character (never from mood or form), and the <b>sum</b> of your seven may not pass ${money(CAP)}. It is not money you spend, only a line the squad's total stays under. Seven stars do not fit; who you take is the first real decision (see section 13). Then give your team a name (a name that is an insult is refused: it stands on a table everybody sees), and pick its two colours and its badge (you can change the colours and the badge later in the Table tab; they change nothing in a match). Look at the players' stats, their bodies and their character.</p>
+  <p>Choose <b>7 players</b> out of 14 (every player in the league is one of a kind: no two share a name, a funny first name and a funny surname, and about one player in five a legend straight out of the films, each at most once in a league) <b>under the wage cap</b>: every player has a value in millions, from the dots they were drafted with, their height and build and a little from character (never from mood or form), and the <b>sum</b> of your seven may not pass ${money(CAP)}. It is not money you spend, only a line the squad's total stays under. Seven stars do not fit; who you take is the first real decision (see section 13). Then give your team a name (a name that is an insult is refused: it stands on a table everybody sees), and pick its two colours and its badge: an emoji, or <b>your own badge</b>, up to three letters or digits (your initials) on a circle, shield, diamond or hexagon in your colours (you can change the colours and the badge later in the Table tab; they change nothing in a match; letters that are insults are refused). Look at the players' stats, their bodies and their character.</p>
   <details class="more"><summary>More detail</summary><p class="small" style="margin:0">The fourteen are offered once: a new or cleared browser on the same connection sees the same fourteen until one of them joins, so nobody can fish for better players.</p></details>
   <ul><li><b>Stats</b>: Attack, Defence and Speed, each from 1 to 4 dots, and the player's body: how tall and how heavy (see 2). <b>The dots count for a lot.</b> Attack decides the shots, defence what the other team makes against you, height the close shots and the rebounds, speed the fast breaks and the press. Choose with care: a squad with better dots wins more over a season, and the same goes for the one player you may change between leagues.</li>
   <li><b>Form.</b> A partly filled dot is a stat between two numbers. Talks and matches move the stats in small steps. What a talk does stays until another talk moves it; what a match does is form, and it fades away over a few weeks, as a hot or a cold game does in real basketball. A stat never strays more than half a dot from the level the player was drafted with: good coaching gets the most out of a player, it does not turn a 2 into a 4. An arrow next to the dots marks a change made this week.</li>

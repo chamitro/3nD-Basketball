@@ -347,3 +347,4 @@ long shots for five favour good shooters in accuracy and in who takes them (shoo
   the view sends `trashWeek`/`trashUsed` and the page says when the next one comes. Measured (300 leagues each): with the ban,
   once a week or any match, trash talk is even over a season; with the weekly limit and no ban, sent now and then +0.45 wins,
   planned for the strongest opponent of the week and game 1 of a series +0.66 wins and +2 points of title chance.
+- Badge maker (28 Nov 2026): a kit may carry `t` (1-3 letters or digits) and `s` (shape: circle, shield, diamond, hexagon, BADGE_SHAPES); then the badge is the letters on the shape in the team's colours (badgeSvg) in the table, reports and brackets, and the letters on the gym shirts. Letters pass the team-name insult filter plus BAD_INITIALS (badgeFit), at join and at every kit change. Without `t` the emoji stays.
